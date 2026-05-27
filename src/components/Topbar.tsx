@@ -1,6 +1,7 @@
 import { Bell, Search } from 'lucide-react'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
+import { APP_VERSION } from '../appVersion'
 
 export default function Topbar() {
   const { user, signOut } = useAuth()
@@ -45,7 +46,7 @@ export default function Topbar() {
             type="button"
             onClick={() => void signOut()}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
-            title="Çıkış yap"
+            title={`Çıkış yap • v${APP_VERSION}`}
           >
             <LogOut className="h-4 w-4" />
           </button>
