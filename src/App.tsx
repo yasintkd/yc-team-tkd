@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard'
 import Athletes from './pages/Athletes'
 import Payments from './pages/Payments'
 import Attendance from './pages/Attendance'
+import Login from './pages/Login'
+import ProtectedRoute from './auth/ProtectedRoute'
 
 function App() {
   return (
@@ -11,10 +13,39 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/sporcular" element={<Athletes />} />
-          <Route path="/odemeler" element={<Payments />} />
-          <Route path="/yoklama" element={<Attendance />} />
+          <Route path="/giris" element={<Login />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sporcular"
+            element={
+              <ProtectedRoute>
+                <Athletes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/odemeler"
+            element={
+              <ProtectedRoute>
+                <Payments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/yoklama"
+            element={
+              <ProtectedRoute>
+                <Attendance />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Layout>
     </div>
