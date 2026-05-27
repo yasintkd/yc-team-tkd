@@ -1,0 +1,273 @@
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+type Athlete = {
+  id: string
+  first_name: string
+  last_name: string
+  birth_date: string | null
+  phone: string | null
+  belt: string
+  branch: string
+  is_active: boolean
+}
+
+const beltOptions = [
+  'Beyaz (10. Gıp)',
+  'Sarı (9. Gıp)',
+  'Yeşil (7–6. Gıp)',
+  'Mavi (5–4. Gıp)',
+  'Kırmızı (3–2. Gıp)',
+  'Siyah (1. Dan+)',
+]
+
+const branchOptions = [
+  'Taekwondo - Poomsae',
+  'Taekwondo - Kyorugi',
+  'Diğer (Demo, Trick vb.)',
+]
+
+export default function Athletes() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [rows, setRows] = useState<Athlete[]>([])
+
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [phone, setPhone] = useState('')
+  const [belt, setBelt] = useState(beltOptions[0])
+  const [branch, setBranch] = useState(branchOptions[0])
+
+  const canSubmit = useMemo(() => {
+    return firstName.trim().length > 0 && lastName.trim().length > 0
+  }, [firstName, lastName])
+
+  const loadAthletes = async () => {
+    setLoading(true)
+    setError(null)
+    const { data, error: qErr } = await supabase
+      .from('athletes')
+      .select(
+        'id, first_name, last_name, birth_date, phone, belt, branch, is_active',
+      )
+      .order('created_at', { ascending: false })
+
+    if (qErr) {
+      setError(qErr.message)
+      setRows([])
+    } else {
+      setRows((data ?? []) as Athlete[])
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    void loadAthletes()
+  }, [])
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSubmit) return
+
+    setSaving(true)
+    setError(null)
+
+    const payload = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      birth_date: birthDate ? birthDate : null,
+      phone: phone.trim() ? phone.trim() : null,
+      belt,
+      branch,
+      is_active: true,
+    }
+
+    const { error: insErr } = await supabase.from('athletes').insert(payload)
+    if (insErr) {
+      setError(insErr.message)
+      setSaving(false)
+      return
+    }
+
+    setFirstName('')
+    setLastName('')
+    setBirthDate('')
+    setPhone('')
+    setBelt(beltOptions[0])
+    setBranch(branchOptions[0])
+
+    await loadAthletes()
+    setSaving(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="glass-panel rounded-2xl p-4">
+        <h2 className="text-sm font-semibold">Yeni Sporcu Kaydı</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Temel bilgileri doldurarak hızlıca yeni sporcu ekleyin.
+        </p>
+
+        {error && (
+          <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+            {error}
+          </div>
+        )}
+
+        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="firstName">
+              Adı
+            </label>
+            <input
+              id="firstName"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              placeholder="Örn: Ali"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="lastName">
+              Soyadı
+            </label>
+            <input
+              id="lastName"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              placeholder="Örn: Yılmaz"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="birthDate">
+              Doğum Tarihi
+            </label>
+            <input
+              id="birthDate"
+              type="date"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="phone">
+              Telefon
+            </label>
+            <input
+              id="phone"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              placeholder="Örn: 05xx xxx xx xx"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="belt">
+              Kuşak Derecesi (Gıp / Dan)
+            </label>
+            <select
+              id="belt"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              value={belt}
+              onChange={(e) => setBelt(e.target.value)}
+            >
+              {beltOptions.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1 text-xs">
+            <label className="text-slate-300" htmlFor="branch">
+              Branş
+            </label>
+            <select
+              id="branch"
+              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            >
+              {branchOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end md:col-span-2">
+            <button
+              type="submit"
+              disabled={!canSubmit || saving}
+              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Kaydediliyor...' : 'Sporcu Ekle'}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="glass-panel rounded-2xl p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Kayıtlı Sporcular</h2>
+          <button
+            type="button"
+            onClick={() => void loadAthletes()}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800/80"
+          >
+            Yenile
+          </button>
+        </div>
+
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/60">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-900/80 text-slate-400">
+              <tr>
+                <th className="px-3 py-2">Ad Soyad</th>
+                <th className="px-3 py-2">Kuşak</th>
+                <th className="px-3 py-2">Branş</th>
+                <th className="px-3 py-2">Telefon</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr className="border-t border-slate-800/80">
+                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
+                    Yükleniyor...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr className="border-t border-slate-800/80">
+                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
+                    Henüz sporcu yok.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-800/80">
+                    <td className="px-3 py-2">
+                      {a.first_name} {a.last_name}
+                      {!a.is_active && (
+                        <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+                          pasif
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{a.belt}</td>
+                    <td className="px-3 py-2">{a.branch}</td>
+                    <td className="px-3 py-2">{a.phone ?? '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  )
+}

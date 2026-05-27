@@ -1,0 +1,21 @@
+import type { ReactNode } from 'react'
+import Sidebar from './Sidebar'
+import Topbar from './Topbar'
+
+interface LayoutProps {
+  children: ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <div className="flex h-full">
+      <Sidebar />
+      <div className="flex flex-1 flex-col">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+          <div className="mx-auto max-w-6xl space-y-6">{children}</div>
+        </main>
+      </div>
+    </div>
+  )
+}
