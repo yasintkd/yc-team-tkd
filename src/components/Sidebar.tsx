@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
-  CreditCard,
+  UsersRound,
+  Award,
   CheckSquare,
   ChevronRight,
 } from 'lucide-react'
@@ -11,8 +12,9 @@ import { BRAND } from '../lib/brand'
 
 const navItems = [
   { to: '/dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
-  { to: '/sporcular', label: 'Sporcu Yönetimi', icon: Users },
-  { to: '/odemeler', label: 'Aidat & Ödemeler', icon: CreditCard },
+  { to: '/sporcular', label: 'Sporcular', icon: Users },
+  { to: '/gruplar', label: 'Antrenman Grupları', icon: UsersRound },
+  { to: '/kusak-sinavi', label: 'Kuşak Sınavı', icon: Award },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
 ]
 
@@ -39,10 +41,10 @@ export default function Sidebar() {
             }
           >
             <span className="flex items-center gap-2">
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {label}
             </span>
-            <ChevronRight className="h-4 w-4 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+            <ChevronRight className="h-4 w-4 shrink-0 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
           </NavLink>
         ))}
       </nav>

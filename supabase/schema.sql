@@ -1,5 +1,5 @@
 -- ============================================================
--- YÇ Team Taekwondo Yönetim Sistemi — Supabase Tabloları
+-- YÇ Team Taekwondo Salon Yönetim Sistemi — Supabase Tabloları
 -- Project ID: zmgqvararkclptcwafzh
 --
 -- Kullanım: Supabase Dashboard → SQL Editor → New query

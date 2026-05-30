@@ -2,7 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Athletes from './pages/Athletes'
-import Payments from './pages/Payments'
+import Groups from './pages/Groups'
+import BeltExams from './pages/BeltExams'
 import Attendance from './pages/Attendance'
 import Login from './pages/Login'
 import ProtectedRoute from './auth/ProtectedRoute'
@@ -31,10 +32,18 @@ function App() {
             }
           />
           <Route
-            path="/odemeler"
+            path="/gruplar"
             element={
               <ProtectedRoute>
-                <Payments />
+                <Groups />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kusak-sinavi"
+            element={
+              <ProtectedRoute>
+                <BeltExams />
               </ProtectedRoute>
             }
           />
@@ -46,6 +55,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
     </div>

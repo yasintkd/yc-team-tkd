@@ -7,15 +7,19 @@ import { useLocation } from 'react-router-dom'
 const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': {
     title: 'Genel Bakış',
-    subtitle: 'Akademi özeti',
+    subtitle: 'YÇ Team Taekwondo salon özeti',
   },
   '/sporcular': {
     title: 'Sporcular',
-    subtitle: 'Kayıt ve liste',
+    subtitle: 'Kayıt ve kuşak takibi',
   },
-  '/odemeler': {
-    title: 'Aidat',
-    subtitle: 'Ödeme takibi',
+  '/gruplar': {
+    title: 'Antrenman Grupları',
+    subtitle: 'Grup ve program yönetimi',
+  },
+  '/kusak-sinavi': {
+    title: 'Kuşak Sınavı',
+    subtitle: 'Sınav listesi ve yükseltme',
   },
   '/yoklama': {
     title: 'Yoklama',
@@ -59,9 +63,6 @@ export default function Topbar() {
             aria-label="Bildirimler"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-brand-cyan px-1 text-[10px] font-semibold text-white">
-              3
-            </span>
           </button>
           <button
             type="button"

@@ -1,65 +1,161 @@
-import { Users, CreditCard, CalendarClock } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Users, UsersRound, Award, CalendarClock } from 'lucide-react'
 import StatCard from '../components/StatCard'
+import { supabase } from '../lib/supabase'
+import { weekdayLabel, formatTime, todayIsoWeekday } from '../lib/days'
+
+type TodaySession = {
+  groupName: string
+  dayLabel: string
+  time: string
+}
 
 export default function Dashboard() {
+  const [athleteCount, setAthleteCount] = useState('—')
+  const [groupCount, setGroupCount] = useState('—')
+  const [upcomingExam, setUpcomingExam] = useState('—')
+  const [examHint, setExamHint] = useState('Planlanan kuşak sınavı')
+  const [todaySessions, setTodaySessions] = useState<TodaySession[]>([])
+  const [beltSummary, setBeltSummary] = useState<{ belt: string; count: number }[]>([])
+
+  useEffect(() => {
+    void (async () => {
+      const today = todayIsoWeekday()
+
+      const [athletesRes, groupsRes, examsRes, schedulesRes] = await Promise.all([
+        supabase.from('athletes').select('id, belt', { count: 'exact' }).eq('is_active', true),
+        supabase.from('training_groups').select('id', { count: 'exact' }).eq('is_active', true),
+        supabase
+          .from('belt_exams')
+          .select('title, exam_date')
+          .eq('status', 'planlandi')
+          .gte('exam_date', new Date().toISOString().slice(0, 10))
+          .order('exam_date')
+          .limit(1),
+        supabase
+          .from('group_schedules')
+          .select('day_of_week, start_time, end_time, training_groups ( name )')
+          .eq('day_of_week', today),
+      ])
+
+      setAthleteCount(String(athletesRes.count ?? 0))
+      setGroupCount(String(groupsRes.count ?? 0))
+
+      const exam = examsRes.data?.[0] as { title: string; exam_date: string } | undefined
+      if (exam) {
+        setUpcomingExam(new Date(exam.exam_date).toLocaleDateString('tr-TR'))
+        setExamHint(exam.title)
+      }
+
+      const sessions: TodaySession[] = []
+      for (const row of (schedulesRes.data ?? []) as Array<{
+        day_of_week: number
+        start_time: string
+        end_time: string
+        training_groups: { name: string } | { name: string }[] | null
+      }>) {
+        const g = Array.isArray(row.training_groups) ? row.training_groups[0] : row.training_groups
+        if (!g) continue
+        sessions.push({
+          groupName: g.name,
+          dayLabel: weekdayLabel(row.day_of_week),
+          time: `${formatTime(row.start_time)} – ${formatTime(row.end_time)}`,
+        })
+      }
+      sessions.sort((a, b) => a.time.localeCompare(b.time))
+      setTodaySessions(sessions)
+
+      const counts = new Map<string, number>()
+      for (const a of (athletesRes.data ?? []) as Array<{ belt: string }>) {
+        counts.set(a.belt, (counts.get(a.belt) ?? 0) + 1)
+      }
+      setBeltSummary(
+        [...counts.entries()]
+          .map(([belt, count]) => ({ belt, count }))
+          .sort((a, b) => b.count - a.count),
+      )
+    })()
+  }, [])
+
   return (
     <div className="space-y-6">
-      <section className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Aktif Sporcu"
-          value="128"
-          hint="Bu ay aktif antrenmanlara katılan toplam öğrenci"
-          trendLabel="+6 yeni"
-          trendPositive
+          value={athleteCount}
+          hint="Kayıtlı öğrenci sayısı"
           icon={Users}
         />
         <StatCard
-          label="Aidat Performansı"
-          value="%92"
-          hint="Bu ay ödemesini tamamlayan sporcu oranı"
-          trendLabel="+4% iyileşme"
-          trendPositive
-          icon={CreditCard}
+          label="Antrenman Grubu"
+          value={groupCount}
+          hint="Tanımlı grup sayısı"
+          icon={UsersRound}
         />
         <StatCard
-          label="Yaklaşan Kuşak Sınavı"
-          value="14 Haziran"
-          hint="08:30 • Merkez Salon"
-          trendLabel="21 gün kaldı"
-          trendPositive
+          label="Kuşak Sınavı"
+          value={upcomingExam}
+          hint={examHint}
+          icon={Award}
+        />
+        <StatCard
+          label="Bugün Antrenman"
+          value={String(todaySessions.length)}
+          hint="Bugün programda olan grup sayısı"
           icon={CalendarClock}
         />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="glass-panel rounded-2xl p-4 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Aylık Aidat Durumu</h2>
-            <span className="text-[11px] text-brand-muted">
-              Örnek veri — API entegrasyonu eklenebilir
-            </span>
-          </div>
-          <div className="mt-4 flex h-48 items-center justify-center rounded-xl border border-dashed border-app-border bg-app-bg-soft/80 text-xs text-brand-muted">
-            Buraya aidat tahsilat grafiği eklenebilir
-          </div>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="glass-panel rounded-2xl p-4">
+          <h2 className="text-sm font-semibold">Bugünün Antrenman Programı</h2>
+          {todaySessions.length === 0 ? (
+            <p className="mt-3 text-xs text-brand-muted">
+              Bugün için tanımlı antrenman yok.{' '}
+              <Link to="/gruplar" className="text-brand-red hover:underline">
+                Gruplar
+              </Link>{' '}
+              sayfasından program ekleyin.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-xs text-slate-700">
+              {todaySessions.map((s) => (
+                <li
+                  key={`${s.groupName}-${s.time}`}
+                  className="flex flex-col gap-0.5 rounded-lg border border-app-border bg-white px-3 py-2 sm:flex-row sm:justify-between"
+                >
+                  <span className="font-medium">{s.groupName}</span>
+                  <span className="text-brand-muted">{s.time}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        <div className="glass-panel flex flex-col rounded-2xl p-4">
-          <h2 className="text-sm font-semibold">Bugünün Programı</h2>
-          <ul className="mt-3 space-y-2 text-xs text-slate-700">
-            <li className="flex flex-col gap-0.5 sm:flex-row sm:justify-between">
-              <span>Beyaz–Sarı Kuşak Grup</span>
-              <span className="text-brand-muted">17:30 – 18:30</span>
-            </li>
-            <li className="flex flex-col gap-0.5 sm:flex-row sm:justify-between">
-              <span>Yeşil–Mavi Kuşak Grup</span>
-              <span className="text-brand-muted">18:30 – 19:30</span>
-            </li>
-            <li className="flex flex-col gap-0.5 sm:flex-row sm:justify-between">
-              <span>Kırmızı–Siyah Kuşak Grup</span>
-              <span className="text-brand-muted">19:30 – 20:30</span>
-            </li>
-          </ul>
+        <div className="glass-panel rounded-2xl p-4">
+          <h2 className="text-sm font-semibold">Kuşak Dağılımı</h2>
+          {beltSummary.length === 0 ? (
+            <p className="mt-3 text-xs text-brand-muted">Henüz sporcu kaydı yok.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-xs">
+              {beltSummary.map(({ belt, count }) => (
+                <li
+                  key={belt}
+                  className="flex items-center justify-between rounded-lg border border-app-border bg-white px-3 py-2"
+                >
+                  <span className="text-slate-700">{belt}</span>
+                  <span className="font-semibold text-slate-800">{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link
+            to="/kusak-sinavi"
+            className="mt-4 inline-block text-xs font-medium text-brand-red hover:underline"
+          >
+            Kuşak sınavı listesi oluştur →
+          </Link>
         </div>
       </section>
     </div>

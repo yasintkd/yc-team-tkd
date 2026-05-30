@@ -3,11 +3,14 @@ import { supabase } from '../lib/supabase'
 
 type AttendanceStatus = 'geldi' | 'gelmedi'
 
+type TrainingGroup = { id: string; name: string }
+
 type AthleteLite = {
   id: string
   first_name: string
   last_name: string
   belt: string
+  training_group_id: string | null
   is_active: boolean
 }
 
@@ -15,9 +18,7 @@ type AttendanceRow = {
   athlete_id: string
   name: string
   belt: string
-  group: string
   status: AttendanceStatus
-  record_id?: string
 }
 
 function todayIsoDate() {
@@ -28,23 +29,48 @@ function todayIsoDate() {
   return `${yyyy}-${mm}-${dd}`
 }
 
-const defaultGroup = 'Genel'
-
 export default function Attendance() {
   const today = useMemo(() => todayIsoDate(), [])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [groups, setGroups] = useState<TrainingGroup[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState('')
   const [rows, setRows] = useState<AttendanceRow[]>([])
 
-  const load = async () => {
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId)
+
+  const loadGroups = async () => {
+    const { data, error: gErr } = await supabase
+      .from('training_groups')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name')
+    if (gErr) throw gErr
+    const list = (data ?? []) as TrainingGroup[]
+    setGroups(list)
+    if (list.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(list[0].id)
+    }
+  }
+
+  const load = async (groupId: string) => {
+    if (!groupId) {
+      setRows([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
 
+    const group = groups.find((g) => g.id === groupId)
+    const groupName = group?.name ?? ''
+
     const { data: athletes, error: aErr } = await supabase
       .from('athletes')
-      .select('id, first_name, last_name, belt, is_active')
+      .select('id, first_name, last_name, belt, training_group_id, is_active')
       .eq('is_active', true)
+      .eq('training_group_id', groupId)
       .order('last_name', { ascending: true })
 
     if (aErr) {
@@ -56,9 +82,9 @@ export default function Attendance() {
 
     const { data: attendance, error: attErr } = await supabase
       .from('attendance_records')
-      .select('id, athlete_id, training_group, status')
+      .select('id, athlete_id, status')
       .eq('session_date', today)
-      .eq('training_group', defaultGroup)
+      .eq('training_group', groupName)
 
     if (attErr) {
       setError(attErr.message)
@@ -67,38 +93,34 @@ export default function Attendance() {
       return
     }
 
-    const map = new Map<
-      string,
-      { id: string; status: AttendanceStatus; training_group: string | null }
-    >()
-    for (const r of (attendance ?? []) as Array<{
-      id: string
-      athlete_id: string
-      training_group: string | null
-      status: AttendanceStatus
-    }>) {
-      map.set(r.athlete_id, r)
+    const map = new Map<string, AttendanceStatus>()
+    for (const r of (attendance ?? []) as Array<{ athlete_id: string; status: AttendanceStatus }>) {
+      map.set(r.athlete_id, r.status)
     }
 
-    const merged = ((athletes ?? []) as AthleteLite[]).map((a) => {
-      const existing = map.get(a.id)
-      return {
-        athlete_id: a.id,
-        name: `${a.first_name} ${a.last_name}`,
-        belt: a.belt,
-        group: defaultGroup,
-        status: existing?.status ?? 'gelmedi',
-        record_id: existing?.id,
-      } satisfies AttendanceRow
-    })
+    const merged = ((athletes ?? []) as AthleteLite[]).map((a) => ({
+      athlete_id: a.id,
+      name: `${a.first_name} ${a.last_name}`,
+      belt: a.belt,
+      status: map.get(a.id) ?? 'gelmedi',
+    }))
 
     setRows(merged)
     setLoading(false)
   }
 
   useEffect(() => {
-    void load()
+    void loadGroups().catch((err) => {
+      setError(err instanceof Error ? err.message : 'Gruplar yüklenemedi.')
+      setLoading(false)
+    })
   }, [])
+
+  useEffect(() => {
+    if (selectedGroupId && groups.length > 0) {
+      void load(selectedGroupId)
+    }
+  }, [selectedGroupId, groups])
 
   const setStatusLocal = (athleteId: string, status: AttendanceStatus) => {
     setRows((prev) =>
@@ -109,13 +131,14 @@ export default function Attendance() {
   }
 
   const saveAll = async () => {
+    if (!selectedGroup) return
     setSaving(true)
     setError(null)
 
     const payload = rows.map((r) => ({
       athlete_id: r.athlete_id,
       session_date: today,
-      training_group: defaultGroup,
+      training_group: selectedGroup.name,
       status: r.status,
     }))
 
@@ -129,7 +152,7 @@ export default function Attendance() {
       return
     }
 
-    await load()
+    await load(selectedGroupId)
     setSaving(false)
   }
 
@@ -140,34 +163,59 @@ export default function Attendance() {
           <div>
             <h2 className="text-sm font-semibold">Bugün Yoklama</h2>
             <p className="text-xs text-brand-muted">
-              Günlük antrenmana gelen öğrencileri işaretleyin.
+              Grup seçerek o günkü antrenman yoklamasını alın.
             </p>
           </div>
           <button
             type="button"
             onClick={() => void saveAll()}
-            disabled={saving || loading}
+            disabled={saving || loading || !selectedGroupId}
             className="btn-primary w-full shrink-0 text-xs sm:w-auto"
           >
             {saving ? 'Kaydediliyor...' : 'Yoklamayı Kaydet'}
           </button>
         </div>
 
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="text-xs text-slate-600">Antrenman grubu</label>
+          <select
+            className="input-field max-w-xs text-sm"
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+          >
+            {groups.length === 0 ? (
+              <option value="">Grup yok — önce grup oluşturun</option>
+            ) : (
+              groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
         <div className="mt-2 text-[11px] text-brand-muted">
-          Tarih: {new Date(today).toLocaleDateString('tr-TR')} • Grup:{' '}
-          {defaultGroup}
+          Tarih: {new Date(today).toLocaleDateString('tr-TR')}
+          {selectedGroup && ` • ${selectedGroup.name}`}
         </div>
 
         {error && (
-          <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
             {error}
           </div>
         )}
 
         {loading ? (
           <p className="mt-4 text-xs text-brand-muted">Yükleniyor...</p>
+        ) : groups.length === 0 ? (
+          <p className="mt-4 text-xs text-brand-muted">
+            Yoklama almak için önce Antrenman Grupları sayfasından grup oluşturun.
+          </p>
         ) : rows.length === 0 ? (
-          <p className="mt-4 text-xs text-brand-muted">Aktif sporcu bulunamadı.</p>
+          <p className="mt-4 text-xs text-brand-muted">
+            Bu grupta aktif sporcu yok. Sporcular sayfasından gruba atayın.
+          </p>
         ) : (
           <>
             <ul className="mt-4 space-y-2 md:hidden">
@@ -207,12 +255,11 @@ export default function Attendance() {
             </ul>
 
             <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
-              <table className="w-full min-w-[480px] text-left text-xs">
+              <table className="w-full min-w-[400px] text-left text-xs">
                 <thead className="bg-app-bg-soft text-brand-muted">
                   <tr>
                     <th className="px-3 py-2">Sporcu</th>
                     <th className="px-3 py-2">Kuşak</th>
-                    <th className="px-3 py-2">Grup</th>
                     <th className="px-3 py-2">Durum</th>
                   </tr>
                 </thead>
@@ -221,7 +268,6 @@ export default function Attendance() {
                     <tr key={row.athlete_id} className="border-t border-app-border">
                       <td className="px-3 py-2">{row.name}</td>
                       <td className="px-3 py-2">{row.belt}</td>
-                      <td className="px-3 py-2">{row.group}</td>
                       <td className="px-3 py-2">
                         <div className="inline-flex gap-1 rounded-full bg-app-bg-soft p-0.5">
                           <button
@@ -237,9 +283,7 @@ export default function Attendance() {
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              setStatusLocal(row.athlete_id, 'gelmedi')
-                            }
+                            onClick={() => setStatusLocal(row.athlete_id, 'gelmedi')}
                             className={`rounded-full px-3 py-1 text-[11px] ${
                               row.status === 'gelmedi'
                                 ? 'bg-brand-red text-white'
