@@ -136,10 +136,10 @@ export default function Attendance() {
   return (
     <div className="space-y-6">
       <section className="glass-panel rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold">Bugün Yoklama</h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-muted">
               Günlük antrenmana gelen öğrencileri işaretleyin.
             </p>
           </div>
@@ -147,13 +147,13 @@ export default function Attendance() {
             type="button"
             onClick={() => void saveAll()}
             disabled={saving || loading}
-            className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary w-full shrink-0 text-xs sm:w-auto"
           >
             {saving ? 'Kaydediliyor...' : 'Yoklamayı Kaydet'}
           </button>
         </div>
 
-        <div className="mt-2 text-[11px] text-slate-500">
+        <div className="mt-2 text-[11px] text-brand-muted">
           Tarih: {new Date(today).toLocaleDateString('tr-TR')} • Grup:{' '}
           {defaultGroup}
         </div>
@@ -164,72 +164,99 @@ export default function Attendance() {
           </div>
         )}
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/60">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Sporcu</th>
-                <th className="px-3 py-2">Kuşak</th>
-                <th className="px-3 py-2">Grup</th>
-                <th className="px-3 py-2">Durum</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
-                    Yükleniyor...
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
-                    Aktif sporcu bulunamadı.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.athlete_id}
-                    className="border-t border-slate-800/80"
-                  >
-                    <td className="px-3 py-2">{row.name}</td>
-                    <td className="px-3 py-2">{row.belt}</td>
-                    <td className="px-3 py-2">{row.group}</td>
-                    <td className="px-3 py-2">
-                      <div className="inline-flex gap-1 rounded-full bg-slate-900 px-1 py-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setStatusLocal(row.athlete_id, 'geldi')}
-                          className={`rounded-full px-2 py-0.5 text-[11px] ${
-                            row.status === 'geldi'
-                              ? 'bg-emerald-500 text-slate-950'
-                              : 'text-slate-400 hover:bg-slate-800'
-                          }`}
-                        >
-                          Geldi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setStatusLocal(row.athlete_id, 'gelmedi')
-                          }
-                          className={`rounded-full px-2 py-0.5 text-[11px] ${
-                            row.status === 'gelmedi'
-                              ? 'bg-rose-500 text-slate-950'
-                              : 'text-slate-400 hover:bg-slate-800'
-                          }`}
-                        >
-                          Gelmedi
-                        </button>
-                      </div>
-                    </td>
+        {loading ? (
+          <p className="mt-4 text-xs text-brand-muted">Yükleniyor...</p>
+        ) : rows.length === 0 ? (
+          <p className="mt-4 text-xs text-brand-muted">Aktif sporcu bulunamadı.</p>
+        ) : (
+          <>
+            <ul className="mt-4 space-y-2 md:hidden">
+              {rows.map((row) => (
+                <li
+                  key={row.athlete_id}
+                  className="rounded-xl border border-app-border bg-white p-3"
+                >
+                  <p className="text-sm font-medium">{row.name}</p>
+                  <p className="mt-0.5 text-xs text-brand-muted">{row.belt}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStatusLocal(row.athlete_id, 'geldi')}
+                      className={`min-h-[44px] rounded-xl text-sm font-medium transition active:scale-[0.98] ${
+                        row.status === 'geldi'
+                          ? 'bg-brand-cyan text-slate-950'
+                          : 'border border-app-border bg-white text-slate-500'
+                      }`}
+                    >
+                      Geldi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusLocal(row.athlete_id, 'gelmedi')}
+                      className={`min-h-[44px] rounded-xl text-sm font-medium transition active:scale-[0.98] ${
+                        row.status === 'gelmedi'
+                          ? 'bg-brand-red text-white'
+                          : 'border border-app-border bg-white text-slate-500'
+                      }`}
+                    >
+                      Gelmedi
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
+              <table className="w-full min-w-[480px] text-left text-xs">
+                <thead className="bg-app-bg-soft text-brand-muted">
+                  <tr>
+                    <th className="px-3 py-2">Sporcu</th>
+                    <th className="px-3 py-2">Kuşak</th>
+                    <th className="px-3 py-2">Grup</th>
+                    <th className="px-3 py-2">Durum</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.athlete_id} className="border-t border-app-border">
+                      <td className="px-3 py-2">{row.name}</td>
+                      <td className="px-3 py-2">{row.belt}</td>
+                      <td className="px-3 py-2">{row.group}</td>
+                      <td className="px-3 py-2">
+                        <div className="inline-flex gap-1 rounded-full bg-app-bg-soft p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setStatusLocal(row.athlete_id, 'geldi')}
+                            className={`rounded-full px-3 py-1 text-[11px] ${
+                              row.status === 'geldi'
+                                ? 'bg-brand-cyan text-slate-950'
+                                : 'text-slate-500 hover:bg-white'
+                            }`}
+                          >
+                            Geldi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStatusLocal(row.athlete_id, 'gelmedi')
+                            }
+                            className={`rounded-full px-3 py-1 text-[11px] ${
+                              row.status === 'gelmedi'
+                                ? 'bg-brand-red text-white'
+                                : 'text-slate-500 hover:bg-white'
+                            }`}
+                          >
+                            Gelmedi
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
     </div>
   )

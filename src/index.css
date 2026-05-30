@@ -1,8 +1,19 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-brand-red: #b21f24;
+  --color-brand-cyan: #0097a7;
+  --color-brand-charcoal: #2c2c34;
+  --color-brand-muted: #5a6b7d;
+  --color-app-bg: #e3f0fa;
+  --color-app-bg-soft: #eef6fc;
+  --color-app-surface: #ffffff;
+  --color-app-border: #b8d4e8;
+}
+
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html,
@@ -12,16 +23,49 @@
   }
 
   body {
-    @apply bg-slate-950 text-slate-50 antialiased;
+    @apply bg-app-bg text-slate-800 antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+
+  @media (min-width: 768px) {
+    input,
+    select,
+    textarea,
+    button {
+      font-size: inherit;
+    }
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl;
+    @apply border border-app-border/90 bg-app-surface/90 shadow-sm shadow-sky-100/80 backdrop-blur-xl;
   }
 
   .scrollbar-thin {
     scrollbar-width: thin;
+  }
+
+  .safe-bottom {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .btn-primary {
+    @apply rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-brand-red/90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-app-border bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/25;
   }
 }

@@ -106,7 +106,7 @@ export default function Athletes() {
     <div className="space-y-6">
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="text-sm font-semibold">Yeni Sporcu Kaydı</h2>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-brand-muted">
           Temel bilgileri doldurarak hızlıca yeni sporcu ekleyin.
         </p>
 
@@ -116,62 +116,62 @@ export default function Athletes() {
           </div>
         )}
 
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+        <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="firstName">
+            <label className="text-slate-600" htmlFor="firstName">
               Adı
             </label>
             <input
               id="firstName"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               placeholder="Örn: Ali"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="lastName">
+            <label className="text-slate-600" htmlFor="lastName">
               Soyadı
             </label>
             <input
               id="lastName"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               placeholder="Örn: Yılmaz"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
             />
           </div>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="birthDate">
+            <label className="text-slate-600" htmlFor="birthDate">
               Doğum Tarihi
             </label>
             <input
               id="birthDate"
               type="date"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
             />
           </div>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="phone">
+            <label className="text-slate-600" htmlFor="phone">
               Telefon
             </label>
             <input
               id="phone"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               placeholder="Örn: 05xx xxx xx xx"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="belt">
+            <label className="text-slate-600" htmlFor="belt">
               Kuşak Derecesi (Gıp / Dan)
             </label>
             <select
               id="belt"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               value={belt}
               onChange={(e) => setBelt(e.target.value)}
             >
@@ -183,12 +183,12 @@ export default function Athletes() {
             </select>
           </div>
           <div className="space-y-1 text-xs">
-            <label className="text-slate-300" htmlFor="branch">
+            <label className="text-slate-600" htmlFor="branch">
               Branş
             </label>
             <select
               id="branch"
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
             >
@@ -200,11 +200,11 @@ export default function Athletes() {
             </select>
           </div>
 
-          <div className="flex justify-end md:col-span-2">
+          <div className="flex sm:col-span-2 sm:justify-end">
             <button
               type="submit"
               disabled={!canSubmit || saving}
-              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary w-full sm:w-auto"
             >
               {saving ? 'Kaydediliyor...' : 'Sporcu Ekle'}
             </button>
@@ -218,55 +218,83 @@ export default function Athletes() {
           <button
             type="button"
             onClick={() => void loadAthletes()}
-            className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800/80"
+            className="rounded-lg border border-app-border px-3 py-1.5 text-[11px] text-slate-600 hover:bg-app-bg-soft"
           >
             Yenile
           </button>
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/60">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Ad Soyad</th>
-                <th className="px-3 py-2">Kuşak</th>
-                <th className="px-3 py-2">Branş</th>
-                <th className="px-3 py-2">Telefon</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
-                    Yükleniyor...
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={4}>
-                    Henüz sporcu yok.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((a) => (
-                  <tr key={a.id} className="border-t border-slate-800/80">
-                    <td className="px-3 py-2">
+        {loading ? (
+          <p className="mt-3 text-xs text-brand-muted">Yükleniyor...</p>
+        ) : rows.length === 0 ? (
+          <p className="mt-3 text-xs text-brand-muted">Henüz sporcu yok.</p>
+        ) : (
+          <>
+            <ul className="mt-3 space-y-2 md:hidden">
+              {rows.map((a) => (
+                <li
+                  key={a.id}
+                  className="rounded-xl border border-app-border bg-white p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sm">
                       {a.first_name} {a.last_name}
-                      {!a.is_active && (
-                        <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
-                          pasif
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">{a.belt}</td>
-                    <td className="px-3 py-2">{a.branch}</td>
-                    <td className="px-3 py-2">{a.phone ?? '-'}</td>
+                    </p>
+                    {!a.is_active && (
+                      <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
+                        pasif
+                      </span>
+                    )}
+                  </div>
+                  <dl className="mt-2 space-y-1 text-xs text-brand-muted">
+                    <div className="flex justify-between gap-2">
+                      <dt>Kuşak</dt>
+                      <dd className="text-right text-slate-800">{a.belt}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt>Branş</dt>
+                      <dd className="text-right text-slate-800">{a.branch}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt>Telefon</dt>
+                      <dd className="text-right text-slate-800">{a.phone ?? '-'}</dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
+              <table className="w-full min-w-[520px] text-left text-xs">
+                <thead className="bg-app-bg-soft text-brand-muted">
+                  <tr>
+                    <th className="px-3 py-2">Ad Soyad</th>
+                    <th className="px-3 py-2">Kuşak</th>
+                    <th className="px-3 py-2">Branş</th>
+                    <th className="px-3 py-2">Telefon</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {rows.map((a) => (
+                    <tr key={a.id} className="border-t border-app-border">
+                      <td className="px-3 py-2">
+                        {a.first_name} {a.last_name}
+                        {!a.is_active && (
+                          <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
+                            pasif
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">{a.belt}</td>
+                      <td className="px-3 py-2">{a.branch}</td>
+                      <td className="px-3 py-2">{a.phone ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
     </div>
   )

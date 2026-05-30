@@ -6,6 +6,8 @@ import {
   CheckSquare,
   ChevronRight,
 } from 'lucide-react'
+import Logo from './Logo'
+import { BRAND } from '../lib/brand'
 
 const navItems = [
   { to: '/dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
@@ -16,15 +18,10 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden h-full w-64 flex-col border-r border-slate-800 bg-slate-950/80 p-4 shadow-lg md:flex">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500 text-sm font-bold text-slate-950">
-          TKD
-        </div>
-        <div>
-          <p className="text-sm font-semibold">Taekwondo Akademi</p>
-          <p className="text-xs text-slate-400">Yönetim Paneli</p>
-        </div>
+    <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-app-border bg-white/95 p-4 shadow-sm shadow-sky-100/60 md:flex">
+      <div className="mb-8">
+        <Logo variant="full" />
+        <p className="mt-2 text-xs text-brand-muted">{BRAND.tagline}</p>
       </div>
 
       <nav className="space-y-1">
@@ -34,10 +31,10 @@ export default function Sidebar() {
             to={to}
             className={({ isActive }) =>
               [
-                'group flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition',
+                'group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition',
                 isActive
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white',
+                  ? 'bg-brand-red text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-app-bg-soft hover:text-slate-900',
               ].join(' ')
             }
           >

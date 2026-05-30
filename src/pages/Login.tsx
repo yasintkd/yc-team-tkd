@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import Logo from '../components/Logo'
+import { BRAND } from '../lib/brand'
 
 const USERNAME_EMAIL_DOMAIN = 'yc-team-tkd.local'
 
@@ -52,12 +54,17 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md items-center px-4">
+    <div className="flex min-h-[calc(100dvh-2rem)] flex-col items-center justify-center py-6">
+      <div className="mb-6 flex w-full max-w-[300px] flex-col items-center text-center">
+        <Logo variant="login" />
+        <p className="mt-3 text-sm text-brand-muted">{BRAND.tagline}</p>
+      </div>
+
       <div className="glass-panel w-full rounded-2xl p-5 shadow-lg">
         <div className="mb-4">
           <h2 className="text-base font-semibold">Giriş</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Taekwondo Akademi Yönetim Paneli
+          <p className="mt-1 text-xs text-brand-muted">
+            Yönetim paneline erişmek için giriş yapın.
           </p>
         </div>
 
@@ -67,53 +74,45 @@ export default function Login() {
           </div>
         )}
         {message && (
-          <div className="mb-3 rounded-xl border border-emerald-900/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+          <div className="mb-3 rounded-xl border border-brand-cyan/20 bg-brand-cyan/10 px-3 py-2 text-xs text-brand-cyan">
             {message}
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-slate-300" htmlFor="username">
+            <label className="text-xs text-slate-600" htmlFor="username">
               Kullanıcı Adı
             </label>
             <input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               placeholder="ör: yasintkd"
               autoComplete="username"
             />
-            <p className="text-[11px] text-slate-500">
-              Sistem, bunu arka planda <span className="text-slate-300">{`kullaniciadi@${USERNAME_EMAIL_DOMAIN}`}</span>{' '}
-              formatına çevirerek Supabase Auth ile giriş yapar.
-            </p>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-slate-300" htmlFor="password">
+            <label className="text-xs text-slate-600" htmlFor="password">
               Şifre
             </label>
             <input
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className="input-field"
               placeholder="••••••"
               type="password"
               autoComplete="current-password"
             />
-            <p className="text-[11px] text-slate-500">
-              Supabase Auth’ta email/password açık olmalı. Kullanıcıları Supabase
-              panelinden manuel ekleyebilirsin.
-            </p>
           </div>
 
           <button
             type="submit"
             disabled={!canSubmit || loading}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary w-full"
           >
             {loading ? 'İşleniyor...' : 'Giriş Yap'}
           </button>
@@ -122,4 +121,3 @@ export default function Login() {
     </div>
   )
 }
-

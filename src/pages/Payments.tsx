@@ -120,16 +120,16 @@ export default function Payments() {
   return (
     <div className="space-y-6">
       <section className="glass-panel rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold">Aidat & Ödeme Takibi</h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-muted">
               Sporcuların aylık aidat durumlarını tek bakışta görüntüleyin.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
-              className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500"
+              className="input-field min-h-[44px] flex-1 text-xs sm:flex-none sm:min-w-[120px]"
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
             >
@@ -142,7 +142,7 @@ export default function Payments() {
               ))}
             </select>
             <input
-              className="w-24 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-emerald-500"
+              className="input-field w-24 min-h-[44px] text-xs"
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
               inputMode="numeric"
@@ -150,21 +150,21 @@ export default function Payments() {
             <button
               type="button"
               onClick={() => void loadPayments()}
-              className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800/80"
+              className="min-h-[44px] rounded-lg border border-app-border px-3 py-2 text-xs text-slate-600 active:scale-95 hover:bg-app-bg-soft"
             >
               Yenile
             </button>
             <button
               type="button"
               onClick={() => void createMissingForPeriod()}
-              className="hidden rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-100 hover:bg-slate-700 md:inline-block"
+              className="min-h-[44px] w-full rounded-lg bg-slate-700 px-3 py-2 text-xs text-white active:scale-95 hover:bg-slate-600 sm:w-auto"
             >
               Dönemi Oluştur
             </button>
           </div>
         </div>
 
-        <div className="mt-3 text-[11px] text-slate-500">
+        <div className="mt-3 text-[11px] text-brand-muted">
           Dönem: {monthLabel(year, month)}
         </div>
 
@@ -174,84 +174,119 @@ export default function Payments() {
           </div>
         )}
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/60">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 text-slate-400">
-              <tr>
-                <th className="px-3 py-2">Sporcu</th>
-                <th className="px-3 py-2">Kuşak</th>
-                <th className="px-3 py-2">Ay</th>
-                <th className="px-3 py-2">Durum</th>
-                <th className="px-3 py-2">İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={5}>
-                    Yükleniyor...
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr className="border-t border-slate-800/80">
-                  <td className="px-3 py-4 text-slate-400" colSpan={5}>
-                    Bu dönem için ödeme kaydı bulunamadı. (Not: Ödemeler, sporcu
-                    bazında ayrıca oluşturulur.)
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
+        {loading ? (
+          <p className="mt-4 text-xs text-brand-muted">Yükleniyor...</p>
+        ) : rows.length === 0 ? (
+          <p className="mt-4 text-xs text-brand-muted">
+            Bu dönem için ödeme kaydı bulunamadı. (Not: Ödemeler, sporcu bazında
+            ayrıca oluşturulur.)
+          </p>
+        ) : (
+          <>
+            <ul className="mt-4 space-y-2 md:hidden">
+              {rows.map((row) => {
+                const a = Array.isArray(row.athletes)
+                  ? row.athletes[0]
+                  : row.athletes
+                const name = a
+                  ? `${a.first_name} ${a.last_name}`
+                  : row.athlete_id
+                return (
+                  <li
                     key={row.id}
-                    className="border-t border-slate-800/80"
+                    className="rounded-xl border border-app-border bg-white p-3"
                   >
-                    <td className="px-3 py-2">
-                      {(() => {
-                        const a = Array.isArray(row.athletes)
-                          ? row.athletes[0]
-                          : row.athletes
-                        return a
-                          ? `${a.first_name} ${a.last_name}`
-                          : row.athlete_id
-                      })()}
-                    </td>
-                    <td className="px-3 py-2">
-                      {(() => {
-                        const a = Array.isArray(row.athletes)
-                          ? row.athletes[0]
-                          : row.athletes
-                        return a?.belt ?? '-'
-                      })()}
-                    </td>
-                    <td className="px-3 py-2">
-                      {monthLabel(row.period_year, row.period_month)}
-                    </td>
-                    <td className="px-3 py-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{name}</p>
+                        <p className="mt-0.5 text-xs text-brand-muted">
+                          {a?.belt ?? '-'}
+                        </p>
+                      </div>
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           row.status === 'odendi'
-                            ? 'bg-emerald-500/20 text-emerald-400'
+                            ? 'bg-brand-cyan/20 text-brand-cyan'
                             : 'bg-rose-500/15 text-rose-400'
                         }`}
                       >
                         {row.status === 'odendi' ? 'Ödendi' : 'Ödenmedi'}
                       </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => void toggleStatus(row)}
-                        className="rounded-lg border border-slate-700 px-3 py-1 text-[11px] text-slate-200 hover:bg-slate-800/80"
-                      >
-                        Durumu Değiştir
-                      </button>
-                    </td>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void toggleStatus(row)}
+                      className="btn-primary mt-3 w-full py-2.5 text-xs"
+                    >
+                      Durumu Değiştir
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+
+            <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
+              <table className="w-full min-w-[560px] text-left text-xs">
+                <thead className="bg-app-bg-soft text-brand-muted">
+                  <tr>
+                    <th className="px-3 py-2">Sporcu</th>
+                    <th className="px-3 py-2">Kuşak</th>
+                    <th className="px-3 py-2">Ay</th>
+                    <th className="px-3 py-2">Durum</th>
+                    <th className="px-3 py-2">İşlem</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id} className="border-t border-app-border">
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const a = Array.isArray(row.athletes)
+                            ? row.athletes[0]
+                            : row.athletes
+                          return a
+                            ? `${a.first_name} ${a.last_name}`
+                            : row.athlete_id
+                        })()}
+                      </td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const a = Array.isArray(row.athletes)
+                            ? row.athletes[0]
+                            : row.athletes
+                          return a?.belt ?? '-'
+                        })()}
+                      </td>
+                      <td className="px-3 py-2">
+                        {monthLabel(row.period_year, row.period_month)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            row.status === 'odendi'
+                              ? 'bg-brand-cyan/20 text-brand-cyan'
+                              : 'bg-rose-500/15 text-rose-400'
+                          }`}
+                        >
+                          {row.status === 'odendi' ? 'Ödendi' : 'Ödenmedi'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => void toggleStatus(row)}
+                          className="rounded-lg border border-app-border px-3 py-1.5 text-[11px] text-slate-700 hover:bg-app-bg-soft"
+                        >
+                          Durumu Değiştir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
     </div>
   )
