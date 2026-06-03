@@ -1,7 +1,9 @@
-import { FormEvent, useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react'; // FormEvent'i bu şekilde ayırın
+import { BELTS } from '../lib/belts';
 
 const Athletes = () => {
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [parentFirstName, setParentFirstName] = useState('');
   const [parentLastName, setParentLastName] = useState('');
@@ -11,23 +13,23 @@ const Athletes = () => {
   const [phone, setPhone] = useState('');
   const [belt, setBelt] = useState('');
   const [trainingGroupId, setTrainingGroupId] = useState('');
-  const [groups, setGroups] = useState([]);
+  const [groups, setGroups] = useState<any[]>([]);
 
   useEffect(() => {
     loadAthletes();
   }, []);
 
   const loadAthletes = async () => {
-    setLoading(true);
+    setSaving(true);
     try {
       const response = await fetch('/api/grup');
       if (!response.ok) throw new Error('Gruplar yüklenirken bir hata oluştu');
       const data = await response.json();
       setGroups(data);
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message);
     }
-    setLoading(false);
+    setSaving(false);
   };
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -68,7 +70,7 @@ const Athletes = () => {
 
       await loadAthletes();
       setSaving(false);
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message);
       setSaving(false);
     }

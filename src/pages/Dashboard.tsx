@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Users, UsersRound, Award, CalendarClock } from 'lucide-react'
 import StatCard from '../components/StatCard'
 import { supabase } from '../lib/supabase'
-import { weekdayLabel, formatTime, todayIsoWeekday } from '../lib/days'
+import { todayIsoWeekday, formatTime } from '../lib/days';
 
 type TodaySession = {
   groupName: string
