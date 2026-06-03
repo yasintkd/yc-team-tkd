@@ -1,11 +1,18 @@
 /** WTF kuşak sırası (yükseltme için) */
 export const BELTS = [
-  'Beyaz (10. Gıp)',
-  'Sarı (9. Gıp)',
-  'Yeşil (7–6. Gıp)',
-  'Mavi (5–4. Gıp)',
-  'Kırmızı (3–2. Gıp)',
-  'Siyah (1. Dan+)',
+  'Beyaz Kuşak (10. Gıp)',
+  'Sarı Kuşak (8. Gıp)',
+  'Sarı Yeşil Kuşak (7. Gıp)',
+  'Yeşil Kuşak (6. Gıp)',
+  'Yeşil Mavi Kuşak (5. Gıp)',
+  'Mavi Kuşak (4. Gıp)',
+  'Mavi Kırmızı Kuşak (3. Gıp)',
+  'Kırmızı Kuşak (2. Gıp)',
+  'Kırmızı Siyah Kuşak (1. Gıp)',
+  'Kırmızı Siyah Kuşak (1. Pum)',
+  'Kırmızı Siyah Kuşak (2. Pum)',
+  'Kırmızı Siyah (3. Pum)',
+  'Siyah Kuşak',
 ] as const
 
 export type Belt = (typeof BELTS)[number]

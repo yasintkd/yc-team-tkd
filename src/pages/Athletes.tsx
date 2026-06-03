@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { X, Search, UserPlus, Pencil, Trash2, Users, PauseCircle, PlayCircle, MessageCircle, Phone, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type TrainingGroup = { id: string; name: string }
 
@@ -11,34 +14,121 @@ type Athlete = {
   birth_date: string | null
   phone: string | null
   belt: string
+  gender: 'erkek' | 'kiz' | null
+  parent_name: string | null
+  parent_phone: string | null
   training_group_id: string | null
   is_active: boolean
   training_groups: { name: string } | { name: string }[] | null
 }
 
+type FormData = {
+  first_name: string
+  last_name: string
+  birth_date: string
+  phone: string
+  belt: string
+  gender: 'erkek' | 'kiz' | ''
+  parent_name: string
+  parent_phone: string
+  training_group_id: string
+}
+
+const EMPTY_FORM: FormData = {
+  first_name: '',
+  last_name: '',
+  birth_date: '',
+  phone: '',
+  belt: BELTS[0],
+  gender: '',
+  parent_name: '',
+  parent_phone: '',
+  training_group_id: '',
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Listede sadece doğum yılı göster */
+function birthYear(birthDate: string | null): string {
+  if (!birthDate) return '—'
+  return String(new Date(birthDate).getFullYear())
+}
+
+/** Detayda tam bilgi: "2012 (13 yaş)" */
+function birthDetail(birthDate: string | null): string {
+  if (!birthDate) return '—'
+  const d = new Date(birthDate)
+  const year = d.getFullYear()
+  const age = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+  return `${year} (${age} yaş)`
+}
+
+// Veli için hazır karşılama mesajı
+function welcomeMessage(a: Athlete): string {
+  const group = groupName(a)
+  const groupPart = group !== '—' ? ` (${group} grubu)` : ''
+  return `Merhaba, ${a.parent_name ? a.parent_name + ' bey/hanım' : 'veli'}! ${a.first_name} ${a.last_name}${groupPart} olarak YÇ Team Taekwondo'ya kaydını yaptırdık. Antrenman programı ve duyurular için bu gruptan bilgilendirme yapacağız. Hoş geldiniz! 🥋`
+}
+
+function groupName(a: Athlete): string {
+  const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
+  return g?.name ?? '—'
+}
+
+function genderLabel(g: string | null) {
+  if (g === 'erkek') return 'Erkek'
+  if (g === 'kiz') return 'Kız'
+  return '—'
+}
+
+function genderBadgeClass(g: string | null) {
+  if (g === 'erkek') return 'bg-sky-100 text-sky-700'
+  if (g === 'kiz') return 'bg-pink-100 text-pink-700'
+  return 'bg-slate-100 text-slate-500'
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Field({
+  label,
+  children,
+  col2 = false,
+}: {
+  label: string
+  children: React.ReactNode
+  col2?: boolean
+}) {
+  return (
+    <div className={`space-y-1 text-xs${col2 ? ' col-span-2' : ''}`}>
+      <label className="font-medium text-slate-500">{label}</label>
+      {children}
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function Athletes() {
+  // Data
+  const [rows, setRows] = useState<Athlete[]>([])
+  const [groups, setGroups] = useState<TrainingGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [rows, setRows] = useState<Athlete[]>([])
-  const [groups, setGroups] = useState<TrainingGroup[]>([])
+
+  // UI state
+  const [search, setSearch] = useState('')
   const [beltFilter, setBeltFilter] = useState('')
+  const [groupFilter, setGroupFilter] = useState('')
+  // 'active' | 'passive' | 'all'
+  const [statusFilter, setStatusFilter] = useState<'active' | 'passive' | 'all'>('active')
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState<FormData>(EMPTY_FORM)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [phone, setPhone] = useState('')
-  const [belt, setBelt] = useState<string>(BELTS[0])
-  const [trainingGroupId, setTrainingGroupId] = useState('')
-
-  const canSubmit = useMemo(() => {
-    return firstName.trim().length > 0 && lastName.trim().length > 0
-  }, [firstName, lastName])
-
-  const filteredRows = useMemo(() => {
-    if (!beltFilter) return rows
-    return rows.filter((r) => r.belt === beltFilter)
-  }, [rows, beltFilter])
+  // ── Data loading ────────────────────────────────────────────────────────────
 
   const loadGroups = async () => {
     const { data } = await supabase
@@ -55,9 +145,9 @@ export default function Athletes() {
     const { data, error: qErr } = await supabase
       .from('athletes')
       .select(
-        'id, first_name, last_name, birth_date, phone, belt, training_group_id, is_active, training_groups ( name )',
+        'id, first_name, last_name, birth_date, phone, belt, gender, parent_name, parent_phone, training_group_id, is_active, training_groups ( name )',
       )
-      .order('last_name', { ascending: true })
+      .order('last_name')
 
     if (qErr) {
       setError(qErr.message)
@@ -73,251 +163,752 @@ export default function Athletes() {
     void loadAthletes()
   }, [])
 
-  const groupName = (a: Athlete) => {
-    const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
-    return g?.name ?? '—'
+  // ── Filtered list ────────────────────────────────────────────────────────────
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return rows.filter((a) => {
+      const nameMatch = q
+        ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
+        : true
+      const beltMatch = beltFilter ? a.belt === beltFilter : true
+      const groupMatch = groupFilter ? a.training_group_id === groupFilter : true
+      const statusMatch =
+        statusFilter === 'active'
+          ? a.is_active
+          : statusFilter === 'passive'
+            ? !a.is_active
+            : true
+      return nameMatch && beltMatch && groupMatch && statusMatch
+    })
+  }, [rows, search, beltFilter, groupFilter, statusFilter])
+
+  // Sayaçlar
+  const activeCount = useMemo(() => rows.filter((r) => r.is_active).length, [rows])
+  const passiveCount = useMemo(() => rows.filter((r) => !r.is_active).length, [rows])
+
+  // ── Form helpers ─────────────────────────────────────────────────────────────
+
+  const openNewForm = () => {
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+    setError(null)
+    setShowForm(true)
   }
+
+  const openEditForm = (a: Athlete) => {
+    setEditingId(a.id)
+    setForm({
+      first_name: a.first_name,
+      last_name: a.last_name,
+      birth_date: a.birth_date ?? '',
+      phone: a.phone ?? '',
+      belt: a.belt,
+      gender: (a.gender as 'erkek' | 'kiz' | '') ?? '',
+      parent_name: a.parent_name ?? '',
+      parent_phone: a.parent_phone ?? '',
+      training_group_id: a.training_group_id ?? '',
+    })
+    setError(null)
+    setShowForm(true)
+    setSelectedAthlete(null)
+  }
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setError(null)
+  }
+
+  const set = (field: keyof FormData) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  // ── CRUD ─────────────────────────────────────────────────────────────────────
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!canSubmit) return
-
+    if (!form.first_name.trim() || !form.last_name.trim()) return
     setSaving(true)
     setError(null)
 
     const payload = {
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      birth_date: birthDate ? birthDate : null,
-      phone: phone.trim() ? phone.trim() : null,
-      belt,
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      birth_date: form.birth_date || null,
+      phone: form.phone.trim() || null,
+      belt: form.belt,
+      gender: form.gender || null,
+      parent_name: form.parent_name.trim() || null,
+      parent_phone: form.parent_phone.trim() || null,
+      training_group_id: form.training_group_id || null,
       branch: 'Taekwondo',
-      training_group_id: trainingGroupId || null,
-      is_active: true,
     }
 
-    const { error: insErr } = await supabase.from('athletes').insert(payload)
-    if (insErr) {
-      setError(insErr.message)
+    const { error: dbErr } = editingId
+      ? await supabase.from('athletes').update(payload).eq('id', editingId)
+      : await supabase.from('athletes').insert(payload)
+
+    if (dbErr) {
+      setError(dbErr.message)
       setSaving(false)
       return
     }
 
-    setFirstName('')
-    setLastName('')
-    setBirthDate('')
-    setPhone('')
-    setBelt(BELTS[0])
-    setTrainingGroupId('')
-
+    closeForm()
     await loadAthletes()
     setSaving(false)
   }
 
+  /** Pasife / aktife al */
+  const onToggleActive = async (athlete: Athlete) => {
+    setSaving(true)
+    setError(null)
+    const { error: dbErr } = await supabase
+      .from('athletes')
+      .update({ is_active: !athlete.is_active })
+      .eq('id', athlete.id)
+    if (dbErr) {
+      setError(dbErr.message)
+    } else {
+      // Modal içindeki veriyi güncelle
+      setSelectedAthlete((prev) =>
+        prev?.id === athlete.id ? { ...prev, is_active: !athlete.is_active } : prev,
+      )
+      await loadAthletes()
+    }
+    setSaving(false)
+  }
+
+  /** Kalıcı sil */
+  const onDelete = async (id: string) => {
+    setSaving(true)
+    setError(null)
+    const { error: dbErr } = await supabase.from('athletes').delete().eq('id', id)
+    if (dbErr) {
+      setError(dbErr.message)
+    } else {
+      setConfirmDeleteId(null)
+      setSelectedAthlete(null)
+      await loadAthletes()
+    }
+    setSaving(false)
+  }
+
+  // ── Render helpers ────────────────────────────────────────────────────────────
+
+  const canSubmit = form.first_name.trim().length > 0 && form.last_name.trim().length > 0
+
+  const detailAthlete = selectedAthlete
+    ? (rows.find((r) => r.id === selectedAthlete.id) ?? selectedAthlete)
+    : null
+
   return (
-    <div className="space-y-6">
-      <section className="glass-panel rounded-2xl p-4">
-        <h2 className="text-sm font-semibold">Yeni Sporcu Kaydı</h2>
-        <p className="mt-1 text-xs text-brand-muted">
-          YÇ Team Taekwondo salonuna yeni öğrenci ekleyin.
-        </p>
+    <div className="space-y-4 md:space-y-6">
 
-        {error && (
-          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {error}
-          </div>
-        )}
-
-        <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="firstName">
-              Adı
-            </label>
-            <input
-              id="firstName"
-              className="input-field"
-              placeholder="Örn: Ali"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="lastName">
-              Soyadı
-            </label>
-            <input
-              id="lastName"
-              className="input-field"
-              placeholder="Örn: Yılmaz"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="birthDate">
-              Doğum Tarihi
-            </label>
-            <input
-              id="birthDate"
-              type="date"
-              className="input-field"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="phone">
-              Telefon
-            </label>
-            <input
-              id="phone"
-              className="input-field"
-              placeholder="Örn: 05xx xxx xx xx"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="belt">
-              Kuşak
-            </label>
-            <select
-              id="belt"
-              className="input-field"
-              value={belt}
-              onChange={(e) => setBelt(e.target.value)}
-            >
-              {BELTS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1 text-xs">
-            <label className="text-slate-600" htmlFor="group">
-              Antrenman Grubu
-            </label>
-            <select
-              id="group"
-              className="input-field"
-              value={trainingGroupId}
-              onChange={(e) => setTrainingGroupId(e.target.value)}
-            >
-              <option value="">Grup seçilmedi</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex sm:col-span-2 sm:justify-end">
-            <button
-              type="submit"
-              disabled={!canSubmit || saving}
-              className="btn-primary w-full sm:w-auto"
-            >
-              {saving ? 'Kaydediliyor...' : 'Sporcu Ekle'}
-            </button>
-          </div>
-        </form>
-      </section>
-
+      {/* ── Üst araç çubuğu ── */}
       <section className="glass-panel rounded-2xl p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold">Kayıtlı Sporcular</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="input-field w-auto min-w-[140px] text-xs"
-              value={beltFilter}
-              onChange={(e) => setBeltFilter(e.target.value)}
-            >
-              <option value="">Tüm kuşaklar</option>
-              {BELTS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void loadAthletes()}
-              className="rounded-lg border border-app-border px-3 py-1.5 text-[11px] text-slate-600 hover:bg-app-bg-soft"
-            >
-              Yenile
-            </button>
+          <div>
+            <h2 className="text-sm font-semibold">Sporcular</h2>
+            <p className="mt-0.5 text-xs text-brand-muted">
+              {activeCount} aktif · {passiveCount} pasif
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={openNewForm}
+            className="btn-primary inline-flex items-center gap-1.5"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Yeni Sporcu
+          </button>
         </div>
 
-        {loading ? (
-          <p className="mt-3 text-xs text-brand-muted">Yükleniyor...</p>
-        ) : filteredRows.length === 0 ? (
-          <p className="mt-3 text-xs text-brand-muted">Sporcu bulunamadı.</p>
-        ) : (
-          <>
-            <ul className="mt-3 space-y-2 md:hidden">
-              {filteredRows.map((a) => (
-                <li
-                  key={a.id}
-                  className="rounded-xl border border-app-border bg-white p-3"
+        {/* Arama & filtreler */}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              className="input-field pl-9"
+              placeholder="Ada göre ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="input-field text-sm"
+            value={beltFilter}
+            onChange={(e) => setBeltFilter(e.target.value)}
+          >
+            <option value="">Tüm kuşaklar</option>
+            {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <select
+            className="input-field text-sm"
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+          >
+            <option value="">Tüm gruplar</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          {/* Aktif / Pasif filtresi */}
+          <div className="flex rounded-lg border border-app-border bg-app-bg-soft/60 p-0.5 text-xs font-medium">
+            {(
+              [
+                { key: 'active', label: 'Aktif' },
+                { key: 'passive', label: 'Pasif' },
+                { key: 'all', label: 'Tümü' },
+              ] as const
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setStatusFilter(key)}
+                className={`flex-1 rounded-md py-1.5 transition ${
+                  statusFilter === key
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Hata ── */}
+      {error && !showForm && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {error}
+        </div>
+      )}
+
+      {/* ── Sporcu listesi ── */}
+      {loading ? (
+        <p className="text-xs text-brand-muted">Yükleniyor...</p>
+      ) : filtered.length === 0 ? (
+        <div className="glass-panel flex flex-col items-center gap-2 rounded-2xl py-12 text-center">
+          <Users className="h-8 w-8 text-slate-300" />
+          <p className="text-sm font-medium text-slate-500">Sporcu bulunamadı</p>
+          <p className="text-xs text-brand-muted">
+            Filtrelerinizi değiştirin veya yeni sporcu ekleyin.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Mobil: kart listesi */}
+          <ul className="space-y-2 md:hidden">
+            {filtered.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAthlete(a)}
+                  className={`glass-panel w-full rounded-xl p-3 text-left transition active:scale-[0.99] ${
+                    !a.is_active ? 'opacity-60' : ''
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm">
-                      {a.first_name} {a.last_name}
-                    </p>
-                    {!a.is_active && (
-                      <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-600">
-                        pasif
-                      </span>
-                    )}
-                  </div>
-                  <dl className="mt-2 space-y-1 text-xs text-brand-muted">
-                    <div className="flex justify-between gap-2">
-                      <dt>Kuşak</dt>
-                      <dd className="text-right font-medium text-slate-800">{a.belt}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Grup</dt>
-                      <dd className="text-right text-slate-800">{groupName(a)}</dd>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <dt>Telefon</dt>
-                      <dd className="text-right text-slate-800">{a.phone ?? '-'}</dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-3 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
-              <table className="w-full min-w-[560px] text-left text-xs">
-                <thead className="bg-app-bg-soft text-brand-muted">
-                  <tr>
-                    <th className="px-3 py-2">Ad Soyad</th>
-                    <th className="px-3 py-2">Kuşak</th>
-                    <th className="px-3 py-2">Grup</th>
-                    <th className="px-3 py-2">Telefon</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((a) => (
-                    <tr key={a.id} className="border-t border-app-border">
-                      <td className="px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
                         {a.first_name} {a.last_name}
-                      </td>
-                      <td className="px-3 py-2 font-medium">{a.belt}</td>
-                      <td className="px-3 py-2">{groupName(a)}</td>
-                      <td className="px-3 py-2">{a.phone ?? '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-brand-muted">{a.belt}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
+                      >
+                        {genderLabel(a.gender)}
+                      </span>
+                      {!a.is_active && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          Pasif
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-brand-muted">
+                    <span>{birthYear(a.birth_date)}</span>
+                    <span>{groupName(a)}</span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Masaüstü: tablo */}
+          <div className="glass-panel hidden overflow-x-auto rounded-2xl md:block">
+            <table className="w-full min-w-[640px] text-left text-xs">
+              <thead className="border-b border-app-border bg-app-bg-soft/60">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Ad Soyad</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Doğum Yılı</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Cinsiyet</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Kuşak</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Grup</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Durum</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-app-border">
+                {filtered.map((a) => (
+                  <tr
+                    key={a.id}
+                    className={`cursor-pointer transition hover:bg-app-bg-soft/60 ${
+                      !a.is_active ? 'opacity-60' : ''
+                    }`}
+                    onClick={() => setSelectedAthlete(a)}
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-800">
+                      {a.first_name} {a.last_name}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{birthYear(a.birth_date)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
+                      >
+                        {genderLabel(a.gender)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{a.belt}</td>
+                    <td className="px-4 py-3 text-slate-600">{groupName(a)}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          a.is_active
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {a.is_active ? 'Aktif' : 'Pasif'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openEditForm(a)
+                        }}
+                        className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft"
+                      >
+                        Düzenle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          MODAL — Sporcu Detay
+      ════════════════════════════════════════════════════════ */}
+      {detailAthlete && !showForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={() => { setSelectedAthlete(null); setConfirmDeleteId(null) }}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Başlık */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-slate-800">
+                    {detailAthlete.first_name} {detailAthlete.last_name}
+                  </h3>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      detailAthlete.is_active
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {detailAthlete.is_active ? 'Aktif' : 'Pasif'}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-brand-muted">{detailAthlete.belt}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEditForm(detailAthlete)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border bg-white text-slate-600 hover:bg-app-bg-soft"
+                  title="Düzenle"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedAthlete(null); setConfirmDeleteId(null) }}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border bg-white text-slate-600 hover:bg-app-bg-soft"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          </>
+
+            {/* Bilgiler */}
+            <dl className="mt-4 grid grid-cols-2 gap-3">
+              <InfoRow label="Cinsiyet" value={genderLabel(detailAthlete.gender)} />
+              <InfoRow label="Doğum Yılı / Yaş" value={birthDetail(detailAthlete.birth_date)} />
+              <InfoRow label="Kuşak" value={detailAthlete.belt} />
+              <InfoRow label="Antrenman Grubu" value={groupName(detailAthlete)} />
+            </dl>
+
+            {/* Telefon & WhatsApp kartları */}
+            <div className="mt-3 space-y-2">
+              {/* Sporcu telefonu */}
+              {detailAthlete.phone && (
+                <PhoneCard
+                  label="Sporcu Telefonu"
+                  name={`${detailAthlete.first_name} ${detailAthlete.last_name}`}
+                  phone={detailAthlete.phone}
+                  waMessage={`Merhaba ${detailAthlete.first_name}!`}
+                />
+              )}
+              {/* Veli telefonu + WhatsApp karşılama */}
+              {detailAthlete.parent_phone && (
+                <PhoneCard
+                  label={`Veli — ${detailAthlete.parent_name ?? 'Veli'}`}
+                  name={detailAthlete.parent_name ?? 'Veli'}
+                  phone={detailAthlete.parent_phone}
+                  waMessage={welcomeMessage(detailAthlete)}
+                  showWelcome
+                />
+              )}
+              {/* Telefon yoksa bilgi */}
+              {!detailAthlete.phone && !detailAthlete.parent_phone && (
+                <p className="text-xs text-brand-muted">Telefon numarası girilmemiş.</p>
+              )}
+            </div>
+
+            {/* Aksiyonlar */}
+            <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-4">
+
+              {/* Pasife / aktife al */}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onToggleActive(detailAthlete)}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition disabled:opacity-60 ${
+                  detailAthlete.is_active
+                    ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                }`}
+              >
+                {detailAthlete.is_active ? (
+                  <>
+                    <PauseCircle className="h-4 w-4" />
+                    {saving ? 'İşleniyor...' : 'Pasife Al (Ara Veriyor)'}
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="h-4 w-4" />
+                    {saving ? 'İşleniyor...' : 'Tekrar Aktifleştir'}
+                  </>
+                )}
+              </button>
+
+              {/* Kalıcı sil */}
+              {confirmDeleteId === detailAthlete.id ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-medium text-rose-700">
+                    Bu sporcu kalıcı olarak silinecek. Emin misiniz?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void onDelete(detailAthlete.id)}
+                      className="flex-1 rounded-xl bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                    >
+                      {saving ? 'Siliniyor...' : 'Evet, Kalıcı Sil'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="flex-1 rounded-xl border border-app-border py-2 text-xs font-medium text-slate-600"
+                    >
+                      İptal
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(detailAthlete.id)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Kalıcı Olarak Sil
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          MODAL — Yeni / Düzenle Formu
+      ════════════════════════════════════════════════════════ */}
+      {showForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+          onClick={closeForm}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Başlık */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-800">
+                {editingId ? 'Sporcu Düzenle' : 'Yeni Sporcu Ekle'}
+              </h3>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border text-slate-500 hover:bg-app-bg-soft"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                {error}
+              </div>
+            )}
+
+            <form
+              onSubmit={onSubmit}
+              className="mt-4 grid max-h-[65vh] grid-cols-2 gap-3 overflow-y-auto pb-1"
+            >
+              {/* ─ Temel bilgiler ─ */}
+              <Field label="Adı *">
+                <input
+                  className="input-field"
+                  placeholder="Ali"
+                  value={form.first_name}
+                  onChange={set('first_name')}
+                />
+              </Field>
+              <Field label="Soyadı *">
+                <input
+                  className="input-field"
+                  placeholder="Yılmaz"
+                  value={form.last_name}
+                  onChange={set('last_name')}
+                />
+              </Field>
+
+              <Field label="Doğum Tarihi">
+                <input
+                  type="date"
+                  className="input-field"
+                  value={form.birth_date}
+                  onChange={set('birth_date')}
+                />
+              </Field>
+              <Field label="Cinsiyet">
+                <select className="input-field" value={form.gender} onChange={set('gender')}>
+                  <option value="">Seçilmedi</option>
+                  <option value="erkek">Erkek</option>
+                  <option value="kiz">Kız</option>
+                </select>
+              </Field>
+
+              <Field label="Telefon">
+                <input
+                  className="input-field"
+                  placeholder="05xx xxx xx xx"
+                  value={form.phone}
+                  onChange={set('phone')}
+                />
+              </Field>
+              <Field label="Kuşak">
+                <select className="input-field" value={form.belt} onChange={set('belt')}>
+                  {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </Field>
+
+              <Field label="Antrenman Grubu" col2>
+                <select
+                  className="input-field"
+                  value={form.training_group_id}
+                  onChange={set('training_group_id')}
+                >
+                  <option value="">Grup seçilmedi</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </Field>
+
+              {/* ─ Veli bilgileri ─ */}
+              <div className="col-span-2 mt-1 border-t border-app-border pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+                  Veli Bilgileri
+                </p>
+              </div>
+              <Field label="Veli Adı Soyadı">
+                <input
+                  className="input-field"
+                  placeholder="Mehmet Yılmaz"
+                  value={form.parent_name}
+                  onChange={set('parent_name')}
+                />
+              </Field>
+              <Field label="Veli Telefonu">
+                <input
+                  className="input-field"
+                  placeholder="05xx xxx xx xx"
+                  value={form.parent_phone}
+                  onChange={set('parent_phone')}
+                />
+              </Field>
+
+              {/* ─ Kaydet ─ */}
+              <div className="col-span-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={!canSubmit || saving}
+                  className="btn-primary w-full"
+                >
+                  {saving
+                    ? 'Kaydediliyor...'
+                    : editingId
+                      ? 'Değişiklikleri Kaydet'
+                      : 'Sporcu Ekle'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── InfoRow ──────────────────────────────────────────────────────────────────
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-app-border bg-app-bg-soft/60 px-3 py-2">
+      <dt className="text-[10px] font-medium uppercase tracking-wide text-brand-muted">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-slate-800">{value}</dd>
+    </div>
+  )
+}
+
+// ─── PhoneCard ─────────────────────────────────────────────────────────────────
+
+function PhoneCard({
+  label,
+  name,
+  phone,
+  waMessage,
+  showWelcome = false,
+}: {
+  label: string
+  name: string
+  phone: string
+  waMessage: string
+  showWelcome?: boolean
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const copyPhone = async () => {
+    try {
+      await navigator.clipboard.writeText(phone)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback
+    }
+  }
+
+  // Kişi kaydet: vCard indirme
+  const saveContact = () => {
+    const vcard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${name}`,
+      `TEL;TYPE=CELL:${phone}`,
+      'END:VCARD',
+    ].join('\n')
+    const blob = new Blob([vcard], { type: 'text/vcard' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${name.replace(/\s+/g, '_')}.vcf`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const cleanPhone = phone.replace(/\D/g, '')
+  const intl = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone
+  const waUrl = `https://wa.me/${intl}?text=${encodeURIComponent(waMessage)}`
+
+  return (
+    <div className="rounded-xl border border-app-border bg-white px-3 py-2.5">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-brand-muted">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-slate-800">{phone}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {/* Ara */}
+        <a
+          href={`tel:${phone.replace(/\s/g, '')}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-700 transition"
+        >
+          <Phone className="h-3 w-3" />
+          Ara
+        </a>
+        {/* Kopyala */}
+        <button
+          type="button"
+          onClick={() => void copyPhone()}
+          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-app-bg-soft transition"
+        >
+          {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Kopyalandı' : 'Kopyala'}
+        </button>
+        {/* Kişi kaydet */}
+        <button
+          type="button"
+          onClick={saveContact}
+          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 transition"
+        >
+          Rehbere Kaydet
+        </button>
+        {/* WhatsApp — normal mesaj */}
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 transition"
+        >
+          <MessageCircle className="h-3 w-3" />
+          WhatsApp
+        </a>
+        {/* Karşılama mesajı — sadece veli kartında */}
+        {showWelcome && (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-100 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800 hover:bg-emerald-200 transition"
+          >
+            <MessageCircle className="h-3 w-3" />
+            Karşılama Mesajı Gönder
+          </a>
         )}
-      </section>
+      </div>
     </div>
   )
 }

@@ -7,9 +7,10 @@ import { weekdayLabel, formatTime, todayIsoWeekday } from '../lib/days'
 
 type TodaySession = {
   groupName: string
-  dayLabel: string
   time: string
 }
+
+type BeltCount = { belt: string; count: number }
 
 export default function Dashboard() {
   const [athleteCount, setAthleteCount] = useState('—')
@@ -17,15 +18,21 @@ export default function Dashboard() {
   const [upcomingExam, setUpcomingExam] = useState('—')
   const [examHint, setExamHint] = useState('Planlanan kuşak sınavı')
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([])
-  const [beltSummary, setBeltSummary] = useState<{ belt: string; count: number }[]>([])
+  const [beltSummary, setBeltSummary] = useState<BeltCount[]>([])
 
   useEffect(() => {
     void (async () => {
       const today = todayIsoWeekday()
 
       const [athletesRes, groupsRes, examsRes, schedulesRes] = await Promise.all([
-        supabase.from('athletes').select('id, belt', { count: 'exact' }).eq('is_active', true),
-        supabase.from('training_groups').select('id', { count: 'exact' }).eq('is_active', true),
+        supabase
+          .from('athletes')
+          .select('id, belt', { count: 'exact' })
+          .eq('is_active', true),
+        supabase
+          .from('training_groups')
+          .select('id', { count: 'exact' })
+          .eq('is_active', true),
         supabase
           .from('belt_exams')
           .select('title, exam_date')
@@ -42,12 +49,15 @@ export default function Dashboard() {
       setAthleteCount(String(athletesRes.count ?? 0))
       setGroupCount(String(groupsRes.count ?? 0))
 
-      const exam = examsRes.data?.[0] as { title: string; exam_date: string } | undefined
+      const exam = examsRes.data?.[0] as
+        | { title: string; exam_date: string }
+        | undefined
       if (exam) {
         setUpcomingExam(new Date(exam.exam_date).toLocaleDateString('tr-TR'))
         setExamHint(exam.title)
       }
 
+      // Bugünün antrenmanları
       const sessions: TodaySession[] = []
       for (const row of (schedulesRes.data ?? []) as Array<{
         day_of_week: number
@@ -55,17 +65,19 @@ export default function Dashboard() {
         end_time: string
         training_groups: { name: string } | { name: string }[] | null
       }>) {
-        const g = Array.isArray(row.training_groups) ? row.training_groups[0] : row.training_groups
+        const g = Array.isArray(row.training_groups)
+          ? row.training_groups[0]
+          : row.training_groups
         if (!g) continue
         sessions.push({
           groupName: g.name,
-          dayLabel: weekdayLabel(row.day_of_week),
           time: `${formatTime(row.start_time)} – ${formatTime(row.end_time)}`,
         })
       }
       sessions.sort((a, b) => a.time.localeCompare(b.time))
       setTodaySessions(sessions)
 
+      // Kuşak dağılımı
       const counts = new Map<string, number>()
       for (const a of (athletesRes.data ?? []) as Array<{ belt: string }>) {
         counts.set(a.belt, (counts.get(a.belt) ?? 0) + 1)
@@ -80,6 +92,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* İstatistik kartları */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Aktif Sporcu"
@@ -94,7 +107,7 @@ export default function Dashboard() {
           icon={UsersRound}
         />
         <StatCard
-          label="Kuşak Sınavı"
+          label="Yaklaşan Sınav"
           value={upcomingExam}
           hint={examHint}
           icon={Award}
@@ -107,7 +120,9 @@ export default function Dashboard() {
         />
       </section>
 
+      {/* Alt paneller */}
       <section className="grid gap-4 lg:grid-cols-2">
+        {/* Bugünün programı */}
         <div className="glass-panel rounded-2xl p-4">
           <h2 className="text-sm font-semibold">Bugünün Antrenman Programı</h2>
           {todaySessions.length === 0 ? (
@@ -133,6 +148,7 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Kuşak dağılımı */}
         <div className="glass-panel rounded-2xl p-4">
           <h2 className="text-sm font-semibold">Kuşak Dağılımı</h2>
           {beltSummary.length === 0 ? (
