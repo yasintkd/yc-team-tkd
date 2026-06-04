@@ -87,6 +87,83 @@ function genderBadgeClass(g: string | null) {
   return 'bg-slate-100 text-slate-500'
 }
 
+/** Kuşak rengine göre badge stilleri
+ *  Ara kuşaklarda: 1. renk = arka plan, 2. renk = yazı & kenarlık
+ *  Kontrol sırası ÖNEMLİ — özelden genele (ara kuşak → ana kuşak)
+ */
+function beltStyle(belt: string): { badge: string; dot: string } {
+  const b = belt.toLowerCase()
+
+  // ── Ara kuşaklar (önce kontrol et) ──────────────────────────────────────────
+
+  // Sarı-Yeşil  → sarı fon, yeşil yazı & kenarlık
+  if ((b.includes('sarı') || b.includes('sari')) && b.includes('yeşil'))
+    return {
+      badge: 'bg-yellow-100 text-emerald-700 border border-emerald-400',
+      dot:   'bg-yellow-400',
+    }
+
+  // Yeşil-Mavi  → yeşil fon, mavi yazı & kenarlık
+  if (b.includes('yeşil') && b.includes('mavi'))
+    return {
+      badge: 'bg-emerald-100 text-blue-700 border border-blue-400',
+      dot:   'bg-emerald-500',
+    }
+
+  // Mavi-Kırmızı → mavi fon, kırmızı yazı & kenarlık
+  if (b.includes('mavi') && (b.includes('kırmızı') || b.includes('kirmizi')))
+    return {
+      badge: 'bg-blue-100 text-red-700 border border-red-400',
+      dot:   'bg-blue-500',
+    }
+
+  // Kırmızı-Siyah → kırmızı fon, siyah yazı & kenarlık
+  if ((b.includes('kırmızı') || b.includes('kirmizi')) && b.includes('siyah'))
+    return {
+      badge: 'bg-red-100 text-slate-900 border border-slate-700',
+      dot:   'bg-red-500',
+    }
+
+  // ── Ana kuşaklar ─────────────────────────────────────────────────────────────
+
+  if (b.includes('beyaz'))
+    return {
+      badge: 'bg-white text-slate-600 border border-slate-300 shadow-sm',
+      dot:   'bg-slate-300',
+    }
+  if (b.includes('sarı') || b.includes('sari'))
+    return {
+      badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+      dot:   'bg-yellow-400',
+    }
+  if (b.includes('yeşil'))
+    return {
+      badge: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+      dot:   'bg-emerald-500',
+    }
+  if (b.includes('mavi'))
+    return {
+      badge: 'bg-blue-100 text-blue-800 border border-blue-300',
+      dot:   'bg-blue-500',
+    }
+  if (b.includes('kırmızı') || b.includes('kirmizi'))
+    return {
+      badge: 'bg-red-100 text-red-800 border border-red-300',
+      dot:   'bg-red-500',
+    }
+  if (b.includes('siyah'))
+    return {
+      badge: 'bg-slate-900 text-white border border-slate-700',
+      dot:   'bg-white/80',
+    }
+
+  // Varsayılan
+  return {
+    badge: 'bg-slate-100 text-slate-700 border border-slate-200',
+    dot:   'bg-slate-400',
+  }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Field({
@@ -167,20 +244,27 @@ export default function Athletes() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return rows.filter((a) => {
-      const nameMatch = q
-        ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
-        : true
-      const beltMatch = beltFilter ? a.belt === beltFilter : true
-      const groupMatch = groupFilter ? a.training_group_id === groupFilter : true
-      const statusMatch =
-        statusFilter === 'active'
-          ? a.is_active
-          : statusFilter === 'passive'
-            ? !a.is_active
-            : true
-      return nameMatch && beltMatch && groupMatch && statusMatch
-    })
+    return rows
+      .filter((a) => {
+        const nameMatch = q
+          ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
+          : true
+        const beltMatch = beltFilter ? a.belt === beltFilter : true
+        const groupMatch = groupFilter ? a.training_group_id === groupFilter : true
+        const statusMatch =
+          statusFilter === 'active'
+            ? a.is_active
+            : statusFilter === 'passive'
+              ? !a.is_active
+              : true
+        return nameMatch && beltMatch && groupMatch && statusMatch
+      })
+      .sort((a, b) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(
+          `${b.first_name} ${b.last_name}`,
+          'tr',
+        ),
+      )
   }, [rows, search, beltFilter, groupFilter, statusFilter])
 
   // Sayaçlar
@@ -327,11 +411,11 @@ export default function Athletes() {
 
         {/* Arama & filtreler */}
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <div className="flex items-center gap-2 rounded-lg border border-app-border bg-white px-3 focus-within:border-brand-cyan focus-within:ring-2 focus-within:ring-brand-cyan/25">
+            <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             <input
-              className="input-field pl-9"
-              placeholder="Ada göre ara..."
+              className="w-full bg-transparent py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+              placeholder="Sporcu ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -414,7 +498,12 @@ export default function Athletes() {
                       <p className="truncate text-sm font-semibold text-slate-800">
                         {a.first_name} {a.last_name}
                       </p>
-                      <p className="mt-0.5 truncate text-xs text-brand-muted">{a.belt}</p>
+                      <span
+                        className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(a.belt).badge}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(a.belt).dot}`} />
+                        {a.belt}
+                      </span>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span
@@ -472,7 +561,14 @@ export default function Athletes() {
                         {genderLabel(a.gender)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{a.belt}</td>
+                    <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${beltStyle(a.belt).badge}`}
+                        >
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${beltStyle(a.belt).dot}`} />
+                          {a.belt}
+                        </span>
+                      </td>
                     <td className="px-4 py-3 text-slate-600">{groupName(a)}</td>
                     <td className="px-4 py-3">
                       <span

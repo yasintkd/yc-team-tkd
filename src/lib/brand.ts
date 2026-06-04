@@ -1,7 +1,7 @@
 export const BRAND = {
   name: 'YÇ Team Taekwondo',
   shortName: 'YÇ Team',
-  tagline: 'Salon Yönetimi',
+  tagline: 'Takım Yönetimi',
   /** Yalnızca favicon, sekme ikonu ve ana ekrana ekleme (PWA) için */
   iconSrc: '/icon-yc-team.png',
   colors: {

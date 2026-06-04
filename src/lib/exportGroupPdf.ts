@@ -37,17 +37,18 @@ function buildBodyHtml(data: GroupPdfInput) {
             .join('')}
         </ul>`
 
+  // list-style:none — numarayı biz veriyoruz, çift numara yok
   const athleteRows =
     data.athletes.length === 0
       ? '<p class="muted">Grupta kayıtlı sporcu yok.</p>'
-      : `<ol class="list numbered">
+      : `<ul class="athlete-list">
           ${data.athletes
             .map(
               (a, i) =>
-                `<li>${i + 1}. ${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</li>`,
+                `<li><span class="num">${i + 1}.</span>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</li>`,
             )
             .join('')}
-        </ol>`
+        </ul>`
 
   const notesBlock = data.groupNotes
     ? `<p class="notes">${escapeHtml(data.groupNotes)}</p>`
@@ -75,7 +76,7 @@ const iframeStyles = `
     font-family: Helvetica, Arial, sans-serif;
     color: #1a1a1a;
     background: #ffffff;
-    padding: 28px 32px;
+    padding: 32px 36px 48px 36px;
     width: 680px;
   }
   .header { text-align: center; margin-bottom: 20px; }
@@ -85,10 +86,23 @@ const iframeStyles = `
   h1 { font-size: 20px; margin-bottom: 6px; font-weight: 700; }
   h2 { font-size: 14px; margin: 20px 0 8px; color: #333333; font-weight: 600; }
   .notes { margin-top: 8px; font-size: 13px; color: #444444; }
-  .list { padding-left: 20px; font-size: 14px; line-height: 1.65; }
-  .list.numbered { padding-left: 24px; line-height: 1.75; }
+  .list { list-style: disc; padding-left: 20px; font-size: 14px; line-height: 1.65; }
+
+  /* Sporcu listesi */
+  .athlete-list { list-style: none; padding-left: 0; font-size: 14px; }
+  .athlete-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid #f0f0f0;
+    line-height: 1.6;
+  }
+  .athlete-list li:last-child { border-bottom: none; }
+  .num { display: inline-block; min-width: 26px; font-size: 12px; color: #888888; flex-shrink: 0; }
+
   .muted { font-size: 13px; color: #666666; }
-  .footer { margin-top: 24px; font-size: 11px; color: #888888; }
+  .footer { margin-top: 32px; font-size: 11px; color: #888888; }
 `
 
 function waitForImages(doc: Document) {
@@ -99,37 +113,25 @@ function waitForImages(doc: Document) {
       (img) =>
         new Promise<void>((resolve) => {
           if (img.complete) resolve()
-          else {
-            img.onload = () => resolve()
-            img.onerror = () => resolve()
-          }
+          else { img.onload = () => resolve(); img.onerror = () => resolve() }
         }),
     ),
   )
 }
 
-
 export async function downloadGroupListPdf(data: GroupPdfInput) {
   const iframe = document.createElement('iframe')
   iframe.style.cssText =
-    'position:fixed;left:-10000px;top:0;width:680px;height:4000px;border:0;visibility:hidden;'
+    'position:fixed;left:-10000px;top:0;width:680px;height:8000px;border:0;visibility:hidden;'
   document.body.appendChild(iframe)
 
   const doc = iframe.contentDocument
-  if (!doc) {
-    document.body.removeChild(iframe)
-    throw new Error('PDF oluşturulamadı.')
-  }
+  if (!doc) { document.body.removeChild(iframe); throw new Error('PDF oluşturulamadı.') }
 
   doc.open()
   doc.write(`<!DOCTYPE html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <style>${iframeStyles}</style>
-</head>
-<body>${buildBodyHtml(data)}</body>
-</html>`)
+<html lang="tr"><head><meta charset="utf-8"/><style>${iframeStyles}</style></head>
+<body>${buildBodyHtml(data)}</body></html>`)
   doc.close()
 
   try {
@@ -137,6 +139,8 @@ export async function downloadGroupListPdf(data: GroupPdfInput) {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
 
     const html2canvas = (await import('html2canvas')).default
+    const { jsPDF }   = await import('jspdf')
+
     const canvas = await html2canvas(doc.body, {
       backgroundColor: '#ffffff',
       scale: 2,
@@ -146,25 +150,74 @@ export async function downloadGroupListPdf(data: GroupPdfInput) {
       windowWidth: 680,
     })
 
-    const { jsPDF } = await import('jspdf')
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const imgWidth = pageWidth
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    // ── PDF sayfa boyutu & kenar boşlukları ──────────────────────────────────
+    const pdf     = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+    const pageW   = pdf.internal.pageSize.getWidth()   // 210 mm
+    const pageH   = pdf.internal.pageSize.getHeight()  // 297 mm
+    const marginX = 10  // sol-sağ (mm)
+    const marginT = 12  // üst (mm)
+    const marginB = 16  // alt (mm) — biraz daha geniş bırak
+    const printW  = pageW - marginX * 2   // 190 mm
+    const printH  = pageH - marginT - marginB  // 269 mm
 
-    const imgData = canvas.toDataURL('image/png')
-    let heightLeft = imgHeight
-    let position = 0
+    // canvas piksel → mm katsayısı (scale:2 dahil)
+    const pxToMm = printW / canvas.width  // mm/px
 
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
+    // ── Sporcu satırlarının kesme noktalarını bul ─────────────────────────────
+    // iframe içindeki .athlete-list li elemanlarının getBoundingClientRect()
+    // body'nin sol üst köşesine göre konumlarını verir (scale:1 px cinsinden)
+    const athleteEls = Array.from(doc.querySelectorAll<HTMLElement>('.athlete-list li'))
 
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
+    // Her li'nin üst kenarı — mm, scale:2 için ×2
+    const rowTopsMm: number[] = athleteEls.map(
+      (el) => el.getBoundingClientRect().top * 2 * pxToMm,
+    )
+    const rowBotsMm: number[] = athleteEls.map(
+      (el) => el.getBoundingClientRect().bottom * 2 * pxToMm,
+    )
+
+    // Kesme noktaları: bir satır sayfaya sığmayacaksa o satırın üstünden kes
+    const pageBreaksMm: number[] = []
+    let pageEndMm = printH  // mevcut sayfanın içerik bitişi (mm)
+
+    for (let i = 0; i < rowBotsMm.length; i++) {
+      if (rowBotsMm[i] > pageEndMm) {
+        // Bu satır sayfaya sığmıyor — satırın başından yeni sayfa aç
+        const breakAt = rowTopsMm[i]
+        pageBreaksMm.push(breakAt)
+        pageEndMm = breakAt + printH  // bir sonraki sayfanın sonu
+      }
+    }
+
+    // ── Canvas'ı satır hizalı dilimler halinde PDF'e yaz ─────────────────────
+    const totalMm = canvas.height * pxToMm
+    const cuts    = [0, ...pageBreaksMm, totalMm]  // başlangıç + kesme + son
+
+    for (let p = 0; p < cuts.length - 1; p++) {
+      if (p > 0) pdf.addPage()
+
+      const sliceTopMm = cuts[p]
+      const sliceBotMm = cuts[p + 1]
+      const sliceHmm   = sliceBotMm - sliceTopMm
+
+      // Piksel koordinatları
+      const sliceTopPx = sliceTopMm / pxToMm
+      const sliceHpx   = sliceHmm   / pxToMm
+
+      // Dilim canvas — beyaz zemin üzerine kes
+      const sc   = document.createElement('canvas')
+      sc.width   = canvas.width
+      sc.height  = Math.ceil(sliceHpx)
+      const ctx  = sc.getContext('2d')!
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, sc.width, sc.height)
+      ctx.drawImage(
+        canvas,
+        0, sliceTopPx, canvas.width, sliceHpx,  // kaynak
+        0, 0,          canvas.width, sliceHpx,  // hedef
+      )
+
+      pdf.addImage(sc.toDataURL('image/png'), 'PNG', marginX, marginT, printW, sliceHmm)
     }
 
     pdf.save(`${safeFilename(data.groupName)}-liste.pdf`)
