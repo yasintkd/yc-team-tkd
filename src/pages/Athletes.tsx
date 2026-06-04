@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Search, UserPlus, Pencil, Trash2, Users, PauseCircle, PlayCircle, MessageCircle, Phone, Copy, Check } from 'lucide-react'
+import { X, Search, UserPlus, Pencil, Trash2, Users, PauseCircle, PlayCircle, MessageCircle, Phone, Copy, Check, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
 
@@ -15,6 +15,9 @@ type Athlete = {
   phone: string | null
   belt: string
   gender: 'erkek' | 'kiz' | null
+  tc_no: string | null
+  mother_name: string | null
+  father_name: string | null
   parent_name: string | null
   parent_phone: string | null
   training_group_id: string | null
@@ -29,6 +32,9 @@ type FormData = {
   phone: string
   belt: string
   gender: 'erkek' | 'kiz' | ''
+  tc_no: string
+  mother_name: string
+  father_name: string
   parent_name: string
   parent_phone: string
   training_group_id: string
@@ -41,6 +47,9 @@ const EMPTY_FORM: FormData = {
   phone: '',
   belt: BELTS[0],
   gender: '',
+  tc_no: '',
+  mother_name: '',
+  father_name: '',
   parent_name: '',
   parent_phone: '',
   training_group_id: '',
@@ -63,11 +72,18 @@ function birthDetail(birthDate: string | null): string {
   return `${year} (${age} yaş)`
 }
 
-// Veli için hazır karşılama mesajı
-function welcomeMessage(a: Athlete): string {
-  const group = groupName(a)
-  const groupPart = group !== '—' ? ` (${group} grubu)` : ''
-  return `Merhaba, ${a.parent_name ? a.parent_name + ' bey/hanım' : 'veli'}! ${a.first_name} ${a.last_name}${groupPart} olarak YÇ Team Taekwondo'ya kaydını yaptırdık. Antrenman programı ve duyurular için bu gruptan bilgilendirme yapacağız. Hoş geldiniz! 🥋`
+// Veli için sabit karşılama mesajı (WhatsApp grup davet linki dahil)
+const WELCOME_MESSAGE = `Merhaba,
+Suluova Gençlik Merkezi Taekwondo kursu için resmi iletişim grubuna katılmak için aşağıdaki linki tıklayınız. Tüm resmi duyurularımızı bu kanal üzerinden gerçekleştireceğiz.
+
+https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t
+
+Yasin Çeken
+Milli Sporcu ve Antrenör
+05515508132`
+
+function welcomeMessage(_a: Athlete): string {
+  return WELCOME_MESSAGE
 }
 
 function groupName(a: Athlete): string {
@@ -222,7 +238,7 @@ export default function Athletes() {
     const { data, error: qErr } = await supabase
       .from('athletes')
       .select(
-        'id, first_name, last_name, birth_date, phone, belt, gender, parent_name, parent_phone, training_group_id, is_active, training_groups ( name )',
+        'id, first_name, last_name, birth_date, phone, belt, gender, tc_no, mother_name, father_name, parent_name, parent_phone, training_group_id, is_active, training_groups ( name )',
       )
       .order('last_name')
 
@@ -289,6 +305,9 @@ export default function Athletes() {
       phone: a.phone ?? '',
       belt: a.belt,
       gender: (a.gender as 'erkek' | 'kiz' | '') ?? '',
+      tc_no: a.tc_no ?? '',
+      mother_name: a.mother_name ?? '',
+      father_name: a.father_name ?? '',
       parent_name: a.parent_name ?? '',
       parent_phone: a.parent_phone ?? '',
       training_group_id: a.training_group_id ?? '',
@@ -323,6 +342,9 @@ export default function Athletes() {
       phone: form.phone.trim() || null,
       belt: form.belt,
       gender: form.gender || null,
+      tc_no: form.tc_no.trim() || null,
+      mother_name: form.mother_name.trim() || null,
+      father_name: form.father_name.trim() || null,
       parent_name: form.parent_name.trim() || null,
       parent_phone: form.parent_phone.trim() || null,
       training_group_id: form.training_group_id || null,
@@ -342,6 +364,34 @@ export default function Athletes() {
     closeForm()
     await loadAthletes()
     setSaving(false)
+  }
+
+  /** Tescil Fişi PDF indir */
+  const downloadTescil = async (a: Athlete) => {
+    try {
+      const res = await fetch('/api/tescil', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tc_no:       a.tc_no ?? '',
+          first_name:  a.first_name,
+          last_name:   a.last_name,
+          birth_date:  a.birth_date ?? '',
+          mother_name: a.mother_name ?? '',
+          father_name: a.father_name ?? '',
+        }),
+      })
+      if (!res.ok) throw new Error('PDF alınamadı')
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href  = url
+      link.download = `${a.first_name}_${a.last_name}_tescil.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Tescil fişi oluşturulamadı. Sunucu hatası.')
+    }
   }
 
   /** Pasife / aktife al */
@@ -657,6 +707,15 @@ export default function Athletes() {
               <InfoRow label="Doğum Yılı / Yaş" value={birthDetail(detailAthlete.birth_date)} />
               <InfoRow label="Kuşak" value={detailAthlete.belt} />
               <InfoRow label="Antrenman Grubu" value={groupName(detailAthlete)} />
+              {detailAthlete.tc_no && (
+                <InfoRow label="TC Kimlik No" value={detailAthlete.tc_no} />
+              )}
+              {detailAthlete.father_name && (
+                <InfoRow label="Baba Adı" value={detailAthlete.father_name} />
+              )}
+              {detailAthlete.mother_name && (
+                <InfoRow label="Anne Adı" value={detailAthlete.mother_name} />
+              )}
             </dl>
 
             {/* Telefon & WhatsApp kartları */}
@@ -666,8 +725,9 @@ export default function Athletes() {
                 <PhoneCard
                   label="Sporcu Telefonu"
                   name={`${detailAthlete.first_name} ${detailAthlete.last_name}`}
+                  contactName={`${detailAthlete.first_name} ${detailAthlete.last_name} SLV`}
                   phone={detailAthlete.phone}
-                  waMessage={`Merhaba ${detailAthlete.first_name}!`}
+                  waMessage=""
                 />
               )}
               {/* Veli telefonu + WhatsApp karşılama */}
@@ -675,6 +735,7 @@ export default function Athletes() {
                 <PhoneCard
                   label={`Veli — ${detailAthlete.parent_name ?? 'Veli'}`}
                   name={detailAthlete.parent_name ?? 'Veli'}
+                  contactName={`${detailAthlete.parent_name ?? 'Veli'} (${detailAthlete.first_name}) SLV`}
                   phone={detailAthlete.parent_phone}
                   waMessage={welcomeMessage(detailAthlete)}
                   showWelcome
@@ -688,6 +749,16 @@ export default function Athletes() {
 
             {/* Aksiyonlar */}
             <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-4">
+
+              {/* Tescil Fişi PDF */}
+              <button
+                type="button"
+                onClick={() => void downloadTescil(detailAthlete)}
+                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+              >
+                <FileText className="h-4 w-4" />
+                Tescil Fişi PDF İndir
+              </button>
 
               {/* Pasife / aktife al */}
               <button
@@ -847,6 +918,38 @@ export default function Athletes() {
                 </select>
               </Field>
 
+              {/* ─ Kimlik bilgileri ─ */}
+              <div className="col-span-2 mt-1 border-t border-app-border pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+                  Kimlik Bilgileri (Lisans / Tescil)
+                </p>
+              </div>
+              <Field label="TC Kimlik No" col2>
+                <input
+                  className="input-field"
+                  placeholder="12345678901"
+                  maxLength={11}
+                  value={form.tc_no}
+                  onChange={set('tc_no')}
+                />
+              </Field>
+              <Field label="Anne Adı">
+                <input
+                  className="input-field"
+                  placeholder="Fatma"
+                  value={form.mother_name}
+                  onChange={set('mother_name')}
+                />
+              </Field>
+              <Field label="Baba Adı Soyadı">
+                <input
+                  className="input-field"
+                  placeholder="Ahmet Arif"
+                  value={form.father_name}
+                  onChange={set('father_name')}
+                />
+              </Field>
+
               {/* ─ Veli bilgileri ─ */}
               <div className="col-span-2 mt-1 border-t border-app-border pt-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
@@ -908,12 +1011,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function PhoneCard({
   label,
   name,
+  contactName,
   phone,
   waMessage,
   showWelcome = false,
 }: {
   label: string
   name: string
+  contactName: string   // Rehbere kaydedilecek tam ad formatı
   phone: string
   waMessage: string
   showWelcome?: boolean
@@ -931,11 +1036,13 @@ function PhoneCard({
   }
 
   // Kişi kaydet: vCard indirme
+  // Format: "Veli Ad Soyad (Sporcu Adı) SLV" veya "Sporcu Ad Soyad SLV"
   const saveContact = () => {
     const vcard = [
       'BEGIN:VCARD',
       'VERSION:3.0',
-      `FN:${name}`,
+      `FN:${contactName}`,
+      `N:${contactName};;;;`,
       `TEL;TYPE=CELL:${phone}`,
       'END:VCARD',
     ].join('\n')
@@ -943,14 +1050,17 @@ function PhoneCard({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${name.replace(/\s+/g, '_')}.vcf`
+    a.download = `${contactName.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_')}.vcf`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const cleanPhone = phone.replace(/\D/g, '')
   const intl = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone
-  const waUrl = `https://wa.me/${intl}?text=${encodeURIComponent(waMessage)}`
+  // Mesaj boşsa direkt sohbet aç, doluysa hazır metin ekle
+  const waUrl = waMessage
+    ? `https://wa.me/${intl}?text=${encodeURIComponent(waMessage)}`
+    : `https://wa.me/${intl}`
 
   return (
     <div className="rounded-xl border border-app-border bg-white px-3 py-2.5">
