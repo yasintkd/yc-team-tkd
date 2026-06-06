@@ -1,0 +1,46 @@
+# Bağımlılık paketleri ve derleme çıktıları
+node_modules/
+dist/
+build/
+.next/
+.out/
+.vercel/
+
+# Kilit dosyaları (En çok token'ı bunlar gizlice yer!)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Medya, görsel ve tasarım assetleri
+public/
+assets/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.gif
+*.ico
+*.mp4
+*.webp
+
+# Log dosyaları ve geçici dosyalar
+*.log
+.npm/
+.eslintcache
+.turbo/
+
+# Gizli bilgiler (Zaten güvenlik için gitmemeli)
+.env
+.env.*
+!.env.example
+
+# Git ve IDE klasörleri
+.git/
+.vscode/
+.idea/
+
+# Büyük veri veya yedekleme dosyaları
+*.sql
+*.json
+!package.json
