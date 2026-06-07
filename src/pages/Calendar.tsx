@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Calendar, momentLocalizer, type Event } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import '../styles/calendar-theme.css'
 import { supabase } from '../lib/supabase'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 

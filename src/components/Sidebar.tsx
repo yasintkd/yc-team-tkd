@@ -44,8 +44,8 @@ const navGroups: NavGroup[] = [
     label: 'Araçlar',
     items: [
       { to: '/malzeme', label: 'Malzeme', icon: Package },
-      { to: '/raporlar', label: 'Raporlar', icon: FileText },
-      { to: '/takvim', label: 'Takvim', icon: CalendarDays },
+      { to: '/malzeme?tab=raporlar', label: 'Raporlar', icon: FileText },
+      { to: '/malzeme?tab=takvim', label: 'Takvim', icon: CalendarDays },
     ],
   },
 ]

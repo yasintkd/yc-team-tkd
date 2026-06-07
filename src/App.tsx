@@ -9,13 +9,11 @@ const Athletes = lazy(() => import('./pages/Athletes'))
 const BeltExams = lazy(() => import('./pages/BeltExams'))
 const Competitions = lazy(() => import('./pages/Competitions'))
 const Attendance = lazy(() => import('./pages/Attendance'))
-const Groups = lazy(() => import('./pages/Groups'))
-const Materials = lazy(() => import('./pages/Materials'))
-const Login = lazy(() => import('./pages/Login'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const EventsPage = lazy(() => import('./pages/EventsPage'))
 const AttendanceHub = lazy(() => import('./pages/AttendanceHub'))
-const Reports = lazy(() => import('./pages/Reports'))
-const Calendar = lazy(() => import('./pages/Calendar'))
+const Login = lazy(() => import('./pages/Login'))
+const Groups = lazy(() => import('./pages/Groups'))
 const AthleteDetail = lazy(() => import('./pages/AthleteDetail'))
 const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
 
@@ -103,23 +101,7 @@ function App() {
               path="/malzeme"
               element={
                 <ProtectedRoute>
-                  <SuspenseWrapper><Materials /></SuspenseWrapper>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/raporlar"
-              element={
-                <ProtectedRoute>
-                  <SuspenseWrapper><Reports /></SuspenseWrapper>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/takvim"
-              element={
-                <ProtectedRoute>
-                  <SuspenseWrapper><Calendar /></SuspenseWrapper>
+                  <SuspenseWrapper><ToolsPage /></SuspenseWrapper>
                 </ProtectedRoute>
               }
             />

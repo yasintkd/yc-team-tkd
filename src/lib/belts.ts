@@ -119,15 +119,15 @@ export function beltStyle(belt: string): { badge: string; dot: string } {
     }
   if ((b.includes('kırmızı') || b.includes('kirmizi')) && b.includes('siyah'))
     return {
-      badge: 'bg-red-100 text-slate-900 border border-slate-700',
+      badge: 'bg-red-100 text-[#0f172a] border border-[#334155]',
       dot:   'bg-red-500',
     }
 
   // ── Ana kuşaklar ──
   if (b.includes('beyaz'))
     return {
-      badge: 'bg-white text-slate-600 border border-slate-300 shadow-sm',
-      dot:   'bg-slate-300',
+      badge: 'bg-[#ffffff] text-[#475569] border border-[#cbd5e1] shadow-sm',
+      dot:   'bg-[#cbd5e1]',
     }
   if (b.includes('sarı') || b.includes('sari'))
     return {
@@ -151,12 +151,12 @@ export function beltStyle(belt: string): { badge: string; dot: string } {
     }
   if (b.includes('siyah'))
     return {
-      badge: 'bg-slate-900 text-white border border-slate-700',
-      dot:   'bg-white/80',
+      badge: 'bg-[#0f172a] text-[#ffffff] border border-[#334155]',
+      dot:   'bg-[#ffffffcc]',
     }
 
   return {
-    badge: 'bg-slate-100 text-slate-700 border border-slate-200',
-    dot:   'bg-slate-400',
+    badge: 'bg-[#f1f5f9] text-[#334155] border border-[#e2e8f0]',
+    dot:   'bg-[#94a3b8]',
   }
 }
