@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { BELTS, beltStyle, findBeltIndex, getPossibleTargetBelts } from '../lib/belts'
+import { BELTS, findBeltIndex, getPossibleTargetBelts } from '../lib/belts'
 import { CheckSquare, Square, Users, DollarSign, TrendingUp, Package, Trash2 } from 'lucide-react'
+import BeltBadge from '../components/BeltBadge'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 
 type Exam = {
   id: string
@@ -383,13 +385,13 @@ export default function BeltExams() {
             )}
           </div>
         </form>
-      </section>
+</section>
 
       {/* ── Sınav listesi ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="text-sm font-semibold">Sınav Listeleri</h2>
         {loading ? (
-          <p className="mt-3 text-xs text-brand-muted">Yükleniyor...</p>
+          <LoadingSkeleton variant="list-item" count={4} />
         ) : exams.length === 0 ? (
           <p className="mt-3 text-xs text-brand-muted">Henüz sınav yok.</p>
         ) : (
@@ -518,10 +520,9 @@ export default function BeltExams() {
                 {beltOrderSummary.map(([belt, count]) => (
                   <span
                     key={belt}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${beltStyle(belt).badge}`}
+                    className="inline-flex items-center gap-1"
                   >
-                    <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(belt).dot}`} />
-                    {belt}
+                    <BeltBadge belt={belt} size="sm" />
                     <span className="ml-0.5 font-bold">×{count}</span>
                   </span>
                 ))}
@@ -549,17 +550,11 @@ export default function BeltExams() {
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <span className="text-brand-muted">Mevcut:</span>{' '}
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(p.belt_before).badge}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(p.belt_before).dot}`} />
-                            {p.belt_before}
-                          </span>
+                          <BeltBadge belt={p.belt_before} size="sm" />
                         </div>
                         <div>
                           <span className="text-brand-muted">Hedef:</span>{' '}
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(p.target_belt).badge}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(p.target_belt).dot}`} />
-                            {p.target_belt}
-                          </span>
+                          <BeltBadge belt={p.target_belt} size="sm" />
                         </div>
                       </div>
 
@@ -618,8 +613,8 @@ export default function BeltExams() {
                 })}
               </ul>
 
-              {/* Masaüstü: tablo */}
               <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
+              {/* Masaüstü: tablo */}
                 <table className="w-full min-w-[800px] text-left text-xs">
                   <thead className="bg-app-bg-soft text-brand-muted">
                     <tr>
@@ -639,10 +634,7 @@ export default function BeltExams() {
                             {athleteName(p)}
                           </td>
                           <td className="px-3 py-2">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(p.belt_before).badge}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(p.belt_before).dot}`} />
-                              {p.belt_before}
-                            </span>
+                            <BeltBadge belt={p.belt_before} size="sm" />
                           </td>
                           <td className="px-3 py-2">
                             {selectedExam.status === 'planlandi' &&
@@ -661,10 +653,7 @@ export default function BeltExams() {
                                 ))}
                               </select>
                             ) : (
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(p.target_belt).badge}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(p.target_belt).dot}`} />
-                                {p.target_belt}
-                              </span>
+                              <BeltBadge belt={p.target_belt} size="sm" />
                             )}
                           </td>
                           <td className="px-3 py-2">

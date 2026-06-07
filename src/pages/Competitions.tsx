@@ -4,8 +4,10 @@ import {
   Calendar, Weight, Filter, Download,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { BELTS, beltStyle, findBeltIndex } from '../lib/belts'
+import { BELTS, findBeltIndex } from '../lib/belts'
 import { downloadCompetitionPng } from '../lib/exportCompetitionPng'
+import BeltBadge from '../components/BeltBadge'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -431,7 +433,7 @@ export default function Competitions() {
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="text-sm font-semibold">Yarışmalar</h2>
         {loading ? (
-          <p className="mt-3 text-xs text-brand-muted">Yükleniyor...</p>
+          <LoadingSkeleton variant="list-item" count={4} />
         ) : competitions.length === 0 ? (
           <div className="mt-3 flex flex-col items-center gap-2 py-8 text-center">
             <Trophy className="h-6 w-6 text-slate-300" />
@@ -468,10 +470,7 @@ export default function Competitions() {
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-brand-muted">
                       <span>{new Date(comp.competition_date).toLocaleDateString('tr-TR')}</span>
                       {comp.min_belt_index > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${beltStyle(BELTS[comp.min_belt_index]).dot}`} />
-                          min {BELTS[comp.min_belt_index]}
-                        </span>
+                        <BeltBadge belt={BELTS[comp.min_belt_index]} size="sm" />
                       )}
                       {comp.birth_year_min !== null || comp.birth_year_max !== null ? (
                         <span>doğum yılı sınırı var</span>
@@ -581,10 +580,7 @@ export default function Competitions() {
                           {a.first_name} {a.last_name}
                         </td>
                         <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(a.belt).badge}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(a.belt).dot}`} />
-                            {a.belt}
-                          </span>
+                          <BeltBadge belt={a.belt} size="sm" />
                         </td>
                         <td className="px-3 py-2 text-brand-muted">
                           {a.birth_date ? new Date(a.birth_date).toLocaleDateString('tr-TR') : '—'}
@@ -614,9 +610,8 @@ export default function Competitions() {
                   >
                     <div className="min-w-0 flex-1">
                       <span className="font-medium text-slate-700">{a.first_name} {a.last_name}</span>
-                      <span className={`ml-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(a.belt).badge}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(a.belt).dot}`} />
-                        {a.belt}
+                      <span className="ml-1">
+                        <BeltBadge belt={a.belt} size="sm" />
                       </span>
                       {a.birth_date && (
                         <span className="ml-1.5 text-brand-muted">
@@ -666,9 +661,8 @@ export default function Competitions() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-800">{getAthleteName(p)}</p>
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(getAthleteBelt(p)).badge}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(getAthleteBelt(p)).dot}`} />
-                          {getAthleteBelt(p)}
+                        <span className="mt-1 inline-flex items-center gap-1">
+                          <BeltBadge belt={getAthleteBelt(p)} size="sm" />
                         </span>
                       </div>
                       {selectedCompetition.status === 'planlandi' && (
@@ -714,10 +708,7 @@ export default function Competitions() {
                           {getAthleteName(p)}
                         </td>
                         <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(getAthleteBelt(p)).badge}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(getAthleteBelt(p)).dot}`} />
-                            {getAthleteBelt(p)}
-                          </span>
+                          <BeltBadge belt={getAthleteBelt(p)} size="sm" />
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1.5">

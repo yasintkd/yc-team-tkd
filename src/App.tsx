@@ -14,6 +14,9 @@ const Materials = lazy(() => import('./pages/Materials'))
 const Login = lazy(() => import('./pages/Login'))
 const EventsPage = lazy(() => import('./pages/EventsPage'))
 const AttendanceHub = lazy(() => import('./pages/AttendanceHub'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Calendar = lazy(() => import('./pages/Calendar'))
+const AthleteDetail = lazy(() => import('./pages/AthleteDetail'))
 const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -104,6 +107,23 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/raporlar"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Reports /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/takvim"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Calendar /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/sporcular/:id" element={<ProtectedRoute><SuspenseWrapper><AthleteDetail /></SuspenseWrapper></ProtectedRoute>} />
             <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ErrorBoundary>

@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-brand-red: #b21f24;
   --color-brand-cyan: #0097a7;
@@ -17,6 +19,10 @@
     color-scheme: light;
   }
 
+  .dark {
+    color-scheme: dark;
+  }
+
   html,
   body,
   #root {
@@ -27,6 +33,10 @@
     @apply bg-app-bg text-slate-800 antialiased;
     -webkit-tap-highlight-color: transparent;
     font-family: var(--font-family-sans);
+  }
+
+  .dark body {
+    @apply bg-slate-900 text-slate-200;
   }
 
   input,
@@ -51,6 +61,10 @@
     @apply border border-app-border/90 bg-app-surface/90 shadow-sm shadow-sky-100/80 backdrop-blur-xl;
   }
 
+  .dark .glass-panel {
+    @apply border-slate-700/80 bg-slate-800/95 shadow-none shadow-black/20;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
   }
@@ -67,8 +81,38 @@
     @apply rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-brand-red/90 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
+  .dark .btn-primary {
+    @apply hover:bg-brand-red/80;
+  }
+
   .input-field {
     @apply w-full rounded-lg border border-app-border bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/25;
+  }
+
+  .dark .input-field {
+    @apply border-slate-600 bg-slate-800/80 text-slate-200 placeholder:text-slate-500 focus:border-brand-cyan/80;
+  }
+
+  /* ── Tablo dark mode ── */
+  .dark table {
+    @apply border-slate-700;
+  }
+
+  .dark thead {
+    @apply bg-slate-800 text-slate-400;
+  }
+
+  .dark tbody tr {
+    @apply border-slate-700;
+  }
+
+  .dark tbody tr:hover {
+    @apply bg-slate-800/40;
+  }
+
+  .dark td,
+  .dark th {
+    @apply text-slate-300;
   }
 
   /* ── Loading Shimmer ── */
@@ -77,6 +121,12 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
+
+  .dark .shimmer {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+  }
+
   @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
@@ -118,5 +168,50 @@
     opacity: 1;
     transform: translateY(0);
     transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+  }
+
+  /* ── Dark extras ── */
+  .dark .bg-white {
+    @apply bg-slate-800;
+  }
+  .dark .text-slate-800 {
+    @apply text-slate-200;
+  }
+  .dark .text-slate-700 {
+    @apply text-slate-300;
+  }
+  .dark .text-slate-600 {
+    @apply text-slate-400;
+  }
+  .dark .text-slate-500 {
+    @apply text-slate-400;
+  }
+  .dark .border-app-border {
+    @apply border-slate-700;
+  }
+  .dark .bg-app-bg-soft {
+    @apply bg-slate-800/60;
+  }
+  .dark .bg-app-bg-soft\/60 {
+    @apply bg-slate-800/40;
+  }
+  .dark .shadow-sm {
+    @apply shadow-black/10;
+  }
+  .dark .shadow-lg {
+    @apply shadow-black/30;
+  }
+  .dark .shadow-xl {
+    @apply shadow-black/40;
+  }
+  .dark .ring-app-border {
+    @apply ring-slate-700;
+  }
+
+  /* Sidebar + Topbar + MobileNav */
+  .dark .sidebar,
+  .dark header[class*="sticky"],
+  .dark nav[class*="fixed"] {
+    @apply border-slate-700 bg-slate-900/95;
   }
 }

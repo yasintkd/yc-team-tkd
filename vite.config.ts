@@ -1,9 +1,43 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      },
+      manifest: {
+        name: 'YÇ Team Taekwondo Yönetim',
+        short_name: 'YÇ Team',
+        description: 'Sporcu, aidat ve yoklama yönetimi',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#e3f0fa',
+        theme_color: '#e3f0fa',
+        lang: 'tr',
+        icons: [
+          {
+            src: '/icon-yc-team-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/icon-yc-team-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+    }),
+  ],
   build: {
     cssCodeSplit: true,
     rollupOptions: {

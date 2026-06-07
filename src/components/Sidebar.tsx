@@ -8,6 +8,8 @@ import {
   CheckSquare,
   ChevronRight,
   Package,
+  FileText,
+  CalendarDays,
 } from 'lucide-react'
 import Logo from './Logo'
 import { BRAND } from '../lib/brand'
@@ -39,7 +41,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    items: [{ to: '/malzeme', label: 'Malzeme', icon: Package }],
+    label: 'Araçlar',
+    items: [
+      { to: '/malzeme', label: 'Malzeme', icon: Package },
+      { to: '/raporlar', label: 'Raporlar', icon: FileText },
+      { to: '/takvim', label: 'Takvim', icon: CalendarDays },
+    ],
   },
 ]
 

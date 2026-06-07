@@ -6,6 +6,8 @@ import {
 import { supabase } from '../lib/supabase'
 import { weekdayLabel, formatTime } from '../lib/days'
 import { downloadGroupListPdf } from '../lib/exportGroupPdf'
+import LoadingSkeleton from '../components/LoadingSkeleton'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ export default function Groups() {
   const [athletes, setAthletes] = useState<AthleteLite[]>([])
   const [saving, setSaving] = useState(false)
   const [exportingGroupId, setExportingGroupId] = useState<string | null>(null)
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<TrainingGroup | null>(null)
 
   // Hangi grup kartı açık
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
@@ -162,20 +165,7 @@ export default function Groups() {
   }
 
   const removeGroup = async (group: TrainingGroup) => {
-    const memberCount = (athletesByGroup.get(group.id) ?? []).length
-    const msg = memberCount > 0
-      ? `"${group.name}" grubunu silmek istediğinize emin misiniz? ${memberCount} sporcu grupsuz kalacak.`
-      : `"${group.name}" grubunu silmek istediğinize emin misiniz?`
-    if (!window.confirm(msg)) return
-    setSaving(true)
-    setError(null)
-    const { error: delErr } = await supabase.from('training_groups').delete().eq('id', group.id)
-    if (delErr) setError(delErr.message)
-    else {
-      if (expandedGroupId === group.id) setExpandedGroupId(null)
-      await load()
-    }
-    setSaving(false)
+    setConfirmDeleteGroup(group)
   }
 
   const exportGroupPdf = async (group: TrainingGroup) => {
@@ -279,7 +269,7 @@ export default function Groups() {
 
       {/* ── Grup kartları ── */}
       {loading ? (
-        <p className="text-xs text-brand-muted">Yükleniyor...</p>
+        <LoadingSkeleton variant="card" count={3} />
       ) : groups.length === 0 ? (
         <div className="glass-panel flex flex-col items-center gap-2 rounded-2xl py-12 text-center">
           <Users className="h-8 w-8 text-slate-300" />
@@ -596,9 +586,9 @@ export default function Groups() {
                     className="input-field"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                  />
+                    />
+                  </div>
                 </div>
-              </div>
               <button
                 type="submit"
                 disabled={saving}
@@ -610,6 +600,36 @@ export default function Groups() {
           </div>
         </div>
       )}
+
+      {/* ConfirmDialog — grup silme */}
+      <ConfirmDialog
+        open={!!confirmDeleteGroup}
+        title={`"${confirmDeleteGroup?.name}" silinsin mi?`}
+        message={(() => {
+          if (!confirmDeleteGroup) return ''
+          const count = (athletesByGroup.get(confirmDeleteGroup.id) ?? []).length
+          return count > 0
+            ? `${count} sporcu bu gruba kayıtlı. Silince grupsuz kalacaklar.`
+            : 'Bu işlem geri alınamaz.'
+        })()}
+        confirmLabel="Evet, Sil"
+        danger
+        saving={saving}
+        onConfirm={async () => {
+          if (!confirmDeleteGroup) return
+          setSaving(true)
+          setError(null)
+          const { error: delErr } = await supabase.from('training_groups').delete().eq('id', confirmDeleteGroup.id)
+          if (delErr) setError(delErr.message)
+          else {
+            if (expandedGroupId === confirmDeleteGroup.id) setExpandedGroupId(null)
+            await load()
+          }
+          setConfirmDeleteGroup(null)
+          setSaving(false)
+        }}
+        onCancel={() => setConfirmDeleteGroup(null)}
+      />
     </div>
   )
 }

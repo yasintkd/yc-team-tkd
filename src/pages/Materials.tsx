@@ -8,6 +8,8 @@ import {
   ShoppingCart,
   Download,
 } from 'lucide-react'
+import Tabs from '../components/Tabs'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -92,7 +94,7 @@ export default function Materials() {
 
   useEffect(() => { void loadAll() }, [])
 
-  if (loading) return <div className="text-xs text-brand-muted">Yükleniyor...</div>
+  if (loading) return <LoadingSkeleton variant="card" count={3} />
   if (error) return <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
 
   return (
@@ -101,19 +103,7 @@ export default function Materials() {
         <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">{message}</div>
       )}
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 rounded-2xl bg-white/70 p-1 shadow-sm ring-1 ring-app-border">
-        {TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key} type="button" onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition ${
-              tab === key ? 'bg-brand-red text-white shadow-sm' : 'text-slate-600 hover:bg-app-bg-soft'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />{label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={TABS} active={tab} onChange={(k) => setTab(k as TabKey)} />
 
       {tab === 'products' && <ProductsTab products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
       {tab === 'orders' && <OrdersTab products={products} athletes={athletes} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}

@@ -4,7 +4,7 @@ import {
   Users,
   Calendar,
   CheckSquare,
-  Package,
+  Wrench,
 } from 'lucide-react'
 
 const navItems = [
@@ -12,7 +12,7 @@ const navItems = [
   { to: '/sporcular', label: 'Sporcular', icon: Users },
   { to: '/etkinlikler', label: 'Etkinlikler', icon: Calendar },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
-  { to: '/malzeme', label: 'Malzeme', icon: Package },
+  { to: '/malzeme', label: 'Araçlar', icon: Wrench },
 ]
 
 export default function MobileNav() {

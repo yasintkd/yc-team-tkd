@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { weekdayLabel } from '../lib/days'
-import { Calendar, Users, Save, Clock } from 'lucide-react'
+import { Calendar, Users, Save, Clock, CheckCheck, XCircle, FileText } from 'lucide-react'
 
 type Group = { id: string; name: string }
 type Schedule = { id: string; start_time: string; end_time: string; group_name: string }
@@ -205,6 +205,53 @@ export default function AttendancePage() {
   const selectedSchedule = selectedScheduleIdx !== null ? schedules[selectedScheduleIdx] : null
   const presentCount = [...attendance.values()].filter((s) => s === 'geldi').length
 
+  // Toplu işaretle
+  const markAll = (status: 'geldi' | 'gelmedi') => {
+    const next = new Map(attendance)
+    for (const a of athletes) next.set(a.id, status)
+    setAttendance(next)
+  }
+
+  // Aylık PDF rapor indir
+  const downloadMonthlyReport = async () => {
+    const yearMonth = date.slice(0, 7)
+    const { data: monthData } = await supabase
+      .from('attendance_records')
+      .select('athlete_id, session_date, status')
+      .gte('session_date', `${yearMonth}-01`)
+      .lte('session_date', date)
+
+    if (!monthData || monthData.length === 0) return
+
+    // athlete_id -> isim
+    const { data: allAthletes } = await supabase
+      .from('athletes')
+      .select('id, first_name, last_name')
+
+    const nameMap = new Map<string, string>()
+    for (const a of allAthletes ?? []) nameMap.set(a.id, `${a.first_name} ${a.last_name}`)
+
+    // Grupla: her sporcu x gün
+    const daySet = new Set(monthData.map((r) => r.session_date))
+    const days = [...daySet].sort()
+
+    const rows: string[][] = []
+    const athleteIds = [...new Set(monthData.map((r) => r.athlete_id))]
+    for (const aid of athleteIds) {
+      const name = nameMap.get(aid) ?? aid
+      const row = [name]
+      for (const d of days) {
+        const rec = monthData.find((r) => r.athlete_id === aid && r.session_date === d)
+        row.push(rec?.status === 'geldi' ? '✔️' : rec?.status === 'gelmedi' ? '❌' : '—')
+      }
+      rows.push(row)
+    }
+
+    // CSV ile indir (pdf yerine csv daha pratik)
+    const { downloadCsv } = await import('../lib/exportCsv')
+    downloadCsv(rows, ['Sporcu', ...days.map((d) => new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }))], `yoklama-${yearMonth}.csv`)
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* ── Kontroller ── */}
@@ -284,13 +331,39 @@ export default function AttendancePage() {
         </div>
 
         {selectedSchedule && athletes.length > 0 && (
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-brand-muted">
-            <Users className="h-3.5 w-3.5" />
-            <span>
-              Mevcut:{' '}
-              <strong className="text-emerald-600">{presentCount}</strong> /{' '}
-              <strong>{athletes.length}</strong> sporcu
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-brand-muted">
+              <Users className="h-3.5 w-3.5" />
+              <span>
+                Mevcut: <strong className="text-emerald-600">{presentCount}</strong> / <strong>{athletes.length}</strong>
+              </span>
+            </div>
+            <div className="flex gap-1.5 ml-auto">
+              <button
+                type="button"
+                onClick={() => markAll('geldi')}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 transition"
+              >
+                <CheckCheck className="h-3 w-3" />
+                Tümü Geldi
+              </button>
+              <button
+                type="button"
+                onClick={() => markAll('gelmedi')}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-100 transition"
+              >
+                <XCircle className="h-3 w-3" />
+                Tümü Gelmedi
+              </button>
+              <button
+                type="button"
+                onClick={() => void downloadMonthlyReport()}
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition"
+              >
+                <FileText className="h-3 w-3" />
+                Aylık Rapor
+              </button>
+            </div>
           </div>
         )}
       </section>

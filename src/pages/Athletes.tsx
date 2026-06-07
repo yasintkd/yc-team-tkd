@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Search, UserPlus, Pencil, Trash2, Users, PauseCircle, PlayCircle, MessageCircle, Phone, Copy, Check, FileText } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Search, UserPlus, Users, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { downloadTescilPdf } from '../lib/exportTescilPdf'
-import { BELTS, beltStyle } from '../lib/belts'
+import { BELTS } from '../lib/belts'
+import BeltBadge from '../components/BeltBadge'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +23,7 @@ type Athlete = {
   father_name: string | null
   parent_name: string | null
   parent_phone: string | null
+  parent_type: 'anne' | 'baba' | null
   training_group_id: string | null
   is_active: boolean
   training_groups: { name: string } | { name: string }[] | null
@@ -38,6 +41,7 @@ type FormData = {
   father_name: string
   parent_name: string
   parent_phone: string
+  parent_type: 'anne' | 'baba' | ''
   training_group_id: string
 }
 
@@ -53,6 +57,7 @@ const EMPTY_FORM: FormData = {
   father_name: '',
   parent_name: '',
   parent_phone: '',
+  parent_type: '',
   training_group_id: '',
 }
 
@@ -63,17 +68,6 @@ function birthYear(birthDate: string | null): string {
   if (!birthDate) return '—'
   return String(new Date(birthDate).getFullYear())
 }
-
-/** Detayda tam bilgi: "2012 (13 yaş)" */
-function birthDetail(birthDate: string | null): string {
-  if (!birthDate) return '—'
-  const d = new Date(birthDate)
-  const year = d.getFullYear()
-  const age = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 365.25))
-  return `${year} (${age} yaş)`
-}
-
-
 
 function groupName(a: Athlete): string {
   const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
@@ -136,8 +130,7 @@ export default function Athletes() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -156,7 +149,7 @@ export default function Athletes() {
     const { data, error: qErr } = await supabase
       .from('athletes')
       .select(
-        'id, first_name, last_name, birth_date, phone, belt, gender, tc_no, mother_name, father_name, parent_name, parent_phone, training_group_id, is_active, training_groups ( name )',
+        'id, first_name, last_name, birth_date, phone, belt, gender, tc_no, mother_name, father_name, parent_name, parent_phone, parent_type, training_group_id, is_active, training_groups ( name )',
       )
       .order('last_name')
 
@@ -181,7 +174,8 @@ export default function Athletes() {
     return rows
       .filter((a) => {
         const nameMatch = q
-          ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q)
+          ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q) ||
+          (a.phone && a.phone.replace(/\s/g, '').includes(q))
           : true
         const beltMatch = beltFilter ? a.belt === beltFilter : true
         const groupMatch = groupFilter ? a.training_group_id === groupFilter : true
@@ -200,6 +194,16 @@ export default function Athletes() {
         ),
       )
   }, [rows, search, beltFilter, groupFilter, statusFilter])
+
+  // ── Sayfalama ──────────────────────────────────────────────────────────────
+  const PAGE_SIZE = 20
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  // Filtre değişince sayfa sıfırla
+  useEffect(() => { setPage(1) }, [search, beltFilter, groupFilter, statusFilter])
 
   // Sayaçlar
   const activeCount = useMemo(() => rows.filter((r) => r.is_active).length, [rows])
@@ -228,11 +232,11 @@ export default function Athletes() {
       father_name: a.father_name ?? '',
       parent_name: a.parent_name ?? '',
       parent_phone: a.parent_phone ?? '',
+      parent_type: (a.parent_type ?? '') as 'anne' | 'baba' | '',
       training_group_id: a.training_group_id ?? '',
     })
     setError(null)
     setShowForm(true)
-    setSelectedAthlete(null)
   }
 
   const closeForm = () => {
@@ -265,6 +269,7 @@ export default function Athletes() {
       father_name: form.father_name.trim() || null,
       parent_name: form.parent_name.trim() || null,
       parent_phone: form.parent_phone.trim() || null,
+      parent_type: form.parent_type || null,
       training_group_id: form.training_group_id || null,
       branch: 'Taekwondo',
     }
@@ -284,64 +289,9 @@ export default function Athletes() {
     setSaving(false)
   }
 
-  /** Tescil Fişi PDF indir — tamamen client-side, sunucu gerekmez */
-  const downloadTescil = async (a: Athlete) => {
-    try {
-      await downloadTescilPdf({
-        tc_no:       a.tc_no,
-        first_name:  a.first_name,
-        last_name:   a.last_name,
-        birth_date:  a.birth_date,
-        mother_name: a.mother_name,
-        father_name: a.father_name,
-      })
-    } catch {
-      setError('Tescil fişi oluşturulamadı.')
-    }
-  }
-
-  /** Pasife / aktife al */
-  const onToggleActive = async (athlete: Athlete) => {
-    setSaving(true)
-    setError(null)
-    const { error: dbErr } = await supabase
-      .from('athletes')
-      .update({ is_active: !athlete.is_active })
-      .eq('id', athlete.id)
-    if (dbErr) {
-      setError(dbErr.message)
-    } else {
-      // Modal içindeki veriyi güncelle
-      setSelectedAthlete((prev) =>
-        prev?.id === athlete.id ? { ...prev, is_active: !athlete.is_active } : prev,
-      )
-      await loadAthletes()
-    }
-    setSaving(false)
-  }
-
-  /** Kalıcı sil */
-  const onDelete = async (id: string) => {
-    setSaving(true)
-    setError(null)
-    const { error: dbErr } = await supabase.from('athletes').delete().eq('id', id)
-    if (dbErr) {
-      setError(dbErr.message)
-    } else {
-      setConfirmDeleteId(null)
-      setSelectedAthlete(null)
-      await loadAthletes()
-    }
-    setSaving(false)
-  }
-
   // ── Render helpers ────────────────────────────────────────────────────────────
 
   const canSubmit = form.first_name.trim().length > 0 && form.last_name.trim().length > 0
-
-  const detailAthlete = selectedAthlete
-    ? (rows.find((r) => r.id === selectedAthlete.id) ?? selectedAthlete)
-    : null
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -405,11 +355,10 @@ export default function Athletes() {
                 key={key}
                 type="button"
                 onClick={() => setStatusFilter(key)}
-                className={`flex-1 rounded-md py-1.5 transition ${
-                  statusFilter === key
+                className={`flex-1 rounded-md py-1.5 transition ${statusFilter === key
                     ? 'bg-white text-slate-800 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
-                }`}
+                  }`}
               >
                 {label}
               </button>
@@ -427,7 +376,7 @@ export default function Athletes() {
 
       {/* ── Sporcu listesi ── */}
       {loading ? (
-        <p className="text-xs text-brand-muted">Yükleniyor...</p>
+        <LoadingSkeleton variant="table-row" count={8} />
       ) : filtered.length === 0 ? (
         <div className="glass-panel flex flex-col items-center gap-2 rounded-2xl py-12 text-center">
           <Users className="h-8 w-8 text-slate-300" />
@@ -436,29 +385,26 @@ export default function Athletes() {
             Filtrelerinizi değiştirin veya yeni sporcu ekleyin.
           </p>
         </div>
+      ) : loading ? (
+        <LoadingSkeleton variant="table-row" count={8} />
       ) : (
         <>
           {/* Mobil: kart listesi */}
           <ul className="space-y-2 md:hidden">
-            {filtered.map((a) => (
+            {paged.map((a) => (
               <li key={a.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAthlete(a)}
-                  className={`glass-panel w-full rounded-xl p-3 text-left transition active:scale-[0.99] ${
-                    !a.is_active ? 'opacity-60' : ''
-                  }`}
+                <Link
+                  to={`/sporcular/${a.id}`}
+                  className={`glass-panel block w-full rounded-xl p-3 text-left transition active:scale-[0.99] ${!a.is_active ? 'opacity-60' : ''
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-800">
+                      <Link to={`/sporcular/${a.id}`} className="truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition">
                         {a.first_name} {a.last_name}
-                      </p>
-                      <span
-                        className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${beltStyle(a.belt).badge}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${beltStyle(a.belt).dot}`} />
-                        {a.belt}
+                      </Link>
+                      <span className="mt-1 inline-flex items-center gap-1">
+                        <BeltBadge belt={a.belt} size="sm" />
                       </span>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
@@ -478,7 +424,7 @@ export default function Athletes() {
                     <span>{birthYear(a.birth_date)}</span>
                     <span>{groupName(a)}</span>
                   </div>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
@@ -498,16 +444,16 @@ export default function Athletes() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-app-border">
-                {filtered.map((a) => (
+                {paged.map((a) => (
                   <tr
                     key={a.id}
-                    className={`cursor-pointer transition hover:bg-app-bg-soft/60 ${
-                      !a.is_active ? 'opacity-60' : ''
-                    }`}
-                    onClick={() => setSelectedAthlete(a)}
+                    className={`transition hover:bg-app-bg-soft/60 ${!a.is_active ? 'opacity-60' : ''
+                      }`}
                   >
                     <td className="px-4 py-3 font-medium text-slate-800">
-                      {a.first_name} {a.last_name}
+                      <Link to={`/sporcular/${a.id}`} className="hover:text-brand-red transition">
+                        {a.first_name} {a.last_name}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{birthYear(a.birth_date)}</td>
                     <td className="px-4 py-3">
@@ -518,21 +464,15 @@ export default function Athletes() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${beltStyle(a.belt).badge}`}
-                        >
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${beltStyle(a.belt).dot}`} />
-                          {a.belt}
-                        </span>
-                      </td>
+                      <BeltBadge belt={a.belt} size="md" />
+                    </td>
                     <td className="px-4 py-3 text-slate-600">{groupName(a)}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          a.is_active
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${a.is_active
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-amber-100 text-amber-700'
-                        }`}
+                          }`}
                       >
                         {a.is_active ? 'Aktif' : 'Pasif'}
                       </span>
@@ -554,180 +494,35 @@ export default function Athletes() {
               </tbody>
             </table>
           </div>
+
+          {/* Sayfalama */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-app-border">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40"
+              >
+                ← Önceki
+              </button>
+              <span className="text-xs text-brand-muted">
+                {safePage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage(safePage + 1)}
+                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40"
+              >
+                Sonraki →
+              </button>
+            </div>
+          )}
         </>
       )}
 
-      {/* ════════════════════════════════════════════════════════
-          MODAL — Sporcu Detay
-      ════════════════════════════════════════════════════════ */}
-      {detailAthlete && !showForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
-          onClick={() => { setSelectedAthlete(null); setConfirmDeleteId(null) }}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Başlık */}
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-slate-800">
-                    {detailAthlete.first_name} {detailAthlete.last_name}
-                  </h3>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      detailAthlete.is_active
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-amber-100 text-amber-700'
-                    }`}
-                  >
-                    {detailAthlete.is_active ? 'Aktif' : 'Pasif'}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-brand-muted">{detailAthlete.belt}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEditForm(detailAthlete)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border bg-white text-slate-600 hover:bg-app-bg-soft"
-                  title="Düzenle"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedAthlete(null); setConfirmDeleteId(null) }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border bg-white text-slate-600 hover:bg-app-bg-soft"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
 
-            {/* Bilgiler */}
-            <dl className="mt-4 grid grid-cols-2 gap-3">
-              <InfoRow label="Cinsiyet" value={genderLabel(detailAthlete.gender)} />
-              <InfoRow label="Doğum Yılı / Yaş" value={birthDetail(detailAthlete.birth_date)} />
-              <InfoRow label="Kuşak" value={detailAthlete.belt} />
-              <InfoRow label="Antrenman Grubu" value={groupName(detailAthlete)} />
-              {detailAthlete.tc_no && (
-                <InfoRow label="TC Kimlik No" value={detailAthlete.tc_no} />
-              )}
-              {detailAthlete.father_name && (
-                <InfoRow label="Baba Adı" value={detailAthlete.father_name} />
-              )}
-              {detailAthlete.mother_name && (
-                <InfoRow label="Anne Adı" value={detailAthlete.mother_name} />
-              )}
-            </dl>
-
-            {/* Telefon & WhatsApp kartları */}
-            <div className="mt-3 space-y-2">
-              {/* Sporcu telefonu */}
-              {detailAthlete.phone && (
-                <PhoneCard
-                  label="Sporcu Telefonu"
-                  name={`${detailAthlete.first_name} ${detailAthlete.last_name}`}
-                  contactName={`${detailAthlete.first_name} ${detailAthlete.last_name} SLV`}
-                  phone={detailAthlete.phone}
-                  waMessage=""
-                />
-              )}
-              {/* Veli telefonu + WhatsApp karşılama */}
-              {detailAthlete.parent_phone && (
-                <PhoneCard
-                  label={`Veli — ${detailAthlete.parent_name ?? 'Veli'}`}
-                  name={detailAthlete.parent_name ?? 'Veli'}
-                  contactName={`${detailAthlete.parent_name ?? 'Veli'} (${detailAthlete.first_name}) SLV`}
-                  phone={detailAthlete.parent_phone}
-                  waMessage={''}
-                  showWelcome
-                />
-              )}
-              {/* Telefon yoksa bilgi */}
-              {!detailAthlete.phone && !detailAthlete.parent_phone && (
-                <p className="text-xs text-brand-muted">Telefon numarası girilmemiş.</p>
-              )}
-            </div>
-
-            {/* Aksiyonlar */}
-            <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-4">
-
-              {/* Tescil Fişi PDF */}
-              <button
-                type="button"
-                onClick={() => void downloadTescil(detailAthlete)}
-                className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
-              >
-                <FileText className="h-4 w-4" />
-                Tescil Fişi PDF İndir
-              </button>
-
-              {/* Pasife / aktife al */}
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void onToggleActive(detailAthlete)}
-                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition disabled:opacity-60 ${
-                  detailAthlete.is_active
-                    ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                    : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                }`}
-              >
-                {detailAthlete.is_active ? (
-                  <>
-                    <PauseCircle className="h-4 w-4" />
-                    {saving ? 'İşleniyor...' : 'Pasife Al (Ara Veriyor)'}
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="h-4 w-4" />
-                    {saving ? 'İşleniyor...' : 'Tekrar Aktifleştir'}
-                  </>
-                )}
-              </button>
-
-              {/* Kalıcı sil */}
-              {confirmDeleteId === detailAthlete.id ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs font-medium text-rose-700">
-                    Bu sporcu kalıcı olarak silinecek. Emin misiniz?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => void onDelete(detailAthlete.id)}
-                      className="flex-1 rounded-xl bg-rose-600 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
-                    >
-                      {saving ? 'Siliniyor...' : 'Evet, Kalıcı Sil'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="flex-1 rounded-xl border border-app-border py-2 text-xs font-medium text-slate-600"
-                    >
-                      İptal
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteId(detailAthlete.id)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Kalıcı Olarak Sil
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ════════════════════════════════════════════════════════
           MODAL — Yeni / Düzenle Formu
@@ -856,21 +651,13 @@ export default function Athletes() {
                 />
               </Field>
 
-              {/* ─ Veli bilgileri ─ */}
+              {/* ─ Veli irtibat ─ */}
               <div className="col-span-2 mt-1 border-t border-app-border pt-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-                  Veli Bilgileri
+                  Veli İrtibat
                 </p>
               </div>
-              <Field label="Veli Adı Soyadı">
-                <input
-                  className="input-field"
-                  placeholder="Mehmet Yılmaz"
-                  value={form.parent_name}
-                  onChange={set('parent_name')}
-                />
-              </Field>
-              <Field label="Veli Telefonu">
+              <Field label="Veli Telefonu" col2>
                 <input
                   className="input-field"
                   placeholder="05xx xxx xx xx"
@@ -878,6 +665,31 @@ export default function Athletes() {
                   onChange={set('parent_phone')}
                 />
               </Field>
+              {/* Veli tipi: anne mi baba mı — sadece telefon girilmişse zorunlu değil */}
+              <div className="col-span-2 flex gap-4 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="parent_type"
+                    value="anne"
+                    checked={form.parent_type === 'anne'}
+                    onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))}
+                    className="accent-brand-cyan"
+                  />
+                  Anne
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="parent_type"
+                    value="baba"
+                    checked={form.parent_type === 'baba'}
+                    onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))}
+                    className="accent-brand-cyan"
+                  />
+                  Baba
+                </label>
+              </div>
 
               {/* ─ Kaydet ─ */}
               <div className="col-span-2 pt-2">
@@ -897,129 +709,6 @@ export default function Athletes() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── InfoRow ──────────────────────────────────────────────────────────────────
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-app-border bg-app-bg-soft/60 px-3 py-2">
-      <dt className="text-[10px] font-medium uppercase tracking-wide text-brand-muted">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-slate-800">{value}</dd>
-    </div>
-  )
-}
-
-// ─── PhoneCard ─────────────────────────────────────────────────────────────────
-
-function PhoneCard({
-  label,
-  contactName,
-  phone,
-  waMessage,
-  showWelcome = false,
-}: {
-  label: string
-  name: string
-  contactName: string   // Rehbere kaydedilecek tam ad formatı
-  phone: string
-  waMessage: string
-  showWelcome?: boolean
-}) {
-  const [copied, setCopied] = useState(false)
-
-  const copyPhone = async () => {
-    try {
-      await navigator.clipboard.writeText(phone)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // fallback
-    }
-  }
-
-  // Kişi kaydet: vCard indirme
-  // Format: "Veli Ad Soyad (Sporcu Adı) SLV" veya "Sporcu Ad Soyad SLV"
-  const saveContact = () => {
-    const vcard = [
-      'BEGIN:VCARD',
-      'VERSION:3.0',
-      `FN:${contactName}`,
-      `N:${contactName};;;;`,
-      `TEL;TYPE=CELL:${phone}`,
-      'END:VCARD',
-    ].join('\n')
-    const blob = new Blob([vcard], { type: 'text/vcard' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${contactName.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_')}.vcf`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const cleanPhone = phone.replace(/\D/g, '')
-  const intl = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone
-  // Mesaj boşsa direkt sohbet aç, doluysa hazır metin ekle
-  const waUrl = waMessage
-    ? `https://wa.me/${intl}?text=${encodeURIComponent(waMessage)}`
-    : `https://wa.me/${intl}`
-
-  return (
-    <div className="rounded-xl border border-app-border bg-white px-3 py-2.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-brand-muted">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-slate-800">{phone}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {/* Ara */}
-        <a
-          href={`tel:${phone.replace(/\s/g, '')}`}
-          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-sky-50 hover:border-sky-200 hover:text-sky-700 transition"
-        >
-          <Phone className="h-3 w-3" />
-          Ara
-        </a>
-        {/* Kopyala */}
-        <button
-          type="button"
-          onClick={() => void copyPhone()}
-          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-app-bg-soft transition"
-        >
-          {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-          {copied ? 'Kopyalandı' : 'Kopyala'}
-        </button>
-        {/* Kişi kaydet */}
-        <button
-          type="button"
-          onClick={saveContact}
-          className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-bg-soft px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 transition"
-        >
-          Rehbere Kaydet
-        </button>
-        {/* WhatsApp — normal mesaj */}
-        <a
-          href={waUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 transition"
-        >
-          <MessageCircle className="h-3 w-3" />
-          WhatsApp
-        </a>
-        {/* Karşılama mesajı — sadece veli kartında */}
-        {showWelcome && (
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-100 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800 hover:bg-emerald-200 transition"
-          >
-            <MessageCircle className="h-3 w-3" />
-            Karşılama Mesajı Gönder
-          </a>
-        )}
-      </div>
     </div>
   )
 }

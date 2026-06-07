@@ -1,8 +1,10 @@
-import { Bell, LogOut } from 'lucide-react'
+import { LogOut, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { APP_VERSION } from '../appVersion'
 import Logo from './Logo'
 import { useLocation } from 'react-router-dom'
+import { useTheme } from '../lib/theme'
+import NotificationBell from './NotificationBell'
 
 const pageTitles: Record<string, { title: string; subtitle?: string }> = {
   '/dashboard': {
@@ -45,6 +47,7 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
 
 export default function Topbar() {
   const { user, signOut } = useAuth()
+  const { theme, toggle } = useTheme()
   const location = useLocation()
   const page = pageTitles[location.pathname]
   const username =
@@ -75,11 +78,14 @@ export default function Topbar() {
           )}
           <button
             type="button"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 active:scale-95 hover:bg-app-bg-soft hover:text-slate-900"
-            aria-label="Bildirimler"
+            onClick={toggle}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-app-border bg-white text-slate-600 active:scale-95 hover:bg-app-bg-soft hover:text-slate-900"
+            aria-label={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
+            title={theme === 'dark' ? 'Açık temaya geç' : 'Koyu temaya geç'}
           >
-            <Bell className="h-4 w-4" />
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
+          <NotificationBell />
           <button
             type="button"
             onClick={() => void signOut()}

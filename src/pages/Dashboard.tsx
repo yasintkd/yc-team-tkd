@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Users, UsersRound, Award, CalendarClock, AlertTriangle } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import StatCard from '../components/StatCard'
+import LoadingSkeleton from '../components/LoadingSkeleton'
 import { supabase } from '../lib/supabase'
 import { todayIsoWeekday, formatTime } from '../lib/days'
 
@@ -20,9 +22,67 @@ type MissedAthlete = {
   lastDate: string | null
 }
 
+/** Saf kuşak renkleri */
+const BELT_COLORS: Record<string, string> = {
+  'Beyaz': '#f1f5f9',
+  'Beyaz-Sarı': '#fde68a',
+  'Sarı': '#eab308',
+  'Sarı-Yeşil': '#a3e635',
+  'Yeşil': '#22c55e',
+  'Yeşil-Mavi': '#2dd4bf',
+  'Mavi': '#3b82f6',
+  'Mavi-Kırmızı': '#fb7185',
+  'Kırmızı': '#ef4444',
+  'Kırmızı-Siyah': '#a855f7',
+  'Siyah': '#1e293b',
+  '1. Dan': '#0f172a',
+  '2. Dan': '#020617',
+}
+
+/** Bileşik kuşak çiftleri — hangi iki renk arasında geçiş */
+const COMPOUND_BELTS: Record<string, [string, string]> = {
+  'Beyaz-Sarı':   ['#f1f5f9', '#eab308'],
+  'Sarı-Yeşil':   ['#eab308', '#22c55e'],
+  'Yeşil-Mavi':   ['#22c55e', '#3b82f6'],
+  'Mavi-Kırmızı': ['#3b82f6', '#ef4444'],
+  'Kırmızı-Siyah':['#ef4444', '#1e293b'],
+}
+
+/** Bileşik kuşak için pattern ID üret */
+function beltPatternId(belt: string): string {
+  return `pat-${belt.replace(/\s/g, '')}`
+}
+
+/** Bir kuşak için fill — bileşikse pattern url, değilse düz renk */
+function beltFill(belt: string): string {
+  return COMPOUND_BELTS[belt] ? `url(#${beltPatternId(belt)})` : (BELT_COLORS[belt] ?? '#94a3b8')
+}
+
 const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   .toISOString()
   .slice(0, 10)
+
+/** SVG arc path (Recharts custom activeShape) */
+function getArcPath(
+  cx: number, cy: number,
+  innerRadius: number, outerRadius: number,
+  startAngle: number, endAngle: number,
+): string {
+  const rad = (a: number) => (a * Math.PI) / 180
+  const polar = (r: number, a: number) => [cx + r * Math.cos(rad(a)), cy + r * Math.sin(rad(a))]
+  const s = polar(outerRadius, startAngle)
+  const e = polar(outerRadius, endAngle)
+  const si = polar(innerRadius, endAngle)
+  const ei = polar(innerRadius, startAngle)
+  const large = endAngle - startAngle > 180 ? 1 : 0
+  return [
+    `M${s[0]},${s[1]}`,
+    `A${outerRadius},${outerRadius},0,${large},1,${e[0]},${e[1]}`,
+    `L${si[0]},${si[1]}`,
+    `A${innerRadius},${innerRadius},0,${large},0,${ei[0]},${ei[1]}`,
+    'Z',
+  ].join(' ')
+}
 
 function groupName(
   a: { training_groups: { name: string } | { name: string }[] | null },
@@ -32,12 +92,14 @@ function groupName(
 }
 
 export default function Dashboard() {
+  const [dashboardLoading, setDashboardLoading] = useState(true)
   const [athleteCount, setAthleteCount] = useState('—')
   const [groupCount, setGroupCount] = useState('—')
   const [upcomingExam, setUpcomingExam] = useState('—')
   const [examHint, setExamHint] = useState('Planlanan kuşak sınavı')
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([])
   const [beltSummary, setBeltSummary] = useState<BeltCount[]>([])
+  const [monthlyAttendance, setMonthlyAttendance] = useState<{ date: string; count: number }[]>([])
   const [missedAthletes, setMissedAthletes] = useState<MissedAthlete[]>([])
 
   useEffect(() => {
@@ -165,8 +227,38 @@ export default function Dashboard() {
         }
       }
       setMissedAthletes(missed)
+
+      // ── Aylık katılım ─────────────────────────────────────────────
+      const { data: monthlyData } = await supabase
+        .from('attendance_records')
+        .select('session_date, status')
+        .eq('status', 'geldi')
+        .gte('session_date', THIRTY_DAYS_AGO)
+
+      const dayCount = new Map<string, number>()
+      for (const r of monthlyData ?? []) {
+        const key = r.session_date.slice(5, 10) // MM-DD
+        dayCount.set(key, (dayCount.get(key) ?? 0) + 1)
+      }
+      setMonthlyAttendance(
+        [...dayCount.entries()]
+          .map(([date, count]) => ({ date, count }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      )
+
+      setDashboardLoading(false)
     })()
   }, [])
+
+  if (dashboardLoading) {
+    return (
+      <div className="space-y-6">
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <LoadingSkeleton variant="card" count={4} />
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -261,32 +353,156 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Kuşak dağılımı */}
+        {/* Kuşak dağılımı – PieChart */}
         <div className="glass-panel rounded-2xl p-4">
           <h2 className="text-sm font-semibold">Kuşak Dağılımı</h2>
           {beltSummary.length === 0 ? (
             <p className="mt-3 text-xs text-brand-muted">Henüz sporcu kaydı yok.</p>
           ) : (
-            <ul className="mt-3 space-y-2 text-xs">
-              {beltSummary.map(({ belt, count }) => (
-                <li
-                  key={belt}
-                  className="flex items-center justify-between rounded-lg border border-app-border bg-white px-3 py-2"
-                >
-                  <span className="text-slate-700">{belt}</span>
-                  <span className="font-semibold text-slate-800">{count}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3">
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <defs>
+                    {Object.entries(COMPOUND_BELTS).map(([belt, [c1, c2]]) => {
+                      if (!beltSummary.some((b) => b.belt === belt)) return null
+                      const id = beltPatternId(belt)
+                      return (
+                        <pattern key={id} id={id} patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+                          <rect width="5" height="10" fill={c1} />
+                          <rect x="5" width="5" height="10" fill={c2} />
+                        </pattern>
+                      )
+                    })}
+                  </defs>
+                  <Pie
+                    data={beltSummary}
+                    dataKey="count"
+                    nameKey="belt"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={92}
+                    paddingAngle={3}
+                    strokeWidth={2}
+                    stroke="#fff"
+                    isAnimationActive
+                    animationBegin={200}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
+                    activeShape={(props: any) => {
+                      const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
+                      return (
+                        <g>
+                          <defs>
+                            <filter id={`glow-${props.belt?.replace(/\s/g, '') ?? 'belt'}`}>
+                              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                              <feMerge>
+                                <feMergeNode in="coloredBlur" />
+                                <feMergeNode in="SourceGraphic" />
+                              </feMerge>
+                            </filter>
+                          </defs>
+                          <path
+                            d={getArcPath(cx, cy, innerRadius - 2, outerRadius + 4, startAngle, endAngle)}
+                            fill={fill}
+                            opacity={0.25}
+                            filter={`url(#glow-${props.belt?.replace(/\s/g, '') ?? 'belt'})`}
+                          />
+                          <path
+                            d={getArcPath(cx, cy, innerRadius, outerRadius + 3, startAngle, endAngle)}
+                            fill={fill}
+                            opacity={0.9}
+                            stroke="#fff"
+                            strokeWidth={2}
+                          />
+                        </g>
+                      )
+                    }}
+                  >
+                    {beltSummary.map((e) => (
+                      <Cell
+                        key={e.belt}
+                        fill={beltFill(e.belt)}
+                        stroke="rgba(255,255,255,0.6)"
+                        strokeWidth={2}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 12,
+                      border: '1px solid #e2e8f0',
+                      background: 'rgba(255,255,255,0.97)',
+                      fontSize: 12,
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                    }}
+                    formatter={(value, name) => [`${value} sporcu`, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
+                {beltSummary.map(({ belt, count }) => (
+                  <span key={belt} className="flex items-center gap-1.5 transition hover:scale-105">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full ring-1 ring-black/5 transition-transform"
+                      style={{ background: COMPOUND_BELTS[belt] ? `linear-gradient(135deg, ${COMPOUND_BELTS[belt][0]} 50%, ${COMPOUND_BELTS[belt][1]} 50%)` : (BELT_COLORS[belt] ?? '#94a3b8') }}
+                    />
+                    {belt} <span className="font-semibold text-slate-800">{count}</span>
+                  </span>
+                ))}
+              </div>
+              <Link
+                to="/kusak-sinavi"
+                className="mt-4 inline-block text-xs font-medium text-brand-red hover:underline"
+              >
+                Kuşak sınavı listesi oluştur →
+              </Link>
+            </div>
           )}
-          <Link
-            to="/kusak-sinavi"
-            className="mt-4 inline-block text-xs font-medium text-brand-red hover:underline"
-          >
-            Kuşak sınavı listesi oluştur →
-          </Link>
         </div>
       </section>
+
+      {/* Aylık katılım grafiği */}
+      {monthlyAttendance.length > 0 && (
+        <section className="glass-panel rounded-2xl p-4">
+          <h2 className="mb-3 text-sm font-semibold">Son 30 Günlük Katılım</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={monthlyAttendance}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8d4e8" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: '#b8d4e8' }}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid #b8d4e8',
+                  background: 'rgba(255,255,255,0.95)',
+                  fontSize: 12,
+                }}
+                formatter={(val) => [`${val} katılım`, 'Gelen']}
+                labelFormatter={(lbl) => `Tarih: ${lbl}`}
+              />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={32}>
+                {monthlyAttendance.map((e) => (
+                  <Cell
+                    key={e.date}
+                    fill={e.count > 5 ? '#0097a7' : '#facc15'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </section>
+      )}
     </div>
   )
 }
