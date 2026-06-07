@@ -5,6 +5,7 @@ import Athletes from './pages/Athletes'
 import Groups from './pages/Groups'
 import BeltExams from './pages/BeltExams'
 import Attendance from './pages/Attendance'
+import Materials from './pages/Materials'
 import Login from './pages/Login'
 import ProtectedRoute from './auth/ProtectedRoute'
 
@@ -52,6 +53,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Attendance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/malzeme"
+            element={
+              <ProtectedRoute>
+                <Materials />
               </ProtectedRoute>
             }
           />

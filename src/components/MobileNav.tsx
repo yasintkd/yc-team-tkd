@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { Package } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
@@ -13,6 +14,7 @@ const navItems = [
   { to: '/gruplar', label: 'Grup', icon: UsersRound },
   { to: '/kusak-sinavi', label: 'Sınav', icon: Award },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
+  { to: '/malzeme', label: 'Malzeme', icon: Package },
 ]
 
 export default function MobileNav() {

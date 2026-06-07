@@ -6,6 +6,7 @@ import {
   Award,
   CheckSquare,
   ChevronRight,
+  Package,
 } from 'lucide-react'
 import Logo from './Logo'
 import { BRAND } from '../lib/brand'
@@ -16,6 +17,7 @@ const navItems = [
   { to: '/gruplar', label: 'Antrenman Grupları', icon: UsersRound },
   { to: '/kusak-sinavi', label: 'Kuşak Sınavı', icon: Award },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
+  { to: '/malzeme', label: 'Malzeme', icon: Package },
 ]
 
 export default function Sidebar() {
