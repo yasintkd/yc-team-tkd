@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { downloadOrderPng } from '../lib/exportOrderPng'
 import {
   Package, ClipboardList, BarChart3,
   Pencil, Trash2,
   CheckSquare, Square, Search,
   ShoppingCart,
+  Download,
 } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -449,6 +451,7 @@ function DistributeTab({
   const [editStatus, setEditStatus] = useState<'odendi' | 'kismi' | 'bekliyor'>('odendi')
   const [editNote, setEditNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [exportingPng, setExportingPng] = useState(false)
 
   const startEdit = (o: AthleteOrder) => {
     setEditingId(o.id)
@@ -493,8 +496,48 @@ function DistributeTab({
     onRefresh()
   }
 
-  // Sil butonu yok — teslim edilmiş sipariş 15dk sonra otomatik silinir
-  // Silme işlemi loadAll içinde yapılır
+  // Sipariş verilmemiş olanlar
+  const notOrdered = useMemo(
+    () => orders.filter((o) => !o.is_ordered),
+    [orders],
+  )
+
+  const exportNotOrderedPng = async () => {
+    setExportingPng(true)
+    setError(null)
+    try {
+      // Grupla: ürün adı + beden bilgisi → adet
+      const grouped = new Map<string, { productName: string; sizeInfo: string; quantity: number }>()
+
+      const allItems = notOrdered.flatMap((o) => o.items ?? [])
+
+      for (const item of allItems) {
+        const pn = productName(item.products)
+        const parts: string[] = []
+        if (item.boy_cm) parts.push(`${item.boy_cm}cm`)
+        if (item.kilo) parts.push(`${item.kilo}kg`)
+        if (item.shoe_size) parts.push(`Ayakkabı ${item.shoe_size}`)
+        const sizeInfo = parts.length > 0 ? parts.join(' / ') : '-'
+
+        const key = `${pn}||${sizeInfo}`
+        const existing = grouped.get(key)
+        if (existing) {
+          existing.quantity++
+        } else {
+          grouped.set(key, { productName: pn, sizeInfo, quantity: 1 })
+        }
+      }
+
+      await downloadOrderPng(
+        [...grouped.values()].sort((a, b) => a.productName.localeCompare(b.productName)),
+        notOrdered.length,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Görsel oluşturulamadı.')
+    } finally {
+      setExportingPng(false)
+    }
+  }
 
   const payments: Record<string, { label: string; cls: string }> = {
     odendi: { label: 'Ödendi', cls: 'bg-emerald-100 text-emerald-800' },
@@ -504,7 +547,20 @@ function DistributeTab({
 
   return (
     <section className="glass-panel rounded-2xl p-4">
-      <h2 className="text-sm font-semibold">Sipariş Listesi</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Sipariş Listesi</h2>
+        {notOrdered.length > 0 && (
+          <button
+            type="button"
+            disabled={exportingPng}
+            onClick={() => void exportNotOrderedPng()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exportingPng ? 'Hazırlanıyor...' : 'PNG İndir'}
+          </button>
+        )}
+      </div>
 
       {orders.length === 0 ? (
         <p className="mt-3 text-xs text-brand-muted">Henüz sipariş yok.</p>
