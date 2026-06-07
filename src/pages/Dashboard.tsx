@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, UsersRound, Award, CalendarClock } from 'lucide-react'
+import { Users, UsersRound, Award, CalendarClock, AlertTriangle } from 'lucide-react'
 import StatCard from '../components/StatCard'
 import { supabase } from '../lib/supabase'
-import { todayIsoWeekday, formatTime } from '../lib/days';
+import { todayIsoWeekday, formatTime } from '../lib/days'
 
 type TodaySession = {
   groupName: string
@@ -12,6 +12,25 @@ type TodaySession = {
 
 type BeltCount = { belt: string; count: number }
 
+type MissedAthlete = {
+  id: string
+  name: string
+  groupName: string
+  missedCount: number
+  lastDate: string | null
+}
+
+const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10)
+
+function groupName(
+  a: { training_groups: { name: string } | { name: string }[] | null },
+): string {
+  const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
+  return g?.name ?? '—'
+}
+
 export default function Dashboard() {
   const [athleteCount, setAthleteCount] = useState('—')
   const [groupCount, setGroupCount] = useState('—')
@@ -19,6 +38,7 @@ export default function Dashboard() {
   const [examHint, setExamHint] = useState('Planlanan kuşak sınavı')
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([])
   const [beltSummary, setBeltSummary] = useState<BeltCount[]>([])
+  const [missedAthletes, setMissedAthletes] = useState<MissedAthlete[]>([])
 
   useEffect(() => {
     void (async () => {
@@ -87,11 +107,104 @@ export default function Dashboard() {
           .map(([belt, count]) => ({ belt, count }))
           .sort((a, b) => b.count - a.count),
       )
+
+      // ── Devamsızlık tespiti ──────────────────────────────────────────
+      const { data: athleteData } = await supabase
+        .from('athletes')
+        .select('id, first_name, last_name, training_groups ( name )')
+        .eq('is_active', true)
+
+      type AthleteRow = {
+        id: string
+        first_name: string
+        last_name: string
+        training_groups: { name: string } | { name: string }[] | null
+      }
+      const athletesWithGroup = (athleteData ?? []) as AthleteRow[]
+      const ids = athletesWithGroup.map((a) => a.id)
+
+      const { data: attData } = await supabase
+        .from('attendance_records')
+        .select('athlete_id, session_date, status')
+        .in('athlete_id', ids)
+        .gte('session_date', THIRTY_DAYS_AGO)
+        .order('session_date', { ascending: false })
+
+      // Grupla — her sporcunun son kayıtları
+      const attMap = new Map<
+        string,
+        { session_date: string; status: string }[]
+      >()
+      for (const r of attData ?? []) {
+        const list = attMap.get(r.athlete_id) ?? []
+        list.push({ session_date: r.session_date, status: r.status })
+        attMap.set(r.athlete_id, list)
+      }
+
+      const missed: MissedAthlete[] = []
+      for (const a of athletesWithGroup) {
+        const records = attMap.get(a.id) ?? []
+        let streak = 0
+        let lastDate: string | null = null
+        for (const r of records) {
+          if (r.status === 'gelmedi') {
+            streak++
+            if (!lastDate) lastDate = r.session_date
+          } else {
+            break
+          }
+        }
+        if (streak >= 4) {
+          missed.push({
+            id: a.id,
+            name: `${a.first_name} ${a.last_name}`,
+            groupName: groupName(a),
+            missedCount: streak,
+            lastDate,
+          })
+        }
+      }
+      setMissedAthletes(missed)
     })()
   }, [])
 
   return (
     <div className="space-y-6">
+      {/* ── Devamsızlık uyarısı (en üst) ── */}
+      {missedAthletes.length > 0 && (
+        <section>
+          <div className="glass-panel rounded-2xl border-l-4 border-l-amber-400 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-800">
+                  {missedAthletes.length} sporcu üst üste 4+ antrenmana katılmadı
+                </p>
+                <p className="mt-0.5 text-xs text-amber-700">
+                  Son kayıtlara göre bu sporcular son 4 veya daha fazla
+                  antrenmana gelmemiş.
+                </p>
+                <ul className="mt-3 space-y-1.5">
+                  {missedAthletes.map((m) => (
+                    <li
+                      key={m.id}
+                      className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs"
+                    >
+                      <span className="font-medium text-slate-800">
+                        {m.name}
+                      </span>
+                      <span className="text-brand-muted">
+                        {m.groupName} · {m.missedCount} kez
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* İstatistik kartları */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

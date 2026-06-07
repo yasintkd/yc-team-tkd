@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Search, UserPlus, Pencil, Trash2, Users, PauseCircle, PlayCircle, MessageCircle, Phone, Copy, Check, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { BELTS } from '../lib/belts'
+import { downloadTescilPdf } from '../lib/exportTescilPdf'
+import { BELTS, beltStyle } from '../lib/belts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,78 +108,7 @@ function genderBadgeClass(g: string | null) {
  *  Ara kuşaklarda: 1. renk = arka plan, 2. renk = yazı & kenarlık
  *  Kontrol sırası ÖNEMLİ — özelden genele (ara kuşak → ana kuşak)
  */
-function beltStyle(belt: string): { badge: string; dot: string } {
-  const b = belt.toLowerCase()
-
-  // ── Ara kuşaklar (önce kontrol et) ──────────────────────────────────────────
-
-  // Sarı-Yeşil  → sarı fon, yeşil yazı & kenarlık
-  if ((b.includes('sarı') || b.includes('sari')) && b.includes('yeşil'))
-    return {
-      badge: 'bg-yellow-100 text-emerald-700 border border-emerald-400',
-      dot:   'bg-yellow-400',
-    }
-
-  // Yeşil-Mavi  → yeşil fon, mavi yazı & kenarlık
-  if (b.includes('yeşil') && b.includes('mavi'))
-    return {
-      badge: 'bg-emerald-100 text-blue-700 border border-blue-400',
-      dot:   'bg-emerald-500',
-    }
-
-  // Mavi-Kırmızı → mavi fon, kırmızı yazı & kenarlık
-  if (b.includes('mavi') && (b.includes('kırmızı') || b.includes('kirmizi')))
-    return {
-      badge: 'bg-blue-100 text-red-700 border border-red-400',
-      dot:   'bg-blue-500',
-    }
-
-  // Kırmızı-Siyah → kırmızı fon, siyah yazı & kenarlık
-  if ((b.includes('kırmızı') || b.includes('kirmizi')) && b.includes('siyah'))
-    return {
-      badge: 'bg-red-100 text-slate-900 border border-slate-700',
-      dot:   'bg-red-500',
-    }
-
-  // ── Ana kuşaklar ─────────────────────────────────────────────────────────────
-
-  if (b.includes('beyaz'))
-    return {
-      badge: 'bg-white text-slate-600 border border-slate-300 shadow-sm',
-      dot:   'bg-slate-300',
-    }
-  if (b.includes('sarı') || b.includes('sari'))
-    return {
-      badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-      dot:   'bg-yellow-400',
-    }
-  if (b.includes('yeşil'))
-    return {
-      badge: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
-      dot:   'bg-emerald-500',
-    }
-  if (b.includes('mavi'))
-    return {
-      badge: 'bg-blue-100 text-blue-800 border border-blue-300',
-      dot:   'bg-blue-500',
-    }
-  if (b.includes('kırmızı') || b.includes('kirmizi'))
-    return {
-      badge: 'bg-red-100 text-red-800 border border-red-300',
-      dot:   'bg-red-500',
-    }
-  if (b.includes('siyah'))
-    return {
-      badge: 'bg-slate-900 text-white border border-slate-700',
-      dot:   'bg-white/80',
-    }
-
-  // Varsayılan
-  return {
-    badge: 'bg-slate-100 text-slate-700 border border-slate-200',
-    dot:   'bg-slate-400',
-  }
-}
+// beltStyle() now imported from ../lib/belts
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -366,31 +296,19 @@ export default function Athletes() {
     setSaving(false)
   }
 
-  /** Tescil Fişi PDF indir */
+  /** Tescil Fişi PDF indir — tamamen client-side, sunucu gerekmez */
   const downloadTescil = async (a: Athlete) => {
     try {
-      const res = await fetch('/api/tescil', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tc_no:       a.tc_no ?? '',
-          first_name:  a.first_name,
-          last_name:   a.last_name,
-          birth_date:  a.birth_date ?? '',
-          mother_name: a.mother_name ?? '',
-          father_name: a.father_name ?? '',
-        }),
+      await downloadTescilPdf({
+        tc_no:       a.tc_no,
+        first_name:  a.first_name,
+        last_name:   a.last_name,
+        birth_date:  a.birth_date,
+        mother_name: a.mother_name,
+        father_name: a.father_name,
       })
-      if (!res.ok) throw new Error('PDF alınamadı')
-      const blob = await res.blob()
-      const url  = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href  = url
-      link.download = `${a.first_name}_${a.last_name}_tescil.pdf`
-      link.click()
-      URL.revokeObjectURL(url)
     } catch {
-      setError('Tescil fişi oluşturulamadı. Sunucu hatası.')
+      setError('Tescil fişi oluşturulamadı.')
     }
   }
 
@@ -1010,6 +928,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function PhoneCard({
   label,
+  name,
   contactName,
   phone,
   waMessage,
