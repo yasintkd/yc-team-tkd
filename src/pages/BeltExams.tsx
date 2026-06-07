@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { BELTS, beltStyle, findBeltIndex, getPossibleTargetBelts } from '../lib/belts'
-import { CheckSquare, Square, Users, DollarSign, TrendingUp, Package } from 'lucide-react'
+import { CheckSquare, Square, Users, DollarSign, TrendingUp, Package, Trash2 } from 'lucide-react'
 
 type Exam = {
   id: string
@@ -18,7 +18,6 @@ type Participant = {
   athlete_id: string
   belt_before: string
   target_belt: string
-  result: 'bekliyor' | 'gecti' | 'kaldi'
   fee_paid: boolean
   athletes: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
 }
@@ -70,7 +69,7 @@ export default function BeltExams() {
     const { data, error: qErr } = await supabase
       .from('belt_exam_participants')
       .select(
-        'id, exam_id, athlete_id, belt_before, target_belt, result, fee_paid, athletes ( first_name, last_name )',
+        'id, exam_id, athlete_id, belt_before, target_belt, fee_paid, athletes ( first_name, last_name )',
       )
       .eq('exam_id', examId)
       .order('created_at')
@@ -247,15 +246,15 @@ export default function BeltExams() {
     else setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, fee_paid: !current } : p)))
   }
 
-  const setResult = async (participantId: string, result: Participant['result']) => {
-    if (!selectedExamId || selectedExam?.status === 'tamamlandi') return
+  const removeParticipant = async (participantId: string) => {
+    if (!window.confirm('Bu sporcuyu sınav listesinden çıkarmak istediğinize emin misiniz?')) return
     setError(null)
-    const { error: upErr } = await supabase
+    const { error: delErr } = await supabase
       .from('belt_exam_participants')
-      .update({ result })
+      .delete()
       .eq('id', participantId)
-    if (upErr) setError(upErr.message)
-    else setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, result } : p)))
+    if (delErr) setError(delErr.message)
+    else setParticipants((prev) => prev.filter((p) => p.id !== participantId))
   }
 
   const promotePassed = async () => {
@@ -264,14 +263,23 @@ export default function BeltExams() {
     setError(null)
     setMessage(null)
 
-    const passed = participants.filter((p) => p.result === 'gecti')
-    if (passed.length === 0) {
-      setError('Yükseltilecek (geçti) sporcu yok.')
+    // Ödenmemiş ücret kontrolü
+    const unpaid = participants.filter((p) => !p.fee_paid)
+    if (unpaid.length > 0) {
+      setError(
+        `Sınav ücreti ödenmemiş sporcu var: ${unpaid.map((p) => athleteName(p)).join(', ')}. Tüm geçenlerin ücretini ödeyin.`,
+      )
       setSaving(false)
       return
     }
 
-    for (const p of passed) {
+    if (participants.length === 0) {
+      setError('Sınavda sporcu yok.')
+      setSaving(false)
+      return
+    }
+
+    for (const p of participants) {
       const { error: upAthleteErr } = await supabase
         .from('athletes')
         .update({ belt: p.target_belt })
@@ -290,7 +298,7 @@ export default function BeltExams() {
 
     if (examErr) setError(examErr.message)
     else {
-      setMessage(`${passed.length} sporcu bir üst kuşağa yükseltildi.`)
+      setMessage(`${participants.length} sporcu bir üst kuşağa yükseltildi.`)
       await loadExams()
       await loadParticipants(selectedExamId)
       await loadAthletes()
@@ -573,21 +581,6 @@ export default function BeltExams() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium">{athleteName(p)}</p>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            p.result === 'gecti'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : p.result === 'kaldi'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-amber-100 text-amber-900'
-                          }`}
-                        >
-                          {p.result === 'gecti'
-                            ? 'Geçti'
-                            : p.result === 'kaldi'
-                              ? 'Kaldı'
-                              : 'Bekliyor'}
-                        </span>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                         <div>
@@ -643,41 +636,18 @@ export default function BeltExams() {
                         </button>
                       )}
 
-                      {/* Sonuç butonları */}
-                      {selectedExam.status === 'planlandi' ? (
-                        <div className="mt-3 grid grid-cols-3 gap-1">
-                          {(['bekliyor', 'gecti', 'kaldi'] as const).map((r) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => void setResult(p.id, r)}
-                              className={`min-h-[40px] rounded-lg text-[11px] font-medium ${
-                                p.result === r
-                                  ? r === 'gecti'
-                                    ? 'bg-brand-cyan text-slate-900'
-                                    : r === 'kaldi'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : 'bg-amber-100 text-amber-900'
-                                  : 'border border-app-border bg-app-bg-soft text-slate-600'
-                              }`}
-                            >
-                              {r === 'bekliyor'
-                                ? 'Bekliyor'
-                                : r === 'gecti'
-                                  ? 'Geçti'
-                                  : 'Kaldı'}
-                            </button>
-                          ))}
+                      {/* Çıkart */}
+                      {selectedExam.status === 'planlandi' && (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void removeParticipant(p.id)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Listeden Çıkart
+                          </button>
                         </div>
-                      ) : (
-                        <p className="mt-2 text-xs font-medium text-slate-700">
-                          Sonuç:{' '}
-                          {p.result === 'gecti'
-                            ? 'Geçti ✓'
-                            : p.result === 'kaldi'
-                              ? 'Kaldı'
-                              : 'Bekliyor'}
-                        </p>
                       )}
                     </li>
                   )
@@ -693,7 +663,7 @@ export default function BeltExams() {
                       <th className="px-3 py-2">Mevcut</th>
                       <th className="px-3 py-2">Hedef</th>
                       <th className="px-3 py-2">Ücret</th>
-                      <th className="px-3 py-2">Sonuç</th>
+                      <th className="px-3 py-2"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -756,41 +726,15 @@ export default function BeltExams() {
                             )}
                           </td>
                           <td className="px-3 py-2">
-                            {selectedExam.status === 'planlandi' ? (
-                              <div className="inline-flex gap-1">
-                                {(['bekliyor', 'gecti', 'kaldi'] as const).map(
-                                  (r) => (
-                                    <button
-                                      key={r}
-                                      type="button"
-                                      onClick={() => void setResult(p.id, r)}
-                                      className={`rounded-full px-2 py-0.5 text-[11px] ${
-                                        p.result === r
-                                          ? r === 'gecti'
-                                            ? 'bg-brand-cyan text-slate-900'
-                                            : r === 'kaldi'
-                                              ? 'bg-rose-100 text-rose-800'
-                                              : 'bg-amber-100 text-amber-900'
-                                          : 'text-slate-500 hover:bg-app-bg-soft'
-                                      }`}
-                                    >
-                                      {r === 'bekliyor'
-                                        ? 'Bekliyor'
-                                        : r === 'gecti'
-                                          ? 'Geçti'
-                                          : 'Kaldı'}
-                                    </button>
-                                  ),
-                                )}
-                              </div>
-                            ) : (
-                              <span>
-                                {p.result === 'gecti'
-                                  ? 'Geçti'
-                                  : p.result === 'kaldi'
-                                    ? 'Kaldı'
-                                    : 'Bekliyor'}
-                              </span>
+                            {selectedExam.status === 'planlandi' && (
+                              <button
+                                type="button"
+                                onClick={() => void removeParticipant(p.id)}
+                                className="inline-flex items-center gap-1 rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                                title="Listeden çıkart"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             )}
                           </td>
                         </tr>
