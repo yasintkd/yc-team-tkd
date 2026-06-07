@@ -73,19 +73,7 @@ function birthDetail(birthDate: string | null): string {
   return `${year} (${age} yaş)`
 }
 
-// Veli için sabit karşılama mesajı (WhatsApp grup davet linki dahil)
-const WELCOME_MESSAGE = `Merhaba,
-Suluova Gençlik Merkezi Taekwondo kursu için resmi iletişim grubuna katılmak için aşağıdaki linki tıklayınız. Tüm resmi duyurularımızı bu kanal üzerinden gerçekleştireceğiz.
 
-https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t
-
-Yasin Çeken
-Milli Sporcu ve Antrenör
-05515508132`
-
-function welcomeMessage(_a: Athlete): string {
-  return WELCOME_MESSAGE
-}
 
 function groupName(a: Athlete): string {
   const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
@@ -655,7 +643,7 @@ export default function Athletes() {
                   name={detailAthlete.parent_name ?? 'Veli'}
                   contactName={`${detailAthlete.parent_name ?? 'Veli'} (${detailAthlete.first_name}) SLV`}
                   phone={detailAthlete.parent_phone}
-                  waMessage={welcomeMessage(detailAthlete)}
+                  waMessage={''}
                   showWelcome
                 />
               )}

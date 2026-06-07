@@ -25,7 +25,8 @@ export default function Layout({ children }: LayoutProps) {
           }`}
         >
           <div
-            className={`mx-auto space-y-4 md:space-y-6 ${
+            key={isLogin ? 'login' : location.pathname}
+            className={`mx-auto space-y-4 md:space-y-6 page-enter-active ${
               isLogin ? 'max-w-md' : 'max-w-6xl'
             }`}
           >

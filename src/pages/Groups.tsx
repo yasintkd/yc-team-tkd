@@ -36,8 +36,6 @@ type AthleteLite = {
 
 const DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export default function Groups() {
   // Data
   const [loading, setLoading] = useState(true)
@@ -538,9 +536,7 @@ export default function Groups() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════
-          MODAL — Seans Ekle
-      ════════════════════════════════════════════════════════ */}
+      {/* MODAL — Seans Ekle */}
       {modal?.type === 'addSchedule' && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"

@@ -1,71 +1,112 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Athletes from './pages/Athletes'
-import Groups from './pages/Groups'
-import BeltExams from './pages/BeltExams'
-import Attendance from './pages/Attendance'
-import Materials from './pages/Materials'
-import Login from './pages/Login'
-import ProtectedRoute from './auth/ProtectedRoute'
+import ErrorBoundary from './components/ErrorBoundary'
+import LoadingSkeleton from './components/LoadingSkeleton'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Athletes = lazy(() => import('./pages/Athletes'))
+const BeltExams = lazy(() => import('./pages/BeltExams'))
+const Competitions = lazy(() => import('./pages/Competitions'))
+const Attendance = lazy(() => import('./pages/Attendance'))
+const Groups = lazy(() => import('./pages/Groups'))
+const Materials = lazy(() => import('./pages/Materials'))
+const Login = lazy(() => import('./pages/Login'))
+const EventsPage = lazy(() => import('./pages/EventsPage'))
+const AttendanceHub = lazy(() => import('./pages/AttendanceHub'))
+const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
+
+function SuspenseWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<LoadingSkeleton variant="card" count={3} />}>
+      {children}
+    </Suspense>
+  )
+}
 
 function App() {
   return (
     <div className="h-full">
       <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/giris" element={<Login />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/sporcular"
-            element={
-              <ProtectedRoute>
-                <Athletes />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gruplar"
-            element={
-              <ProtectedRoute>
-                <Groups />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/kusak-sinavi"
-            element={
-              <ProtectedRoute>
-                <BeltExams />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/yoklama"
-            element={
-              <ProtectedRoute>
-                <Attendance />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/malzeme"
-            element={
-              <ProtectedRoute>
-                <Materials />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/giris" element={<Login />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Dashboard /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sporcular"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Athletes /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/etkinlikler"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><EventsPage /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kusak-sinavi"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><BeltExams /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/yarisma"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Competitions /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/yoklama"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><AttendanceHub /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/yoklama-detay"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Attendance /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gruplar"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Groups /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/malzeme"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Materials /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </Layout>
     </div>
   )

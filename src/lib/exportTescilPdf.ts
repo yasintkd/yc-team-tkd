@@ -1,31 +1,4 @@
-/**
- * exportTescilPdf.ts
- *
- * KURULUM:
- *  1. tescil_sablon.jpg dosyasını → src/assets/tescil_sablon.jpg  konumuna kopyalayın
- *  2. Bu dosyayı                  → src/lib/exportTescilPdf.ts    konumuna kopyalayın
- *
- * KULLANIM (Athletes.tsx):
- *   import { downloadTescilPdf } from '../lib/exportTescilPdf'
- *
- *   const downloadTescil = async (a: Athlete) => {
- *     try {
- *       await downloadTescilPdf({
- *         tc_no:       a.tc_no,
- *         first_name:  a.first_name,
- *         last_name:   a.last_name,
- *         birth_date:  a.birth_date,
- *         mother_name: a.mother_name,
- *         father_name: a.father_name,
- *       })
- *     } catch {
- *       setError('Tescil fişi oluşturulamadı.')
- *     }
- *   }
- *
- * Yöntem: Şablon görüntüsü arka plan olarak eklenir, üzerine jsPDF ile
- * sporcu bilgileri doğru koordinatlara yazılır. Sunucu gerekmez.
- */
+/** Şablon PNG üzerine jsPDF ile sporcu bilgilerini yazıp tescil fişi PDF'i indirir. */
 
 import { jsPDF } from 'jspdf'
 import sablonUrl from '../assets/tescil_sablon.jpg'

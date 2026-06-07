@@ -1,18 +1,16 @@
 import { NavLink } from 'react-router-dom'
-import { Package } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
-  UsersRound,
-  Award,
+  Calendar,
   CheckSquare,
+  Package,
 } from 'lucide-react'
 
 const navItems = [
   { to: '/dashboard', label: 'Özet', icon: LayoutDashboard },
-  { to: '/sporcular', label: 'Sporcu', icon: Users },
-  { to: '/gruplar', label: 'Grup', icon: UsersRound },
-  { to: '/kusak-sinavi', label: 'Sınav', icon: Award },
+  { to: '/sporcular', label: 'Sporcular', icon: Users },
+  { to: '/etkinlikler', label: 'Etkinlikler', icon: Calendar },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
   { to: '/malzeme', label: 'Malzeme', icon: Package },
 ]
@@ -44,7 +42,10 @@ export default function MobileNav() {
                       isActive ? 'bg-brand-red/10 text-brand-red' : ''
                     }`}
                   >
-                    <Icon className="h-4 w-4" strokeWidth={isActive ? 2.25 : 2} />
+                    <Icon
+                      className="h-4 w-4"
+                      strokeWidth={isActive ? 2.25 : 2}
+                    />
                   </span>
                   <span className="max-w-full truncate">{label}</span>
                 </>

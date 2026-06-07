@@ -22,13 +22,6 @@ type Participant = {
   athletes: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
 }
 
-type AthleteOption = {
-  id: string
-  first_name: string
-  last_name: string
-  belt: string
-}
-
 export default function BeltExams() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +29,6 @@ export default function BeltExams() {
   const [exams, setExams] = useState<Exam[]>([])
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [_athletes, setAthletes] = useState<AthleteOption[]>([])
   const [saving, setSaving] = useState(false)
 
   const [title, setTitle] = useState('')
@@ -55,16 +47,6 @@ export default function BeltExams() {
     setExams((data ?? []) as Exam[])
   }
 
-  const loadAthletes = async () => {
-    const { data, error: qErr } = await supabase
-      .from('athletes')
-      .select('id, first_name, last_name, belt')
-      .eq('is_active', true)
-      .order('last_name')
-    if (qErr) throw qErr
-    setAthletes((data ?? []) as AthleteOption[])
-  }
-
   const loadParticipants = async (examId: string) => {
     const { data, error: qErr } = await supabase
       .from('belt_exam_participants')
@@ -81,7 +63,7 @@ export default function BeltExams() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadExams(), loadAthletes()])
+      await Promise.all([loadExams()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yüklenemedi.')
     }
@@ -126,7 +108,6 @@ export default function BeltExams() {
     setError(null)
 
     if (editingExam) {
-      // Güncelleme — katılımcılara dokunma
       const { error: upErr } = await supabase
         .from('belt_exams')
         .update({
@@ -167,21 +148,6 @@ export default function BeltExams() {
       return targets.length > 0
     })
 
-    // Debug — konsolda görmek için
-    if (allAthletes) {
-      const ineligible = allAthletes.filter(
-        (a) => getPossibleTargetBelts(a.belt).length === 0,
-      )
-      if (ineligible.length > 0) {
-        console.group('Sınava giremeyen sporcular')
-        console.table(ineligible.map((a) => ({ Ad: `${a.first_name} ${a.last_name}`, Kuşak: a.belt })))
-        console.groupEnd()
-      }
-      console.log(
-        `Sınav: ${eligible.length}/${allAthletes.length} sporcu uygun`,
-      )
-    }
-
     if (eligible.length > 0) {
       const { error: batchErr } = await supabase
         .from('belt_exam_participants')
@@ -213,7 +179,6 @@ export default function BeltExams() {
     if (!window.confirm(`"${exam.title}" sınavını silmek istediğinize emin misiniz? Tüm katılımcı kayıtları da silinecek.`)) return
     setSaving(true)
     setError(null)
-    // Önce katılımcıları sil, sonra sınavı sil
     await supabase.from('belt_exam_participants').delete().eq('exam_id', exam.id)
     const { error: delErr } = await supabase.from('belt_exams').delete().eq('id', exam.id)
     if (delErr) { setError(delErr.message); setSaving(false); return }
@@ -301,7 +266,6 @@ export default function BeltExams() {
       setMessage(`${participants.length} sporcu bir üst kuşağa yükseltildi.`)
       await loadExams()
       await loadParticipants(selectedExamId)
-      await loadAthletes()
     }
     setSaving(false)
   }

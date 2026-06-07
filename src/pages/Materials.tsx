@@ -121,9 +121,7 @@ export default function Materials() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
 // ÜRÜNLER
-// ═══════════════════════════════════════════════════════════════════
 
 function ProductsTab({
   products, onRefresh, flash, setError,
@@ -224,9 +222,7 @@ function ProductsTab({
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
 // SİPARİŞ VER
-// ═══════════════════════════════════════════════════════════════════
 
 function OrdersTab({
   products, athletes, onRefresh, flash, setError,
@@ -440,9 +436,7 @@ function OrdersTab({
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// DAĞITIM (sipariş listesi + teslimat/sipariş durumu)
-// ═══════════════════════════════════════════════════════════════════
+// DAĞITIM
 
 function DistributeTab({
   orders, athletes, onRefresh, flash, setError,
@@ -627,9 +621,7 @@ function DistributeTab({
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════
 // RAPOR
-// ═══════════════════════════════════════════════════════════════════
 
 function ReportsTab({
   orders, athletes,

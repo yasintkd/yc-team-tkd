@@ -13,17 +13,33 @@ const pageTitles: Record<string, { title: string; subtitle?: string }> = {
     title: 'Sporcular',
     subtitle: 'Kayıt ve kuşak takibi',
   },
-  '/gruplar': {
-    title: 'Antrenman Grupları',
-    subtitle: 'Grup ve program yönetimi',
+  '/etkinlikler': {
+    title: 'Etkinlikler',
+    subtitle: 'Kuşak sınavı ve yarışma yönetimi',
   },
   '/kusak-sinavi': {
     title: 'Kuşak Sınavı',
     subtitle: 'Sınav listesi ve yükseltme',
   },
+  '/yarisma': {
+    title: 'Yarışmalar',
+    subtitle: 'Turnuva ve katılımcı yönetimi',
+  },
   '/yoklama': {
     title: 'Yoklama',
-    subtitle: 'Günlük devam',
+    subtitle: 'Günlük devam ve grup yönetimi',
+  },
+  '/yoklama-detay': {
+    title: 'Yoklama',
+    subtitle: 'Günlük devam takibi',
+  },
+  '/gruplar': {
+    title: 'Antrenman Grupları',
+    subtitle: 'Grup ve program yönetimi',
+  },
+  '/malzeme': {
+    title: 'Malzeme',
+    subtitle: 'Ürün ve sipariş yönetimi',
   },
 }
 
