@@ -36,7 +36,7 @@ export default function BeltExams() {
   const [exams, setExams] = useState<Exam[]>([])
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [athletes, setAthletes] = useState<AthleteOption[]>([])
+  const [_athletes, setAthletes] = useState<AthleteOption[]>([])
   const [saving, setSaving] = useState(false)
 
   const [title, setTitle] = useState('')
