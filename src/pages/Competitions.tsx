@@ -20,6 +20,8 @@ type Competition = {
   min_belt_index: number
   status: 'planlandi' | 'tamamlandi'
   notes: string | null
+  weight_categories_male: string[] | null
+  weight_categories_female: string[] | null
 }
 
 type Participant = {
@@ -27,7 +29,8 @@ type Participant = {
   competition_id: string
   athlete_id: string
   weight_category: string | null
-  athletes: { first_name: string; last_name: string; belt: string } | { first_name: string; last_name: string; belt: string }[] | null
+  ranking: string | null
+  athletes: { first_name: string; last_name: string; belt: string; gender: 'erkek' | 'kiz' | null } | { first_name: string; last_name: string; belt: string; gender: 'erkek' | 'kiz' | null }[] | null
 }
 
 type AthleteOption = {
@@ -48,6 +51,11 @@ function getAthleteName(p: Participant): string {
 function getAthleteBelt(p: Participant): string {
   const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
   return a?.belt ?? ''
+}
+
+function getAthleteGender(p: Participant): 'erkek' | 'kiz' | null {
+  const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
+  return (a?.gender as 'erkek' | 'kiz' | null) ?? null
 }
 
 function isAthleteEligible(
@@ -85,13 +93,15 @@ export default function Competitions() {
   const [saving, setSaving] = useState(false)
   const [exportingPng, setExportingPng] = useState(false)
 
-  // Form
   const [title, setTitle] = useState('')
   const [compDate, setCompDate] = useState('')
   const [birthYearMin, setBirthYearMin] = useState('')
   const [birthYearMax, setBirthYearMax] = useState('')
   const [minBeltIndex, setMinBeltIndex] = useState(0)
   const [notes, setNotes] = useState('')
+  const [weightCategoriesMale, setWeightCategoriesMale] = useState('')
+  const [weightCategoriesFemale, setWeightCategoriesFemale] = useState('')
+  const [compStatus, setCompStatus] = useState<'planlandi' | 'tamamlandi'>('planlandi')
   const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null)
 
   const selectedCompetition = competitions.find((c) => c.id === selectedCompetitionId) ?? null
@@ -101,7 +111,7 @@ export default function Competitions() {
   const loadCompetitions = async () => {
     const { data, error: qErr } = await supabase
       .from('competitions')
-      .select('id, title, competition_date, birth_year_min, birth_year_max, min_belt_index, status, notes')
+      .select('id, title, competition_date, birth_year_min, birth_year_max, min_belt_index, status, notes, weight_categories_male, weight_categories_female')
       .order('competition_date', { ascending: false })
     if (qErr) throw qErr
     setCompetitions((data ?? []) as Competition[])
@@ -121,7 +131,7 @@ export default function Competitions() {
     const { data, error: qErr } = await supabase
       .from('competition_participants')
       .select(
-        'id, competition_id, athlete_id, weight_category, athletes ( first_name, last_name, belt )',
+        'id, competition_id, athlete_id, weight_category, ranking, athletes ( first_name, last_name, belt, gender )',
       )
       .eq('competition_id', competitionId)
       .order('created_at')
@@ -179,6 +189,9 @@ export default function Competitions() {
     setBirthYearMax('')
     setMinBeltIndex(0)
     setNotes('')
+    setWeightCategoriesMale('')
+    setWeightCategoriesFemale('')
+    setCompStatus('planlandi')
     setEditingCompetition(null)
     setError(null)
   }
@@ -191,6 +204,9 @@ export default function Competitions() {
     setBirthYearMax(comp.birth_year_max !== null ? String(comp.birth_year_max) : '')
     setMinBeltIndex(comp.min_belt_index)
     setNotes(comp.notes ?? '')
+    setWeightCategoriesMale((comp.weight_categories_male ?? []).join(', '))
+    setWeightCategoriesFemale((comp.weight_categories_female ?? []).join(', '))
+    setCompStatus(comp.status)
     setError(null)
   }
 
@@ -207,6 +223,9 @@ export default function Competitions() {
       birth_year_max: birthYearMax ? parseInt(birthYearMax) : null,
       min_belt_index: minBeltIndex,
       notes: notes.trim() || null,
+      status: compStatus,
+      weight_categories_male: weightCategoriesMale.trim() ? weightCategoriesMale.split(',').map(s => s.trim()).filter(Boolean) : [],
+      weight_categories_female: weightCategoriesFemale.trim() ? weightCategoriesFemale.split(',').map(s => s.trim()).filter(Boolean) : [],
     }
 
     if (editingCompetition) {
@@ -281,6 +300,24 @@ export default function Competitions() {
     else setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, weight_category: weight } : p)))
   }
 
+  const updateRanking = async (participantId: string, ranking: string) => {
+    setError(null)
+    const { error: upErr } = await supabase
+      .from('competition_participants')
+      .update({ ranking: ranking || null })
+      .eq('id', participantId)
+    if (upErr) setError(upErr.message)
+    else setParticipants((prev) => prev.map((p) => (p.id === participantId ? { ...p, ranking } : p)))
+  }
+
+  function weightOptions(p: Participant): string[] {
+    if (!selectedCompetition) return []
+    const gender = getAthleteGender(p)
+    if (gender === 'erkek') return selectedCompetition.weight_categories_male ?? []
+    if (gender === 'kiz') return selectedCompetition.weight_categories_female ?? []
+    return []
+  }
+
   const exportPng = async () => {
     if (!selectedCompetition || participants.length === 0) return
     setExportingPng(true)
@@ -331,7 +368,7 @@ export default function Competitions() {
         )}
 
         <form className="mt-4 space-y-3" onSubmit={submitCompetition}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1 text-xs">
               <label className="text-slate-600">Yarışma adı *</label>
               <input
@@ -363,6 +400,17 @@ export default function Competitions() {
                 ))}
               </select>
             </div>
+            <div className="space-y-1 text-xs">
+              <label className="text-slate-600">Durum</label>
+              <select
+                className="input-field"
+                value={compStatus}
+                onChange={(e) => setCompStatus(e.target.value as 'planlandi' | 'tamamlandi')}
+              >
+                <option value="planlandi">Planlandı</option>
+                <option value="tamamlandi">Tamamlandı</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -391,6 +439,27 @@ export default function Competitions() {
                 onChange={(e) => setBirthYearMax(e.target.value)}
               />
               <p className="text-[10px] text-brand-muted">Bu yıldan sonra doğanlar elenir</p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1 text-xs">
+              <label className="text-slate-600">Erkek Sikletleri (virgülle ayırarak girin)</label>
+              <input
+                className="input-field"
+                placeholder="Örn: -33kg, -37kg, -41kg, +65kg"
+                value={weightCategoriesMale}
+                onChange={(e) => setWeightCategoriesMale(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1 text-xs">
+              <label className="text-slate-600">Kız Sikletleri (virgülle ayırarak girin)</label>
+              <input
+                className="input-field"
+                placeholder="Örn: -29kg, -33kg, -37kg, +59kg"
+                value={weightCategoriesFemale}
+                onChange={(e) => setWeightCategoriesFemale(e.target.value)}
+              />
             </div>
           </div>
 
@@ -676,15 +745,51 @@ export default function Competitions() {
                         </button>
                       )}
                     </div>
-                    <div className="mt-2">
-                      <label className="text-[10px] font-medium text-brand-muted">Kilo kategorisi</label>
-                      <input
-                        className="input-field mt-0.5 py-1.5 text-xs"
-                        placeholder="Örn: -45kg, +55kg..."
-                        value={p.weight_category ?? ''}
-                        onChange={(e) => void updateWeight(p.id, e.target.value)}
-                        disabled={selectedCompetition.status !== 'planlandi'}
-                      />
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <label className="text-[10px] font-medium text-brand-muted">Kilo kategorisi</label>
+                        {(() => {
+                          const opts = weightOptions(p)
+                          if (opts.length > 0) {
+                            return (
+                              <select
+                                className="input-field mt-0.5 py-1.5 text-xs"
+                                value={p.weight_category ?? ''}
+                                onChange={(e) => void updateWeight(p.id, e.target.value)}
+                                disabled={selectedCompetition.status !== 'planlandi'}
+                              >
+                                <option value="">Seçin</option>
+                                {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            )
+                          }
+                          return (
+                            <input
+                              className="input-field mt-0.5 py-1.5 text-xs"
+                              placeholder="Örn: -45kg, +55kg..."
+                              value={p.weight_category ?? ''}
+                              onChange={(e) => void updateWeight(p.id, e.target.value)}
+                              disabled={selectedCompetition.status !== 'planlandi'}
+                            />
+                          )
+                        })()}
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-medium text-brand-muted">Derece</label>
+                        <input
+                          className="input-field mt-0.5 py-1.5 text-xs"
+                          placeholder="örn: 1.lik, 2.lik..."
+                          value={p.ranking ?? ''}
+                          onChange={(e) => void updateRanking(p.id, e.target.value)}
+                          list={`ranking-datalist-${p.id}`}
+                        />
+                        <datalist id={`ranking-datalist-${p.id}`}>
+                          <option value="1.lik (Altın)" />
+                          <option value="2.lik (Gümüş)" />
+                          <option value="3.lük (Bronz)" />
+                          <option value="Katılımcı" />
+                        </datalist>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -692,12 +797,13 @@ export default function Competitions() {
 
               {/* Masaüstü tablo */}
               <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
-                <table className="w-full min-w-[700px] text-left text-xs">
+                <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-app-bg-soft text-brand-muted">
                     <tr>
                       <th className="px-3 py-2">Sporcu</th>
                       <th className="px-3 py-2">Kuşak</th>
                       <th className="px-3 py-2">Kilo Kategorisi</th>
+                      <th className="px-3 py-2">Derece</th>
                       {selectedCompetition.status === 'planlandi' && <th className="px-3 py-2"></th>}
                     </tr>
                   </thead>
@@ -713,14 +819,47 @@ export default function Competitions() {
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1.5">
                             <Weight className="h-3 w-3 shrink-0 text-brand-muted" />
-                            <input
-                              className="input-field max-w-[150px] py-1 text-xs"
-                              placeholder="-45kg, +55kg..."
-                              value={p.weight_category ?? ''}
-                              onChange={(e) => void updateWeight(p.id, e.target.value)}
-                              disabled={selectedCompetition.status !== 'planlandi'}
-                            />
+                            {(() => {
+                              const opts = weightOptions(p)
+                              if (opts.length > 0) {
+                                return (
+                                  <select
+                                    className="input-field max-w-[150px] py-1 text-xs"
+                                    value={p.weight_category ?? ''}
+                                    onChange={(e) => void updateWeight(p.id, e.target.value)}
+                                    disabled={selectedCompetition.status !== 'planlandi'}
+                                  >
+                                    <option value="">Seçin</option>
+                                    {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                                  </select>
+                                )
+                              }
+                              return (
+                                <input
+                                  className="input-field max-w-[150px] py-1 text-xs"
+                                  placeholder="-45kg, +55kg..."
+                                  value={p.weight_category ?? ''}
+                                  onChange={(e) => void updateWeight(p.id, e.target.value)}
+                                  disabled={selectedCompetition.status !== 'planlandi'}
+                                />
+                              )
+                            })()}
                           </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            className="input-field max-w-[130px] py-1 text-xs"
+                            placeholder="örn: 1.lik"
+                            value={p.ranking ?? ''}
+                            onChange={(e) => void updateRanking(p.id, e.target.value)}
+                            list={`ranking-datalist-${p.id}`}
+                          />
+                          <datalist id={`ranking-datalist-${p.id}`}>
+                            <option value="1.lik (Altın)" />
+                            <option value="2.lik (Gümüş)" />
+                            <option value="3.lük (Bronz)" />
+                            <option value="Katılımcı" />
+                          </datalist>
                         </td>
                         {selectedCompetition.status === 'planlandi' && (
                           <td className="px-3 py-2">

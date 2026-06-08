@@ -43,6 +43,7 @@ type CompHistory = {
   comp_title: string
   comp_date: string
   weight_category: string | null
+  ranking: string | null
 }
 
 type AttendanceSummary = {
@@ -133,7 +134,7 @@ export default function AthleteDetail() {
           .order('belt_exams(exam_date)', { ascending: false }),
         supabase
           .from('competition_participants')
-          .select('id, weight_category, competitions!inner ( id, title, competition_date )')
+          .select('id, weight_category, ranking, competitions!inner ( id, title, competition_date )')
           .eq('athlete_id', id)
           .order('competitions(competition_date)', { ascending: false }),
         supabase
@@ -164,6 +165,7 @@ export default function AthleteDetail() {
           comp_title: c.competitions?.title ?? 'Yarışma',
           comp_date: c.competitions?.competition_date ?? '',
           weight_category: c.weight_category,
+          ranking: c.ranking,
         })),
       )
 
@@ -461,11 +463,19 @@ export default function AthleteDetail() {
                     {c.comp_date ? new Date(c.comp_date).toLocaleDateString('tr-TR') : '—'}
                   </p>
                 </div>
-                {c.weight_category && (
-                  <span className="shrink-0 rounded-full bg-app-bg-soft px-2.5 py-1 text-[10px] font-medium text-brand-muted">
-                    {c.weight_category}
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {c.ranking && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${c.ranking.includes('1.lik') ? 'bg-amber-100 text-amber-700' : c.ranking.includes('2.lik') ? 'bg-slate-100 text-slate-700' : c.ranking.includes('3.lük') ? 'bg-orange-100 text-orange-700' : 'bg-app-bg-soft text-brand-muted'}`}>
+                      <Trophy className="-ml-0.5 mr-0.5 inline h-3 w-3" />
+                      {c.ranking}
+                    </span>
+                  )}
+                  {c.weight_category && (
+                    <span className="rounded-full bg-app-bg-soft px-2.5 py-1 text-[10px] font-medium text-brand-muted">
+                      {c.weight_category}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>

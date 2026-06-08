@@ -85,6 +85,8 @@ export interface CompetitionRow {
   birth_year_max: number | null
   min_belt_index: number
   status: ExamStatus
+  weight_categories_male: string[] | null
+  weight_categories_female: string[] | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -95,6 +97,7 @@ export interface CompetitionParticipantRow {
   competition_id: string
   athlete_id: string
   weight_category: string | null
+  ranking: string | null
   created_at: string
   updated_at: string
 }
@@ -214,8 +217,8 @@ export interface BeltExamParticipantWithAthlete extends BeltExamParticipantRow {
 
 export interface CompetitionParticipantWithAthlete extends CompetitionParticipantRow {
   athletes:
-    | { first_name: string; last_name: string; belt: string }
-    | { first_name: string; last_name: string; belt: string }[]
+    | { first_name: string; last_name: string; belt: string; gender: string | null }
+    | { first_name: string; last_name: string; belt: string; gender: string | null }[]
     | null
 }
 

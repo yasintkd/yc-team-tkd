@@ -27,3 +27,4 @@ dist-ssr
 *.sw?
 *.xlsm
 api/
+.npm-cache/
