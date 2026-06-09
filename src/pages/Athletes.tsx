@@ -393,38 +393,51 @@ export default function Athletes() {
           <ul className="space-y-2 md:hidden">
             {paged.map((a) => (
               <li key={a.id}>
-                <Link
-                  to={`/sporcular/${a.id}`}
-                  className={`glass-panel block w-full rounded-xl p-3 text-left transition active:scale-[0.99] ${!a.is_active ? 'opacity-60' : ''
+                <div
+                  className={`glass-panel block w-full rounded-xl p-3 text-left transition ${!a.is_active ? 'opacity-60' : ''
                     }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <Link to={`/sporcular/${a.id}`} className="truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition">
-                        {a.first_name} {a.last_name}
-                      </Link>
-                      <span className="mt-1 inline-flex items-center gap-1">
-                        <BeltBadge belt={a.belt} size="sm" />
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
-                      >
-                        {genderLabel(a.gender)}
-                      </span>
-                      {!a.is_active && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                          Pasif
+                  <Link
+                    to={`/sporcular/${a.id}`}
+                    className="block transition active:scale-[0.99]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition">
+                          {a.first_name} {a.last_name}
                         </span>
-                      )}
+                        <span className="mt-1 inline-flex items-center gap-1">
+                          <BeltBadge belt={a.belt} size="sm" />
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
+                        >
+                          {genderLabel(a.gender)}
+                        </span>
+                        {!a.is_active && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                            Pasif
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-brand-muted">
+                      <span>{birthYear(a.birth_date)}</span>
+                      <span>{groupName(a)}</span>
+                    </div>
+                  </Link>
+                  <div className="mt-3 flex justify-end border-t border-app-border/40 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(a)}
+                      className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft"
+                    >
+                      Düzenle
+                    </button>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-brand-muted">
-                    <span>{birthYear(a.birth_date)}</span>
-                    <span>{groupName(a)}</span>
-                  </div>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
