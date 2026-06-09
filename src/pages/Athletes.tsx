@@ -104,7 +104,7 @@ function Field({
   col2?: boolean
 }) {
   return (
-    <div className={`space-y-1 text-xs${col2 ? ' col-span-2' : ''}`}>
+    <div className={`space-y-1 text-xs${col2 ? ' sm:col-span-2' : ''}`}>
       <label className="font-medium text-slate-500">{label}</label>
       {children}
     </div>
@@ -324,7 +324,7 @@ export default function Athletes() {
 
           <form
             onSubmit={onSubmit}
-            className="mt-4 grid grid-cols-2 gap-3"
+            className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3"
           >
             {/* ─ Temel bilgiler ─ */}
             <Field label="Adı *">
@@ -386,7 +386,7 @@ export default function Athletes() {
             </Field>
 
             {/* ─ Kimlik bilgileri ─ */}
-            <div className="col-span-2 mt-1 border-t border-app-border/40 pt-3">
+            <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
                 Kimlik Bilgileri (Lisans / Tescil)
               </p>
@@ -418,7 +418,7 @@ export default function Athletes() {
             </Field>
 
             {/* ─ Veli irtibat ─ */}
-            <div className="col-span-2 mt-1 border-t border-app-border/40 pt-3">
+            <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
                 Veli İrtibat
               </p>
@@ -432,7 +432,7 @@ export default function Athletes() {
               />
             </Field>
             {/* Veli tipi: anne mi baba mı — sadece telefon girilmişse zorunlu değil */}
-            <div className="col-span-2 flex gap-4 text-xs">
+            <div className="col-span-1 sm:col-span-2 flex gap-4 text-xs">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -458,7 +458,7 @@ export default function Athletes() {
             </div>
 
             {/* ─ Kaydet ─ */}
-            <div className="col-span-2 pt-4 flex gap-2">
+            <div className="col-span-1 sm:col-span-2 pt-4 flex gap-2">
               <button
                 type="button"
                 onClick={closeForm}
