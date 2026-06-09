@@ -66,6 +66,16 @@
   textarea,
   button {
     font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Tarih girdilerinin mobilde taşmasını engellemek için */
+  input[type="date"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   @media (min-width: 768px) {

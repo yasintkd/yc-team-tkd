@@ -104,7 +104,7 @@ function Field({
   col2?: boolean
 }) {
   return (
-    <div className={`space-y-1 text-xs${col2 ? ' sm:col-span-2' : ''}`}>
+    <div className={`space-y-1 text-xs min-w-0${col2 ? ' sm:col-span-2' : ''}`}>
       <label className="font-medium text-slate-500">{label}</label>
       {children}
     </div>
