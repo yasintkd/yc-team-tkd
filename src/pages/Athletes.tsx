@@ -293,6 +293,197 @@ export default function Athletes() {
 
   const canSubmit = form.first_name.trim().length > 0 && form.last_name.trim().length > 0
 
+  if (showForm) {
+    return (
+      <div className="space-y-4 md:space-y-6">
+        {/* Başlık / Geri butonu */}
+        <section className="glass-panel rounded-2xl p-5">
+          <div className="flex items-center justify-between border-b border-app-border/40 pb-3">
+            <div>
+              <h2 className="text-sm font-semibold">
+                {editingId ? 'Sporcu Düzenle' : 'Yeni Sporcu Ekle'}
+              </h2>
+              <p className="mt-0.5 text-xs text-brand-muted">
+                {editingId ? 'Mevcut sporcunun bilgilerini güncelleyin.' : 'Sisteme yeni bir sporcu ekleyin.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeForm}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border text-slate-500 hover:bg-app-bg-soft transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {error && (
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {error}
+            </div>
+          )}
+
+          <form
+            onSubmit={onSubmit}
+            className="mt-4 grid grid-cols-2 gap-3"
+          >
+            {/* ─ Temel bilgiler ─ */}
+            <Field label="Adı *">
+              <input
+                className="input-field"
+                placeholder="Ali"
+                value={form.first_name}
+                onChange={set('first_name')}
+              />
+            </Field>
+            <Field label="Soyadı *">
+              <input
+                className="input-field"
+                placeholder="Yılmaz"
+                value={form.last_name}
+                onChange={set('last_name')}
+              />
+            </Field>
+
+            <Field label="Doğum Tarihi">
+              <input
+                type="date"
+                className="input-field"
+                value={form.birth_date}
+                onChange={set('birth_date')}
+              />
+            </Field>
+            <Field label="Cinsiyet">
+              <select className="input-field" value={form.gender} onChange={set('gender')}>
+                <option value="">Seçilmedi</option>
+                <option value="erkek">Erkek</option>
+                <option value="kiz">Kız</option>
+              </select>
+            </Field>
+
+            <Field label="Telefon">
+              <input
+                className="input-field"
+                placeholder="05xx xxx xx xx"
+                value={form.phone}
+                onChange={set('phone')}
+              />
+            </Field>
+            <Field label="Kuşak">
+              <select className="input-field" value={form.belt} onChange={set('belt')}>
+                {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Antrenman Grubu" col2>
+              <select
+                className="input-field"
+                value={form.training_group_id}
+                onChange={set('training_group_id')}
+              >
+                <option value="">Grup seçilmedi</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </Field>
+
+            {/* ─ Kimlik bilgileri ─ */}
+            <div className="col-span-2 mt-1 border-t border-app-border/40 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+                Kimlik Bilgileri (Lisans / Tescil)
+              </p>
+            </div>
+            <Field label="TC Kimlik No" col2>
+              <input
+                className="input-field"
+                placeholder="12345678901"
+                maxLength={11}
+                value={form.tc_no}
+                onChange={set('tc_no')}
+              />
+            </Field>
+            <Field label="Anne Adı">
+              <input
+                className="input-field"
+                placeholder="Fatma"
+                value={form.mother_name}
+                onChange={set('mother_name')}
+              />
+            </Field>
+            <Field label="Baba Adı Soyadı">
+              <input
+                className="input-field"
+                placeholder="Ahmet Arif"
+                value={form.father_name}
+                onChange={set('father_name')}
+              />
+            </Field>
+
+            {/* ─ Veli irtibat ─ */}
+            <div className="col-span-2 mt-1 border-t border-app-border/40 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+                Veli İrtibat
+              </p>
+            </div>
+            <Field label="Veli Telefonu" col2>
+              <input
+                className="input-field"
+                placeholder="05xx xxx xx xx"
+                value={form.parent_phone}
+                onChange={set('parent_phone')}
+              />
+            </Field>
+            {/* Veli tipi: anne mi baba mı — sadece telefon girilmişse zorunlu değil */}
+            <div className="col-span-2 flex gap-4 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="parent_type"
+                  value="anne"
+                  checked={form.parent_type === 'anne'}
+                  onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))}
+                  className="accent-brand-cyan"
+                />
+                Anne
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="parent_type"
+                  value="baba"
+                  checked={form.parent_type === 'baba'}
+                  onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))}
+                  className="accent-brand-cyan"
+                />
+                Baba
+              </label>
+            </div>
+
+            {/* ─ Kaydet ─ */}
+            <div className="col-span-2 pt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="flex-1 rounded-lg border border-app-border bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-app-bg-soft transition active:scale-[0.98]"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmit || saving}
+                className="btn-primary flex-1"
+              >
+                {saving
+                  ? 'Kaydediliyor...'
+                  : editingId
+                    ? 'Değişiklikleri Kaydet'
+                    : 'Sporcu Ekle'}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
 
@@ -533,194 +724,6 @@ export default function Athletes() {
             </div>
           )}
         </>
-      )}
-
-
-
-      {/* ════════════════════════════════════════════════════════
-          MODAL — Yeni / Düzenle Formu
-      ════════════════════════════════════════════════════════ */}
-      {showForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
-          onClick={closeForm}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Başlık */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-slate-800">
-                {editingId ? 'Sporcu Düzenle' : 'Yeni Sporcu Ekle'}
-              </h3>
-              <button
-                type="button"
-                onClick={closeForm}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border text-slate-500 hover:bg-app-bg-soft"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {error && (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                {error}
-              </div>
-            )}
-
-            <form
-              onSubmit={onSubmit}
-              className="mt-4 grid max-h-[65vh] grid-cols-2 gap-3 overflow-y-auto pb-1"
-            >
-              {/* ─ Temel bilgiler ─ */}
-              <Field label="Adı *">
-                <input
-                  className="input-field"
-                  placeholder="Ali"
-                  value={form.first_name}
-                  onChange={set('first_name')}
-                />
-              </Field>
-              <Field label="Soyadı *">
-                <input
-                  className="input-field"
-                  placeholder="Yılmaz"
-                  value={form.last_name}
-                  onChange={set('last_name')}
-                />
-              </Field>
-
-              <Field label="Doğum Tarihi">
-                <input
-                  type="date"
-                  className="input-field"
-                  value={form.birth_date}
-                  onChange={set('birth_date')}
-                />
-              </Field>
-              <Field label="Cinsiyet">
-                <select className="input-field" value={form.gender} onChange={set('gender')}>
-                  <option value="">Seçilmedi</option>
-                  <option value="erkek">Erkek</option>
-                  <option value="kiz">Kız</option>
-                </select>
-              </Field>
-
-              <Field label="Telefon">
-                <input
-                  className="input-field"
-                  placeholder="05xx xxx xx xx"
-                  value={form.phone}
-                  onChange={set('phone')}
-                />
-              </Field>
-              <Field label="Kuşak">
-                <select className="input-field" value={form.belt} onChange={set('belt')}>
-                  {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </Field>
-
-              <Field label="Antrenman Grubu" col2>
-                <select
-                  className="input-field"
-                  value={form.training_group_id}
-                  onChange={set('training_group_id')}
-                >
-                  <option value="">Grup seçilmedi</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </Field>
-
-              {/* ─ Kimlik bilgileri ─ */}
-              <div className="col-span-2 mt-1 border-t border-app-border pt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-                  Kimlik Bilgileri (Lisans / Tescil)
-                </p>
-              </div>
-              <Field label="TC Kimlik No" col2>
-                <input
-                  className="input-field"
-                  placeholder="12345678901"
-                  maxLength={11}
-                  value={form.tc_no}
-                  onChange={set('tc_no')}
-                />
-              </Field>
-              <Field label="Anne Adı">
-                <input
-                  className="input-field"
-                  placeholder="Fatma"
-                  value={form.mother_name}
-                  onChange={set('mother_name')}
-                />
-              </Field>
-              <Field label="Baba Adı Soyadı">
-                <input
-                  className="input-field"
-                  placeholder="Ahmet Arif"
-                  value={form.father_name}
-                  onChange={set('father_name')}
-                />
-              </Field>
-
-              {/* ─ Veli irtibat ─ */}
-              <div className="col-span-2 mt-1 border-t border-app-border pt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-                  Veli İrtibat
-                </p>
-              </div>
-              <Field label="Veli Telefonu" col2>
-                <input
-                  className="input-field"
-                  placeholder="05xx xxx xx xx"
-                  value={form.parent_phone}
-                  onChange={set('parent_phone')}
-                />
-              </Field>
-              {/* Veli tipi: anne mi baba mı — sadece telefon girilmişse zorunlu değil */}
-              <div className="col-span-2 flex gap-4 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="parent_type"
-                    value="anne"
-                    checked={form.parent_type === 'anne'}
-                    onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))}
-                    className="accent-brand-cyan"
-                  />
-                  Anne
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="parent_type"
-                    value="baba"
-                    checked={form.parent_type === 'baba'}
-                    onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))}
-                    className="accent-brand-cyan"
-                  />
-                  Baba
-                </label>
-              </div>
-
-              {/* ─ Kaydet ─ */}
-              <div className="col-span-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={!canSubmit || saving}
-                  className="btn-primary w-full"
-                >
-                  {saving
-                    ? 'Kaydediliyor...'
-                    : editingId
-                      ? 'Değişiklikleri Kaydet'
-                      : 'Sporcu Ekle'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   )
