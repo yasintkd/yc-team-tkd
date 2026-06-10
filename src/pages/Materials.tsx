@@ -29,7 +29,7 @@ type AthleteOrder = {
   is_ordered: boolean; is_delivered: boolean
   delivered_at: string | null
   created_at: string
-  athletes: { first_name: string; last_name: string } | null
+  athletes: { first_name: string; last_name: string; gender: string | null } | null
   items: OrderItem[]
 }
 
@@ -78,7 +78,7 @@ export default function Materials() {
       const [pRes, aRes, oRes] = await Promise.all([
         supabase.from('products').select('*').order('name'),
         supabase.from('athletes').select('id, first_name, last_name, belt, gender').eq('is_active', true).order('last_name'),
-        supabase.from('athlete_orders').select('*, athletes(first_name, last_name), items:athlete_order_items(*, products(name, price))').order('created_at', { ascending: false }),
+        supabase.from('athlete_orders').select('*, athletes(first_name, last_name, gender), items:athlete_order_items(*, products(name, price))').order('created_at', { ascending: false }),
       ])
       if (pRes.error) throw pRes.error
       if (aRes.error) throw aRes.error
@@ -107,7 +107,7 @@ export default function Materials() {
 
       {tab === 'products' && <ProductsTab products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
       {tab === 'orders' && <OrdersTab products={products} athletes={athletes} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
-      {tab === 'distribute' && <DistributeTab orders={orders} athletes={athletes} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
+      {tab === 'distribute' && <DistributeTab orders={orders} athletes={athletes} products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
       {tab === 'reports' && <ReportsTab orders={orders} athletes={athletes} />}
     </div>
   )
@@ -431,9 +431,9 @@ function OrdersTab({
 // DAĞITIM
 
 function DistributeTab({
-  orders, athletes, onRefresh, flash, setError,
+  products, orders, athletes, onRefresh, flash, setError,
 }: {
-  orders: AthleteOrder[]; athletes: Athlete[]
+  products: Product[]; orders: AthleteOrder[]; athletes: Athlete[]
   onRefresh: () => void; flash: (m: string) => void; setError: (e: string | null) => void
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -496,8 +496,13 @@ function DistributeTab({
     setExportingPng(true)
     setError(null)
     try {
-      // Grupla: ürün adı + beden bilgisi → adet
-      const grouped = new Map<string, { productName: string; sizeInfo: string; quantity: number }>()
+      // Her sipariş için sporcu bilgisine erişim için lookup
+      const orderAthleteMap = new Map(notOrdered.map(o => [o.id, o.athletes]))
+      // Her ürün için cinsiyet gerekip gerekmediği
+      const productGenderReq = new Map(products.map(p => [p.id, p.requires_gender]))
+
+      // Grupla: ürün adı + beden bilgisi + cinsiyet → adet
+      const grouped = new Map<string, { productName: string; sizeInfo: string; quantity: number; genderInfo?: string }>()
 
       const allItems = notOrdered.flatMap((o) => o.items ?? [])
 
@@ -509,12 +514,21 @@ function DistributeTab({
         if (item.shoe_size) parts.push(`Ayakkabı ${item.shoe_size}`)
         const sizeInfo = parts.length > 0 ? parts.join(' / ') : '-'
 
-        const key = `${pn}||${sizeInfo}`
+        // Cinsiyet bilgisi
+        const reqGender = productGenderReq.get(item.product_id) ?? false
+        let genderInfo: string | undefined
+        if (reqGender) {
+          const orderAthletes = orderAthleteMap.get(item.order_id)
+          const gender = orderAthletes?.gender
+          genderInfo = gender === 'erkek' ? 'Erkek' : gender === 'kiz' ? 'Kız' : '—'
+        }
+
+        const key = `${pn}||${sizeInfo}||${genderInfo ?? ''}`
         const existing = grouped.get(key)
         if (existing) {
           existing.quantity++
         } else {
-          grouped.set(key, { productName: pn, sizeInfo, quantity: 1 })
+          grouped.set(key, { productName: pn, sizeInfo, quantity: 1, genderInfo })
         }
       }
 

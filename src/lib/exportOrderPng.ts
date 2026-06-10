@@ -6,6 +6,8 @@ export type OrderPngItem = {
   /** Formatted size info like "130cm" or "-" */
   sizeInfo: string
   quantity: number
+  /** Gender info like "Erkek" / "Kız" if applicable */
+  genderInfo?: string
 }
 
 function escapeHtml(text: string) {
@@ -17,12 +19,15 @@ function escapeHtml(text: string) {
 }
 
 function buildBodyHtml(items: OrderPngItem[], orderCount: number) {
+  const hasGender = items.some((i) => i.genderInfo)
+
   const rows = items
     .map(
       (p, i) => `
         <tr>
           <td class="num">${i + 1}</td>
           <td class="name">${escapeHtml(p.productName)}</td>
+          ${hasGender ? `<td class="gender">${escapeHtml(p.genderInfo ?? '—')}</td>` : ''}
           <td class="size">${escapeHtml(p.sizeInfo)}</td>
           <td class="qty">${p.quantity}</td>
         </tr>`,
@@ -43,6 +48,7 @@ function buildBodyHtml(items: OrderPngItem[], orderCount: number) {
         <tr>
           <th class="num-th">#</th>
           <th class="name-th">Ürün</th>
+          ${hasGender ? '<th class="gender-th">Cinsiyet</th>' : ''}
           <th class="size-th">Beden / Ölçü</th>
           <th class="qty-th">Adet</th>
         </tr>
@@ -97,6 +103,7 @@ const pngStyles = `
     color: #ffffff;
   }
   .num-th { width: 48px; text-align: center; }
+  .gender-th { width: 80px; text-align: center; }
   .size-th { }
   .qty-th { width: 80px; text-align: center; }
 
@@ -119,6 +126,7 @@ const pngStyles = `
     font-size: 13px;
   }
   td.name { font-weight: 600; }
+  td.gender { text-align: center; font-size: 13px; }
   td.size { font-size: 13px; color: #5a6b7d; }
   td.qty {
     text-align: center;
