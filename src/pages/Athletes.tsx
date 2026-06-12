@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, UserPlus, Users, X } from 'lucide-react'
+import { Search, UserPlus, Users, X, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
 import BeltBadge from '../components/BeltBadge'
@@ -27,6 +27,7 @@ type Athlete = {
   training_group_id: string | null
   is_active: boolean
   training_groups: { name: string } | { name: string }[] | null
+  licensed_this_year: boolean
 }
 
 type FormData = {
@@ -63,7 +64,6 @@ const EMPTY_FORM: FormData = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Listede sadece doğum yılı göster */
 function birthYear(birthDate: string | null): string {
   if (!birthDate) return '—'
   return String(new Date(birthDate).getFullYear())
@@ -86,23 +86,9 @@ function genderBadgeClass(g: string | null) {
   return 'bg-slate-100 text-slate-500'
 }
 
-/** Kuşak rengine göre badge stilleri
- *  Ara kuşaklarda: 1. renk = arka plan, 2. renk = yazı & kenarlık
- *  Kontrol sırası ÖNEMLİ — özelden genele (ara kuşak → ana kuşak)
- */
-// beltStyle() now imported from ../lib/belts
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Field({
-  label,
-  children,
-  col2 = false,
-}: {
-  label: string
-  children: React.ReactNode
-  col2?: boolean
-}) {
+function Field({ label, children, col2 = false }: { label: string; children: React.ReactNode; col2?: boolean }) {
   return (
     <div className={`space-y-1 text-xs min-w-0${col2 ? ' sm:col-span-2' : ''}`}>
       <label className="font-medium text-slate-500">{label}</label>
@@ -114,23 +100,21 @@ function Field({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Athletes() {
-  // Data
   const [rows, setRows] = useState<Athlete[]>([])
   const [groups, setGroups] = useState<TrainingGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // UI state
   const [search, setSearch] = useState('')
   const [beltFilter, setBeltFilter] = useState('')
   const [groupFilter, setGroupFilter] = useState('')
-  // 'active' | 'passive' | 'all'
   const [statusFilter, setStatusFilter] = useState<'active' | 'passive' | 'all'>('active')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [editingId, setEditingId] = useState<string | null>(null)
 
+  const CURRENT_YEAR = new Date().getFullYear()
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -157,7 +141,22 @@ export default function Athletes() {
       setError(qErr.message)
       setRows([])
     } else {
-      setRows((data ?? []) as Athlete[])
+      const athletes = (data ?? []) as Athlete[]
+      // Vize durumlarını çek
+      const ids = athletes.map((a) => a.id)
+      const { data: licenses } = await supabase
+        .from('athlete_licenses')
+        .select('athlete_id')
+        .in('athlete_id', ids)
+        .eq('year', CURRENT_YEAR)
+
+      const licensedIds = new Set((licenses ?? []).map((l: any) => l.athlete_id))
+      setRows(
+        athletes.map((a) => ({
+          ...a,
+          licensed_this_year: licensedIds.has(a.id),
+        })),
+      )
     }
     setLoading(false)
   }
@@ -175,7 +174,7 @@ export default function Athletes() {
       .filter((a) => {
         const nameMatch = q
           ? `${a.first_name} ${a.last_name}`.toLowerCase().includes(q) ||
-          (a.phone && a.phone.replace(/\s/g, '').includes(q))
+            (a.phone && a.phone.replace(/\s/g, '').includes(q))
           : true
         const beltMatch = beltFilter ? a.belt === beltFilter : true
         const groupMatch = groupFilter ? a.training_group_id === groupFilter : true
@@ -188,10 +187,7 @@ export default function Athletes() {
         return nameMatch && beltMatch && groupMatch && statusMatch
       })
       .sort((a, b) =>
-        `${a.first_name} ${a.last_name}`.localeCompare(
-          `${b.first_name} ${b.last_name}`,
-          'tr',
-        ),
+        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'tr'),
       )
   }, [rows, search, beltFilter, groupFilter, statusFilter])
 
@@ -202,10 +198,8 @@ export default function Athletes() {
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
-  // Filtre değişince sayfa sıfırla
   useEffect(() => { setPage(1) }, [search, beltFilter, groupFilter, statusFilter])
 
-  // Sayaçlar
   const activeCount = useMemo(() => rows.filter((r) => r.is_active).length, [rows])
   const passiveCount = useMemo(() => rows.filter((r) => !r.is_active).length, [rows])
 
@@ -245,7 +239,7 @@ export default function Athletes() {
     setError(null)
   }
 
-  const set = (field: keyof FormData) =>
+  const setField = (field: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
@@ -274,14 +268,22 @@ export default function Athletes() {
       branch: 'Taekwondo',
     }
 
-    const { error: dbErr } = editingId
-      ? await supabase.from('athletes').update(payload).eq('id', editingId)
-      : await supabase.from('athletes').insert(payload)
+    const { data: insertResult, error: dbErr } = editingId
+      ? await supabase.from('athletes').update(payload).eq('id', editingId).select('id').maybeSingle()
+      : await supabase.from('athletes').insert(payload).select('id').maybeSingle()
 
     if (dbErr) {
       setError(dbErr.message)
       setSaving(false)
       return
+    }
+
+    // Yeni sporcu → geçen yıl vizesini otomatik ekle
+    if (!editingId && insertResult?.id) {
+      await supabase
+        .from('athlete_licenses')
+        .insert({ athlete_id: insertResult.id, year: CURRENT_YEAR - 1 })
+        .maybeSingle()
     }
 
     closeForm()
@@ -296,7 +298,6 @@ export default function Athletes() {
   if (showForm) {
     return (
       <div className="space-y-4 md:space-y-6">
-        {/* Başlık / Geri butonu */}
         <section className="glass-panel rounded-2xl p-5">
           <div className="flex items-center justify-between border-b border-app-border/40 pb-3">
             <div>
@@ -322,160 +323,72 @@ export default function Athletes() {
             </div>
           )}
 
-          <form
-            onSubmit={onSubmit}
-            className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3"
-          >
-            {/* ─ Temel bilgiler ─ */}
+          <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Adı *">
-              <input
-                className="input-field"
-                placeholder="Ali"
-                value={form.first_name}
-                onChange={set('first_name')}
-              />
+              <input className="input-field" placeholder="Ali" value={form.first_name} onChange={setField('first_name')} />
             </Field>
             <Field label="Soyadı *">
-              <input
-                className="input-field"
-                placeholder="Yılmaz"
-                value={form.last_name}
-                onChange={set('last_name')}
-              />
+              <input className="input-field" placeholder="Yılmaz" value={form.last_name} onChange={setField('last_name')} />
             </Field>
-
             <Field label="Doğum Tarihi">
-              <input
-                type="date"
-                className="input-field"
-                value={form.birth_date}
-                onChange={set('birth_date')}
-              />
+              <input type="date" className="input-field" value={form.birth_date} onChange={setField('birth_date')} />
             </Field>
             <Field label="Cinsiyet">
-              <select className="input-field" value={form.gender} onChange={set('gender')}>
+              <select className="input-field" value={form.gender} onChange={setField('gender')}>
                 <option value="">Seçilmedi</option>
                 <option value="erkek">Erkek</option>
                 <option value="kiz">Kız</option>
               </select>
             </Field>
-
             <Field label="Telefon">
-              <input
-                className="input-field"
-                placeholder="05xx xxx xx xx"
-                value={form.phone}
-                onChange={set('phone')}
-              />
+              <input className="input-field" placeholder="05xx xxx xx xx" value={form.phone} onChange={setField('phone')} />
             </Field>
             <Field label="Kuşak">
-              <select className="input-field" value={form.belt} onChange={set('belt')}>
+              <select className="input-field" value={form.belt} onChange={setField('belt')}>
                 {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </Field>
-
             <Field label="Antrenman Grubu" col2>
-              <select
-                className="input-field"
-                value={form.training_group_id}
-                onChange={set('training_group_id')}
-              >
+              <select className="input-field" value={form.training_group_id} onChange={setField('training_group_id')}>
                 <option value="">Grup seçilmedi</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </Field>
 
-            {/* ─ Kimlik bilgileri ─ */}
             <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-                Kimlik Bilgileri (Lisans / Tescil)
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">Kimlik Bilgileri (Lisans / Tescil)</p>
             </div>
             <Field label="TC Kimlik No" col2>
-              <input
-                className="input-field"
-                placeholder="12345678901"
-                maxLength={11}
-                value={form.tc_no}
-                onChange={set('tc_no')}
-              />
+              <input className="input-field" placeholder="12345678901" maxLength={11} value={form.tc_no} onChange={setField('tc_no')} />
             </Field>
             <Field label="Anne Adı">
-              <input
-                className="input-field"
-                placeholder="Fatma"
-                value={form.mother_name}
-                onChange={set('mother_name')}
-              />
+              <input className="input-field" placeholder="Fatma" value={form.mother_name} onChange={setField('mother_name')} />
             </Field>
             <Field label="Baba Adı Soyadı">
-              <input
-                className="input-field"
-                placeholder="Ahmet Arif"
-                value={form.father_name}
-                onChange={set('father_name')}
-              />
+              <input className="input-field" placeholder="Ahmet Arif" value={form.father_name} onChange={setField('father_name')} />
             </Field>
 
-            {/* ─ Veli irtibat ─ */}
             <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-                Veli İrtibat
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">Veli İrtibat</p>
             </div>
             <Field label="Veli Telefonu" col2>
-              <input
-                className="input-field"
-                placeholder="05xx xxx xx xx"
-                value={form.parent_phone}
-                onChange={set('parent_phone')}
-              />
+              <input className="input-field" placeholder="05xx xxx xx xx" value={form.parent_phone} onChange={setField('parent_phone')} />
             </Field>
-            {/* Veli tipi: anne mi baba mı — sadece telefon girilmişse zorunlu değil */}
             <div className="col-span-1 sm:col-span-2 flex gap-4 text-xs">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="parent_type"
-                  value="anne"
-                  checked={form.parent_type === 'anne'}
-                  onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))}
-                  className="accent-brand-cyan"
-                />
+                <input type="radio" name="parent_type" value="anne" checked={form.parent_type === 'anne'} onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))} className="accent-brand-cyan" />
                 Anne
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="parent_type"
-                  value="baba"
-                  checked={form.parent_type === 'baba'}
-                  onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))}
-                  className="accent-brand-cyan"
-                />
+                <input type="radio" name="parent_type" value="baba" checked={form.parent_type === 'baba'} onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))} className="accent-brand-cyan" />
                 Baba
               </label>
             </div>
 
-            {/* ─ Kaydet ─ */}
             <div className="col-span-1 sm:col-span-2 pt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="flex-1 rounded-lg border border-app-border bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-app-bg-soft transition active:scale-[0.98]"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="submit"
-                disabled={!canSubmit || saving}
-                className="btn-primary flex-1"
-              >
-                {saving
-                  ? 'Kaydediliyor...'
-                  : editingId
-                    ? 'Değişiklikleri Kaydet'
-                    : 'Sporcu Ekle'}
+              <button type="button" onClick={closeForm} className="flex-1 rounded-lg border border-app-border bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-app-bg-soft transition active:scale-[0.98]">Vazgeç</button>
+              <button type="submit" disabled={!canSubmit || saving} className="btn-primary flex-1">
+                {saving ? 'Kaydediliyor...' : editingId ? 'Değişiklikleri Kaydet' : 'Sporcu Ekle'}
               </button>
             </div>
           </form>
@@ -486,71 +399,35 @@ export default function Athletes() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-
-      {/* ── Üst araç çubuğu ── */}
       <section className="glass-panel rounded-2xl p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold">Sporcular</h2>
-            <p className="mt-0.5 text-xs text-brand-muted">
-              {activeCount} aktif · {passiveCount} pasif
-            </p>
+            <p className="mt-0.5 text-xs text-brand-muted">{activeCount} aktif · {passiveCount} pasif</p>
           </div>
-          <button
-            type="button"
-            onClick={openNewForm}
-            className="btn-primary inline-flex items-center gap-1.5"
-          >
+          <button type="button" onClick={openNewForm} className="btn-primary inline-flex items-center gap-1.5">
             <UserPlus className="h-3.5 w-3.5" />
             Yeni Sporcu
           </button>
         </div>
 
-        {/* Arama & filtreler */}
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-center gap-2 rounded-lg border border-app-border bg-white px-3 focus-within:border-brand-cyan focus-within:ring-2 focus-within:ring-brand-cyan/25">
             <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <input
-              className="w-full bg-transparent py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"
-              placeholder="Sporcu ara..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <input className="w-full bg-transparent py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400" placeholder="Sporcu ara..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select
-            className="input-field text-sm"
-            value={beltFilter}
-            onChange={(e) => setBeltFilter(e.target.value)}
-          >
+          <select className="input-field text-sm" value={beltFilter} onChange={(e) => setBeltFilter(e.target.value)}>
             <option value="">Tüm kuşaklar</option>
             {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
-          <select
-            className="input-field text-sm"
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
-          >
+          <select className="input-field text-sm" value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}>
             <option value="">Tüm gruplar</option>
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
-          {/* Aktif / Pasif filtresi */}
           <div className="flex rounded-lg border border-app-border bg-app-bg-soft/60 p-0.5 text-xs font-medium">
-            {(
-              [
-                { key: 'active', label: 'Aktif' },
-                { key: 'passive', label: 'Pasif' },
-                { key: 'all', label: 'Tümü' },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setStatusFilter(key)}
-                className={`flex-1 rounded-md py-1.5 transition ${statusFilter === key
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                  }`}
-              >
+            {([{ key: 'active', label: 'Aktif' }, { key: 'passive', label: 'Pasif' }, { key: 'all', label: 'Tümü' }] as const).map(({ key, label }) => (
+              <button key={key} type="button" onClick={() => setStatusFilter(key)}
+                className={`flex-1 rounded-md py-1.5 transition ${statusFilter === key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                 {label}
               </button>
             ))}
@@ -558,60 +435,42 @@ export default function Athletes() {
         </div>
       </section>
 
-      {/* ── Hata ── */}
       {error && !showForm && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-          {error}
-        </div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
       )}
 
-      {/* ── Sporcu listesi ── */}
       {loading ? (
         <LoadingSkeleton variant="table-row" count={8} />
       ) : filtered.length === 0 ? (
         <div className="glass-panel flex flex-col items-center gap-2 rounded-2xl py-12 text-center">
           <Users className="h-8 w-8 text-slate-300" />
           <p className="text-sm font-medium text-slate-500">Sporcu bulunamadı</p>
-          <p className="text-xs text-brand-muted">
-            Filtrelerinizi değiştirin veya yeni sporcu ekleyin.
-          </p>
+          <p className="text-xs text-brand-muted">Filtrelerinizi değiştirin veya yeni sporcu ekleyin.</p>
         </div>
-      ) : loading ? (
-        <LoadingSkeleton variant="table-row" count={8} />
       ) : (
         <>
-          {/* Mobil: kart listesi */}
+          {/* Mobil kart */}
           <ul className="space-y-2 md:hidden">
             {paged.map((a) => (
               <li key={a.id}>
-                <div
-                  className={`glass-panel block w-full rounded-xl p-3 text-left transition ${!a.is_active ? 'opacity-60' : ''
-                    }`}
-                >
-                  <Link
-                    to={`/sporcular/${a.id}`}
-                    className="block transition active:scale-[0.99]"
-                  >
+                <div className={`glass-panel block w-full rounded-xl p-3 text-left transition ${!a.is_active ? 'opacity-60' : ''}`}>
+                  <Link to={`/sporcular/${a.id}`} className="block transition active:scale-[0.99]">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition">
-                          {a.first_name} {a.last_name}
-                        </span>
-                        <span className="mt-1 inline-flex items-center gap-1">
+                        <span className="block truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition">{a.first_name} {a.last_name}</span>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
                           <BeltBadge belt={a.belt} size="sm" />
-                        </span>
+                          {!a.licensed_this_year && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+                              <ShieldAlert className="h-2.5 w-2.5" />
+                              Vizesiz
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
-                        >
-                          {genderLabel(a.gender)}
-                        </span>
-                        {!a.is_active && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                            Pasif
-                          </span>
-                        )}
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}>{genderLabel(a.gender)}</span>
+                        {!a.is_active && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pasif</span>}
                       </div>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-brand-muted">
@@ -620,22 +479,16 @@ export default function Athletes() {
                     </div>
                   </Link>
                   <div className="mt-3 flex justify-end border-t border-app-border/40 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => openEditForm(a)}
-                      className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft"
-                    >
-                      Düzenle
-                    </button>
+                    <button type="button" onClick={() => openEditForm(a)} className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft">Düzenle</button>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
 
-          {/* Masaüstü: tablo */}
+          {/* Masaüstü tablo */}
           <div className="glass-panel hidden overflow-x-auto rounded-2xl md:block">
-            <table className="w-full min-w-[640px] text-left text-xs">
+            <table className="w-full min-w-[720px] text-left text-xs">
               <thead className="border-b border-app-border bg-app-bg-soft/60">
                 <tr>
                   <th className="px-4 py-3 font-semibold text-slate-500">Ad Soyad</th>
@@ -644,54 +497,42 @@ export default function Athletes() {
                   <th className="px-4 py-3 font-semibold text-slate-500">Kuşak</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Grup</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Durum</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Vize</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-app-border">
                 {paged.map((a) => (
-                  <tr
-                    key={a.id}
-                    className={`transition hover:bg-app-bg-soft/60 ${!a.is_active ? 'opacity-60' : ''
-                      }`}
-                  >
+                  <tr key={a.id} className={`transition hover:bg-app-bg-soft/60 ${!a.is_active ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3 font-medium text-slate-800">
-                      <Link to={`/sporcular/${a.id}`} className="hover:text-brand-red transition">
-                        {a.first_name} {a.last_name}
-                      </Link>
+                      <Link to={`/sporcular/${a.id}`} className="hover:text-brand-red transition">{a.first_name} {a.last_name}</Link>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{birthYear(a.birth_date)}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}
-                      >
-                        {genderLabel(a.gender)}
-                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${genderBadgeClass(a.gender)}`}>{genderLabel(a.gender)}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <BeltBadge belt={a.belt} size="md" />
-                    </td>
+                    <td className="px-4 py-3"><BeltBadge belt={a.belt} size="md" /></td>
                     <td className="px-4 py-3 text-slate-600">{groupName(a)}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${a.is_active
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700'
-                          }`}
-                      >
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${a.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {a.is_active ? 'Aktif' : 'Pasif'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openEditForm(a)
-                        }}
-                        className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft"
-                      >
-                        Düzenle
-                      </button>
+                      {a.licensed_this_year ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                          <ShieldCheck className="h-3 w-3" />
+                          Vizeli
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          <ShieldAlert className="h-3 w-3" />
+                          Vizesiz
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button type="button" onClick={() => openEditForm(a)} className="rounded-lg border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft">Düzenle</button>
                     </td>
                   </tr>
                 ))}
@@ -699,28 +540,11 @@ export default function Athletes() {
             </table>
           </div>
 
-          {/* Sayfalama */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-app-border">
-              <button
-                type="button"
-                disabled={safePage <= 1}
-                onClick={() => setPage(safePage - 1)}
-                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40"
-              >
-                ← Önceki
-              </button>
-              <span className="text-xs text-brand-muted">
-                {safePage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage(safePage + 1)}
-                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40"
-              >
-                Sonraki →
-              </button>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40">← Önceki</button>
+              <span className="text-xs text-brand-muted">{safePage} / {totalPages}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)} className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40">Sonraki →</button>
             </div>
           )}
         </>

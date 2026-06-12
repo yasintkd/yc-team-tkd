@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Users, UsersRound, Award, CalendarClock, AlertTriangle } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Users, UsersRound, Award, CalendarClock, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import StatCard from '../components/StatCard'
 import LoadingSkeleton from '../components/LoadingSkeleton'
@@ -92,11 +92,13 @@ function groupName(
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [athleteCount, setAthleteCount] = useState('—')
   const [groupCount, setGroupCount] = useState('—')
   const [upcomingExam, setUpcomingExam] = useState('—')
   const [examHint, setExamHint] = useState('Planlanan kuşak sınavı')
+  const [unlicensedCount, setUnlicensedCount] = useState<string | number>('—')
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([])
   const [beltSummary, setBeltSummary] = useState<BeltCount[]>([])
   const [monthlyAttendance, setMonthlyAttendance] = useState<{ date: string; count: number }[]>([])
@@ -105,6 +107,27 @@ export default function Dashboard() {
   useEffect(() => {
     void (async () => {
       const today = todayIsoWeekday()
+
+      const CURRENT_YEAR = new Date().getFullYear()
+
+      // Vizesiz sporcu sayısı
+      const { data: allActiveAthletes } = await supabase
+        .from('athletes')
+        .select('id')
+        .eq('is_active', true)
+
+      const allActiveIds = (allActiveAthletes ?? []).map((a: any) => a.id)
+      if (allActiveIds.length > 0) {
+        const { count: licensedCount } = await supabase
+          .from('athlete_licenses')
+          .select('id', { count: 'exact' })
+          .in('athlete_id', allActiveIds)
+          .eq('year', CURRENT_YEAR)
+
+        setUnlicensedCount(allActiveIds.length - (licensedCount ?? 0))
+      } else {
+        setUnlicensedCount(0)
+      }
 
       const [athletesRes, groupsRes, examsRes, schedulesRes] = await Promise.all([
         supabase
@@ -253,8 +276,8 @@ export default function Dashboard() {
   if (dashboardLoading) {
     return (
       <div className="space-y-6">
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <LoadingSkeleton variant="card" count={4} />
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <LoadingSkeleton variant="card" count={5} />
         </section>
       </div>
     )
@@ -298,13 +321,21 @@ export default function Dashboard() {
       )}
 
       {/* İstatistik kartları */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Aktif Sporcu"
           value={athleteCount}
           hint="Kayıtlı öğrenci sayısı"
           icon={Users}
         />
+        <button type="button" onClick={() => navigate('/vizesiz-sporcular')} className="text-left">
+          <StatCard
+            label="Vizesiz Sporcu"
+            value={String(unlicensedCount)}
+            hint={`${new Date().getFullYear()} yılı lisans vizesi olmayanlar`}
+            icon={ShieldAlert}
+          />
+        </button>
         <StatCard
           label="Antrenman Grubu"
           value={groupCount}

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { BELTS, findBeltIndex, getPossibleTargetBelts } from '../lib/belts'
-import { CheckSquare, Square, Users, DollarSign, TrendingUp, Package, Trash2 } from 'lucide-react'
+import { CheckSquare, Square, Users, DollarSign, TrendingUp, Package, Trash2, Plus, X } from 'lucide-react'
 import BeltBadge from '../components/BeltBadge'
 import LoadingSkeleton from '../components/LoadingSkeleton'
+import { BRAND } from '../lib/brand'
+import logoUrl from '../assets/logo-team-taekwondo.png'
 
 type Exam = {
   id: string
@@ -21,8 +23,12 @@ type Participant = {
   belt_before: string
   target_belt: string
   fee_paid: boolean
+  result: string
   athletes: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
+  licensed: boolean
 }
+
+const CURRENT_YEAR = new Date().getFullYear()
 
 export default function BeltExams() {
   const [loading, setLoading] = useState(true)
@@ -38,27 +44,56 @@ export default function BeltExams() {
   const [feeAmount, setFeeAmount] = useState('')
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
 
+  // Sporcu ekleme modal
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<{ id: string; first_name: string; last_name: string; belt: string }[]>([])
+  const [athletesCache, setAthletesCache] = useState<{ id: string; first_name: string; last_name: string; belt: string }[]>([])
+  const addModalRef = useRef<HTMLDivElement>(null)
+
   const selectedExam = exams.find((e) => e.id === selectedExamId) ?? null
 
   const loadExams = async () => {
-    const { data, error: qErr } = await supabase
-      .from('belt_exams')
-      .select('id, title, exam_date, fee_amount, status, notes')
-      .order('exam_date', { ascending: false })
-    if (qErr) throw qErr
-    setExams((data ?? []) as Exam[])
+    const [planned, completed] = await Promise.all([
+      supabase
+        .from('belt_exams')
+        .select('id, title, exam_date, fee_amount, status, notes')
+        .eq('status', 'planlandi')
+        .order('exam_date', { ascending: false }),
+      supabase
+        .from('belt_exams')
+        .select('id, title, exam_date, fee_amount, status, notes')
+        .eq('status', 'tamamlandi')
+        .order('exam_date', { ascending: false })
+        .limit(2),
+    ])
+    if (planned.error) throw planned.error
+    if (completed.error) throw completed.error
+    const merged = [...(planned.data ?? []), ...(completed.data ?? [])]
+    setExams(merged as Exam[])
   }
 
   const loadParticipants = async (examId: string) => {
     const { data, error: qErr } = await supabase
       .from('belt_exam_participants')
       .select(
-        'id, exam_id, athlete_id, belt_before, target_belt, fee_paid, athletes ( first_name, last_name )',
+        'id, exam_id, athlete_id, belt_before, target_belt, fee_paid, result, athletes ( first_name, last_name )',
       )
       .eq('exam_id', examId)
       .order('created_at')
     if (qErr) throw qErr
-    setParticipants((data ?? []) as Participant[])
+    const raw = (data ?? []) as (Participant & { athletes: any })[]
+    const athleteIds = raw.map((p) => p.athlete_id)
+    let licensedSet = new Set<string>()
+    if (athleteIds.length > 0) {
+      const { data: licData } = await supabase
+        .from('athlete_licenses')
+        .select('athlete_id')
+        .in('athlete_id', athleteIds)
+        .eq('year', CURRENT_YEAR)
+      if (licData) licensedSet = new Set(licData.map((l: any) => l.athlete_id))
+    }
+    setParticipants(raw.map((p) => ({ ...p, licensed: licensedSet.has(p.athlete_id) })))
   }
 
   const loadAll = async () => {
@@ -230,11 +265,21 @@ export default function BeltExams() {
     setError(null)
     setMessage(null)
 
+    // Vize kontrolü
+    const unlicensed = participants.filter((p) => !p.licensed)
+    if (unlicensed.length > 0) {
+      setError(
+        `Vizesiz sporcu var: ${unlicensed.map((p) => athleteName(p)).join(', ')}. Sınav tamamlanamaz.`,
+      )
+      setSaving(false)
+      return
+    }
+
     // Ödenmemiş ücret kontrolü
     const unpaid = participants.filter((p) => !p.fee_paid)
     if (unpaid.length > 0) {
       setError(
-        `Sınav ücreti ödenmemiş sporcu var: ${unpaid.map((p) => athleteName(p)).join(', ')}. Tüm geçenlerin ücretini ödeyin.`,
+        `Sınav ücreti ödenmemiş sporcu var: ${unpaid.map((p) => athleteName(p)).join(', ')}.`,
       )
       setSaving(false)
       return
@@ -246,18 +291,25 @@ export default function BeltExams() {
       return
     }
 
+    // Tüm katılımcıları geçti olarak işaretle
+    for (const p of participants) {
+      const { error: upErr } = await supabase
+        .from('belt_exam_participants')
+        .update({ result: 'gecti' })
+        .eq('id', p.id)
+      if (upErr) { setError(upErr.message); setSaving(false); return }
+    }
+
+    // Kuşakları yükselt
     for (const p of participants) {
       const { error: upAthleteErr } = await supabase
         .from('athletes')
         .update({ belt: p.target_belt })
         .eq('id', p.athlete_id)
-      if (upAthleteErr) {
-        setError(upAthleteErr.message)
-        setSaving(false)
-        return
-      }
+      if (upAthleteErr) { setError(upAthleteErr.message); setSaving(false); return }
     }
 
+    // Sınavı tamamla
     const { error: examErr } = await supabase
       .from('belt_exams')
       .update({ status: 'tamamlandi' })
@@ -275,6 +327,275 @@ export default function BeltExams() {
   const athleteName = (p: Participant) => {
     const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
     return a ? `${a.first_name} ${a.last_name}` : p.athlete_id
+  }
+
+  // ── PNG export (ortak) ──────────────────────────────────────────
+  const examPngSorted = useMemo(() => {
+    return [...participants].sort((a, b) => {
+      const aWhite = a.belt_before.toLowerCase().startsWith('beyaz')
+      const bWhite = b.belt_before.toLowerCase().startsWith('beyaz')
+      if (aWhite && !bWhite) return -1
+      if (!aWhite && bWhite) return 1
+      return athleteName(a).localeCompare(athleteName(b))
+    })
+  }, [participants])
+
+  const exportPng = async (type: 'attendance' | 'result') => {
+    if (!selectedExam) return
+
+    const sorted = examPngSorted
+    const isAttendance = type === 'attendance'
+
+    const rows = sorted
+      .map(
+        (p, i) => isAttendance
+          ? `
+        <tr>
+          <td class="num">${i + 1}</td>
+          <td class="name">${escapeHtml(athleteName(p))}</td>
+          <td class="belt">${escapeHtml(p.belt_before)}</td>
+          <td class="fee">${p.fee_paid ? 'Ödendi' : 'Ödemedi'}</td>
+          <td class="check"><span class="check-box">☐</span></td>
+        </tr>`
+          : `
+        <tr>
+          <td class="num">${i + 1}</td>
+          <td class="name">${escapeHtml(athleteName(p))}</td>
+          <td class="belt">${escapeHtml(p.target_belt)}</td>
+        </tr>`,
+      )
+      .join('')
+
+    const colTags = isAttendance
+      ? '<th class="num-th">#</th><th class="name-th">Sporcu</th><th class="belt-th">Mevcut Kuşak</th><th class="fee-th">Ücret</th><th class="check-th">Katılım</th>'
+      : '<th class="num-th">#</th><th class="name-th">Sporcu</th><th class="belt-th">Geçtiği Kuşak</th>'
+
+    const subtitle = isAttendance
+      ? `${new Date(selectedExam.exam_date).toLocaleDateString('tr-TR')} · ${participants.length} Katılımcı`
+      : `${new Date(selectedExam.exam_date).toLocaleDateString('tr-TR')} · ${participants.length} Sporcu yükseldi`
+
+    const body = `
+      <div class="header">
+        <img src="${logoUrl}" alt="${escapeHtml(BRAND.name)}" class="logo" />
+        <h1>${escapeHtml(selectedExam.title)}</h1>
+        <p class="subtitle">${escapeHtml(subtitle)}</p>
+      </div>
+      <table>
+        <thead><tr>${colTags}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="footer">Oluşturulma: ${escapeHtml(new Date().toLocaleString('tr-TR'))}</p>
+    `
+
+    const iframe = document.createElement('iframe')
+    iframe.style.cssText =
+      'position:fixed;left:-10000px;top:0;width:800px;height:10000px;border:0;visibility:hidden;'
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentDocument
+    if (!doc) {
+      document.body.removeChild(iframe)
+      setError('Görsel oluşturulamadı.')
+      return
+    }
+
+    doc.open()
+    doc.write(
+      `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"/><style>${pngStyles}</style></head>
+<body>${body}</body></html>`,
+    )
+    doc.close()
+
+    try {
+      const images = Array.from(doc.images)
+      if (images.length > 0) {
+        await Promise.all(
+          images.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete) resolve()
+                else { img.onload = () => resolve(); img.onerror = () => resolve() }
+              }),
+          ),
+        )
+      }
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      const html2canvas = (await import('html2canvas')).default
+      iframe.style.width = '800px'
+      iframe.style.height = `${doc.body.scrollHeight}px`
+
+      const canvas = await html2canvas(doc.body, {
+        backgroundColor: '#e3f0fa',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: 800,
+        windowWidth: 800,
+        height: doc.body.scrollHeight,
+        windowHeight: doc.body.scrollHeight,
+      })
+
+      const link = document.createElement('a')
+      const suffix = isAttendance ? 'yoklama-listesi' : 'sonuc'
+      link.download = `${safeFilename(selectedExam.title)}-${suffix}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } finally {
+      document.body.removeChild(iframe)
+    }
+  }
+
+  function escapeHtml(text: string | number) {
+    return String(text)
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>')
+      .replace(/"/g, '"')
+  }
+
+  function safeFilename(name: string) {
+    return name
+      .trim()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 60) || 'rapor'
+  }
+
+  const pngStyles = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: #e3f0fa;
+      padding: 40px;
+      width: 800px;
+    }
+    .header { text-align: center; margin-bottom: 28px; }
+    .logo { max-width: 220px; height: auto; display: block; margin: 0 auto; }
+    h1 {
+      margin-top: 16px;
+      font-size: 22px;
+      font-weight: 700;
+      color: #2c2c34;
+    }
+    .subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #5a6b7d;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    thead { background: #b21f24; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+    .num-th { width: 48px; text-align: center; }
+    .name-th { }
+    .belt-th { }
+    .fee-th { }
+    .check-th { width: 60px; text-align: center; }
+    tbody tr {
+      background: #ffffff;
+      border-bottom: 1px solid #eef6fc;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) { background: #f8fafd; }
+    td {
+      padding: 10px 16px;
+      font-size: 14px;
+      color: #2c2c34;
+    }
+    td.num {
+      text-align: center;
+      font-weight: 700;
+      color: #b21f24;
+      font-size: 13px;
+    }
+    td.name { font-weight: 600; }
+    td.fee { font-size: 13px; }
+    td.check { text-align: center; }
+    .check-box { font-size: 18px; color: #5a6b7d; }
+    td.target { font-size: 13px; color: #5a6b7d; }
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #8a9db0;
+    }
+  `
+
+  // ── Sporcu ekleme modal ──────────────────────────────────────────
+
+  const openAddModal = async () => {
+    if (!selectedExamId) return
+    setError(null)
+    // Tüm aktif sporcuları cache'e al (bir kere)
+    if (athletesCache.length === 0) {
+      const { data } = await supabase
+        .from('athletes')
+        .select('id, first_name, last_name, belt')
+        .eq('is_active', true)
+        .order('first_name')
+      setAthletesCache((data ?? []) as any[])
+    }
+    setSearchQuery('')
+    setSearchResults([])
+    setShowAddModal(true)
+  }
+
+  const addAthleteToExam = async (athlete: { id: string; first_name: string; last_name: string; belt: string }) => {
+    if (!selectedExamId) return
+    const targets = getPossibleTargetBelts(athlete.belt)
+    if (targets.length === 0) return
+
+    const { error: insErr } = await supabase
+      .from('belt_exam_participants')
+      .insert({
+        exam_id: selectedExamId,
+        athlete_id: athlete.id,
+        belt_before: athlete.belt,
+        target_belt: targets[0],
+      })
+    if (insErr) {
+      setError(insErr.message)
+      return
+    }
+    // Katılımcıları yeniden yükle
+    await loadParticipants(selectedExamId)
+    setSearchResults((prev) => prev.filter((a) => a.id !== athlete.id))
+    setSearchQuery('')
+  }
+
+  // Arama filtresi: athletesCache'te arama yap, zaten listedekileri çıkar
+  const handleSearch = (q: string) => {
+    setSearchQuery(q)
+    if (!q.trim()) {
+      setSearchResults([])
+      return
+    }
+    const lower = q.toLowerCase()
+    const alreadyIn = new Set(participants.map((p) => p.athlete_id))
+    const result = athletesCache.filter(
+      (a) =>
+        !alreadyIn.has(a.id) &&
+        getPossibleTargetBelts(a.belt).length > 0 &&
+        (`${a.first_name} ${a.last_name}`.toLowerCase().includes(lower) ||
+          a.first_name.toLowerCase().includes(lower) ||
+          a.last_name.toLowerCase().includes(lower)),
+    )
+    setSearchResults(result.slice(0, 20))
   }
 
   // Ödeme özeti
@@ -464,16 +785,46 @@ export default function BeltExams() {
                 {participants.length} katılımcı
               </p>
             </div>
-            {selectedExam.status === 'planlandi' && (
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void promotePassed()}
-                className="btn-primary shrink-0 text-xs"
-              >
-                Geçenleri Yükselt
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {participants.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void exportPng('attendance')}
+                  className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
+                >
+                  Yoklama Listesi PNG
+                </button>
+              )}
+              {participants.length > 0 && selectedExam.status === 'tamamlandi' && (
+                <button
+                  type="button"
+                  onClick={() => void exportPng('result')}
+                  className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
+                >
+                  Sonuç PNG
+                </button>
+              )}
+              {selectedExam.status === 'planlandi' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void openAddModal()}
+                    className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Sporcu Ekle
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void promotePassed()}
+                    className="btn-primary shrink-0 text-xs"
+                  >
+                    Geçenleri Yükselt
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* ── Ödeme özet kartı ── */}
@@ -615,12 +966,13 @@ export default function BeltExams() {
 
               <div className="mt-4 hidden overflow-x-auto rounded-xl border border-app-border bg-white md:block">
               {/* Masaüstü: tablo */}
-                <table className="w-full min-w-[800px] text-left text-xs">
+                <table className="w-full min-w-[900px] text-left text-xs">
                   <thead className="bg-app-bg-soft text-brand-muted">
                     <tr>
                       <th className="px-3 py-2">Sporcu</th>
                       <th className="px-3 py-2">Mevcut</th>
                       <th className="px-3 py-2">Hedef</th>
+                      <th className="px-3 py-2">Vize</th>
                       <th className="px-3 py-2">Ücret</th>
                       <th className="px-3 py-2"></th>
                     </tr>
@@ -655,6 +1007,15 @@ export default function BeltExams() {
                             ) : (
                               <BeltBadge belt={p.target_belt} size="sm" />
                             )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              p.licensed
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {p.licensed ? 'Vizeli' : 'Vizesiz'}
+                            </span>
                           </td>
                           <td className="px-3 py-2">
                             {selectedExam.fee_amount > 0 && (
@@ -705,6 +1066,62 @@ export default function BeltExams() {
             <p className="mt-1">{BELTS.join(' → ')}</p>
           </div>
         </section>
+      )}
+
+      {/* ── Sporcu Ekleme Modal ── */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[15vh]"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div
+            ref={addModalRef}
+            className="mx-4 w-full max-w-md rounded-2xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Sporcu Ekle</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <input
+              className="input-field mt-3 w-full"
+              placeholder="İsim ara..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              autoFocus
+            />
+            <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+              {searchQuery && searchResults.length === 0 && (
+                <p className="py-4 text-center text-xs text-brand-muted">
+                  {athletesCache.length === 0
+                    ? 'Sporcu yükleniyor...'
+                    : searchQuery.trim()
+                      ? 'Eşleşen sporcu yok.'
+                      : 'Arama yapmak için yazın.'}
+                </p>
+              )}
+              {searchResults.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => void addAthleteToExam(a)}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-app-border px-3 py-2 text-left text-xs hover:bg-app-bg-soft"
+                >
+                  <span className="font-medium text-slate-800">
+                    {a.first_name} {a.last_name}
+                  </span>
+                  <BeltBadge belt={a.belt} size="sm" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

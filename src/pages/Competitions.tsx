@@ -31,7 +31,10 @@ type Participant = {
   weight_category: string | null
   ranking: string | null
   athletes: { first_name: string; last_name: string; belt: string; gender: 'erkek' | 'kiz' | null } | { first_name: string; last_name: string; belt: string; gender: 'erkek' | 'kiz' | null }[] | null
+  licensed: boolean
 }
+
+const CURRENT_YEAR = new Date().getFullYear()
 
 type AthleteOption = {
   id: string
@@ -136,7 +139,18 @@ export default function Competitions() {
       .eq('competition_id', competitionId)
       .order('created_at')
     if (qErr) throw qErr
-    setParticipants((data ?? []) as Participant[])
+    const raw = (data ?? []) as (Participant & { athletes: any })[]
+    const athleteIds = raw.map((p) => p.athlete_id)
+    let licensedSet = new Set<string>()
+    if (athleteIds.length > 0) {
+      const { data: licData } = await supabase
+        .from('athlete_licenses')
+        .select('athlete_id')
+        .in('athlete_id', athleteIds)
+        .eq('year', CURRENT_YEAR)
+      if (licData) licensedSet = new Set(licData.map((l: any) => l.athlete_id))
+    }
+    setParticipants(raw.map((p) => ({ ...p, licensed: licensedSet.has(p.athlete_id) })))
   }
 
   const loadAll = async () => {
@@ -802,6 +816,7 @@ export default function Competitions() {
                     <tr>
                       <th className="px-3 py-2">Sporcu</th>
                       <th className="px-3 py-2">Kuşak</th>
+                      <th className="px-3 py-2">Vize</th>
                       <th className="px-3 py-2">Kilo Kategorisi</th>
                       <th className="px-3 py-2">Derece</th>
                       {selectedCompetition.status === 'planlandi' && <th className="px-3 py-2"></th>}
@@ -815,6 +830,15 @@ export default function Competitions() {
                         </td>
                         <td className="px-3 py-2">
                           <BeltBadge belt={getAthleteBelt(p)} size="sm" />
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            p.licensed
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {p.licensed ? 'Vizeli' : 'Vizesiz'}
+                          </span>
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1.5">

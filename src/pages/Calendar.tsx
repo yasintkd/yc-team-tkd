@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, momentLocalizer, type Event } from 'react-big-calendar'
-import moment from 'moment'
+import { Calendar, dateFnsLocalizer, type Event } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { tr } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import '../styles/calendar-theme.css'
 import { supabase } from '../lib/supabase'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 
-const localizer = momentLocalizer(moment)
-moment.locale('tr')
+const locales = { tr }
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+})
 
 type TrainingGroup = { id: string; name: string }
 

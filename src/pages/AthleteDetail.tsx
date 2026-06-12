@@ -8,8 +8,6 @@ import PhoneCard from '../components/PhoneCard'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type AthleteDetail = {
   id: string
   first_name: string
@@ -52,11 +50,7 @@ type AttendanceSummary = {
   gelmedi: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function groupName(
-  a: { training_groups: { name: string } | { name: string }[] | null },
-): string {
+function groupName(a: { training_groups: { name: string } | { name: string }[] | null }): string {
   const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
   return g?.name ?? '—'
 }
@@ -90,7 +84,6 @@ function birthDetail(birthDate: string | null): string {
 function parentDisplayName(a: { parent_type: string | null; mother_name: string | null; father_name: string | null }): string {
   if (a.parent_type === 'anne' && a.mother_name) return a.mother_name
   if (a.parent_type === 'baba' && a.father_name) return a.father_name
-  // Fallback — parent_type seçilmemiş veya isim boş
   if (a.mother_name) return a.mother_name
   if (a.father_name) return a.father_name
   return 'Veli'
@@ -105,8 +98,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
@@ -117,11 +108,13 @@ export default function AthleteDetail() {
   const [compHistory, setCompHistory] = useState<CompHistory[]>([])
   const [attSummary, setAttSummary] = useState<AttendanceSummary | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [licensedThisYear, setLicensedThisYear] = useState(false)
+  const CURRENT_YEAR = new Date().getFullYear()
 
   useEffect(() => {
     if (!id) return
     void (async () => {
-      const [aRes, beltRes, compRes, attRes] = await Promise.all([
+      const [aRes, beltRes, compRes, attRes, licRes] = await Promise.all([
         supabase
           .from('athletes')
           .select('id, first_name, last_name, belt, phone, birth_date, gender, tc_no, mother_name, father_name, parent_name, parent_phone, parent_type, training_group_id, is_active, training_groups ( name )')
@@ -142,9 +135,16 @@ export default function AthleteDetail() {
           .select('status')
           .eq('athlete_id', id)
           .gte('session_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)),
+        supabase
+          .from('athlete_licenses')
+          .select('id')
+          .eq('athlete_id', id)
+          .eq('year', CURRENT_YEAR)
+          .maybeSingle(),
       ])
 
       if (aRes.data) setAthlete(aRes.data as AthleteDetail)
+      if (licRes.data) setLicensedThisYear(true)
 
       const beltData = (beltRes.data ?? []) as any[]
       setBeltHistory(
@@ -178,7 +178,7 @@ export default function AthleteDetail() {
 
       setLoading(false)
     })()
-  }, [id])
+  }, [id, CURRENT_YEAR])
 
   const downloadTescil = async () => {
     if (!athlete) return
@@ -208,6 +208,22 @@ export default function AthleteDetail() {
       setError(dbErr.message)
     } else {
       setAthlete((prev) => prev ? { ...prev, is_active: !prev.is_active } : prev)
+    }
+    setSaving(false)
+  }
+
+  const handleLicenseNow = async () => {
+    if (!athlete) return
+    setSaving(true)
+    setError(null)
+    const { error: dbErr } = await supabase
+      .from('athlete_licenses')
+      .upsert({ athlete_id: athlete.id, year: CURRENT_YEAR }, { onConflict: 'athlete_id,year' })
+      .maybeSingle()
+    if (dbErr) {
+      setError(dbErr.message)
+    } else {
+      setLicensedThisYear(true)
     }
     setSaving(false)
   }
@@ -250,8 +266,6 @@ export default function AthleteDetail() {
 
   return (
     <div className="space-y-6">
-
-      {/* ── Üst bilgi & geri ── */}
       <section className="glass-panel rounded-2xl p-4">
         <Link
           to="/sporcular"
@@ -277,11 +291,18 @@ export default function AthleteDetail() {
               >
                 {athlete.is_active ? 'Aktif' : 'Pasif'}
               </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  licensedThisYear
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                {licensedThisYear ? 'Vizeli' : 'Vizesiz'}
+              </span>
             </div>
           </div>
         </div>
-
-        {/* Katılım özeti */}
         {attSummary && (
           <div className="mt-4 grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-center">
@@ -305,7 +326,6 @@ export default function AthleteDetail() {
         )}
       </section>
 
-      {/* ── Bilgi kartları ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-800">Sporcu Bilgileri</h2>
         <dl className="grid grid-cols-2 gap-3">
@@ -319,7 +339,6 @@ export default function AthleteDetail() {
         </dl>
       </section>
 
-      {/* ── Telefon & WhatsApp kartları ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-800">İletişim</h2>
         {athlete.phone && (
@@ -348,11 +367,21 @@ export default function AthleteDetail() {
         )}
       </section>
 
-      {/* ── Aksiyonlar ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-800">İşlemler</h2>
         <div className="flex flex-col gap-2">
-          {/* Tescil Fişi PDF */}
+          <button
+            type="button"
+            disabled={saving || licensedThisYear}
+            onClick={() => void handleLicenseNow()}
+            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium transition disabled:opacity-60 ${
+              licensedThisYear
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            }`}
+          >
+            {licensedThisYear ? `${CURRENT_YEAR} Vizesi Mevcut` : `${CURRENT_YEAR} Vizesini İşle`}
+          </button>
           <button
             type="button"
             onClick={() => void downloadTescil()}
@@ -361,8 +390,6 @@ export default function AthleteDetail() {
             <FileText className="h-4 w-4" />
             Tescil Fişi PDF İndir
           </button>
-
-          {/* Pasife / aktife al */}
           <button
             type="button"
             disabled={saving}
@@ -385,8 +412,6 @@ export default function AthleteDetail() {
               </>
             )}
           </button>
-
-          {/* Kalıcı sil */}
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
@@ -398,14 +423,12 @@ export default function AthleteDetail() {
         </div>
       </section>
 
-      {/* ── Hata ── */}
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
           {error}
         </div>
       )}
 
-      {/* ── Kuşak geçmişi ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
           <Award className="h-4 w-4 text-brand-cyan" />
@@ -430,9 +453,7 @@ export default function AthleteDetail() {
                   {h.exam_date ? new Date(h.exam_date).toLocaleDateString('tr-TR') : '—'}
                 </span>
                 <span className="font-medium text-slate-700">{h.exam_title}</span>
-                <span className="text-slate-600">
-                  {h.belt_before} → {h.target_belt}
-                </span>
+                <span className="text-slate-600">{h.belt_before} → {h.target_belt}</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium inline-flex items-center justify-center ${resultColor(h.result)}`}>
                   {resultLabel(h.result)}
                 </span>
@@ -442,7 +463,6 @@ export default function AthleteDetail() {
         )}
       </section>
 
-      {/* ── Yarışma geçmişi ── */}
       <section className="glass-panel rounded-2xl p-4">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
           <Trophy className="h-4 w-4 text-amber-500" />
@@ -482,7 +502,6 @@ export default function AthleteDetail() {
         )}
       </section>
 
-      {/* ── Sil onay diyaloğu ── */}
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Sporcu Kalıcı Olarak Silinecek"

@@ -11,10 +11,13 @@ const Competitions = lazy(() => import('./pages/Competitions'))
 const Attendance = lazy(() => import('./pages/Attendance'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const EventsPage = lazy(() => import('./pages/EventsPage'))
+const Reports = lazy(() => import('./pages/Reports'))
+const CalendarPage = lazy(() => import('./pages/Calendar'))
 const AttendanceHub = lazy(() => import('./pages/AttendanceHub'))
 const Login = lazy(() => import('./pages/Login'))
 const Groups = lazy(() => import('./pages/Groups'))
 const AthleteDetail = lazy(() => import('./pages/AthleteDetail'))
+const UnlicensedAthletes = lazy(() => import('./pages/UnlicensedAthletes'))
 const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -106,6 +109,30 @@ function App() {
               }
             />
             <Route path="/sporcular/:id" element={<ProtectedRoute><SuspenseWrapper><AthleteDetail /></SuspenseWrapper></ProtectedRoute>} />
+            <Route
+              path="/vizesiz-sporcular"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><UnlicensedAthletes /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/raporlar"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><Reports /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/takvim"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><CalendarPage /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
             <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ErrorBoundary>

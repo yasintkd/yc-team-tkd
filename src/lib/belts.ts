@@ -53,26 +53,30 @@ export function findBeltIndex(belt: string): number {
 /**
  * Sporcunun mevcut kuşağına göre geçebileceği hedef kuşakları döndürür.
  *
- * Kurallar:
- * - Beyaz → Sarı veya Sarı Yeşil (2 seçenek)
+ * Kurallar (kullanıcı ile teyit edildi):
+ * - Beyaz → Sarı (1) veya Sarı Yeşil (2) — yetenek durumuna göre seçenek
  * - Mavi Kırmızı → sadece Kırmızı (1 adım)
- * - Kırmızı Siyah (1. Gıp) ve üstü → sınava giremez (boş dizi)
- * - Diğer → BELTS sırasında 2 adım atla
+ * - Kırmızı → sadece Kırmızı Siyah 1.Gıp (1 adım)
+ * - Kırmızı Siyah (1. Gıp) ve üstü (8+) → sınava giremez (federasyon)
+ * - Diğer tüm renkli kuşaklar → 2 adım yukarı
  */
 export function getPossibleTargetBelts(current: string): string[] {
   const index = findBeltIndex(current)
   if (index === -1) return []
 
-  // Kırmızı Siyah (1. Gıp) ve üstü sınava giremez
+  // Kırmızı Siyah (1. Gıp) ve üstü sınava giremez (federasyon yapıyor)
   if (index >= 8) return []
 
   // Beyaz → 2 seçenek
   if (index === 0) return [BELTS[1], BELTS[2]]
 
-  // Mavi Kırmızı → sadece Kırmızı
+  // Mavi Kırmızı → sadece Kırmızı (1 adım)
   if (index === 6) return [BELTS[7]]
 
-  // Diğer: 2 adım atla
+  // Kırmızı → Kırmızı Siyah 1.Gıp (1 adım, 2 atlama yok)
+  if (index === 7) return [BELTS[8]]
+
+  // Diğer (Sarı, Sarı Yeşil, Yeşil, Yeşil Mavi, Mavi): 2 adım atla
   const targetIdx = index + 2
   if (targetIdx >= BELTS.length) return []
   return [BELTS[targetIdx]]

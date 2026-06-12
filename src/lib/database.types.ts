@@ -11,6 +11,13 @@ export type PaymentStatus = 'odendi' | 'odenmedi'
 export type AthleteOrderPayment = 'odendi' | 'kismi' | 'bekliyor'
 export type Gender = 'erkek' | 'kiz'
 
+export interface AthleteLicenseRow {
+  id: string
+  athlete_id: string
+  year: number
+  created_at: string
+}
+
 // ──────────────────────────────────────────────
 // ROW TYPES (tablo satırları, Supabase'den dönen)
 // ──────────────────────────────────────────────
