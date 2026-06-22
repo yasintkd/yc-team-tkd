@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Search, UserPlus, Users, X, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
@@ -100,6 +100,7 @@ function Field({ label, children, col2 = false }: { label: string; children: Rea
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Athletes() {
+  const [searchParams] = useSearchParams()
   const [rows, setRows] = useState<Athlete[]>([])
   const [groups, setGroups] = useState<TrainingGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -165,6 +166,17 @@ export default function Athletes() {
     void loadGroups()
     void loadAthletes()
   }, [])
+
+  // URL'den gelen düzenleme parametresi
+  useEffect(() => {
+    if (!rows.length) return
+    const editId = searchParams.get('duzenle')
+    if (!editId) return
+    const athlete = rows.find((r) => r.id === editId)
+    if (athlete) {
+      openEditForm(athlete)
+    }
+  }, [searchParams, rows])
 
   // ── Filtered list ────────────────────────────────────────────────────────────
 

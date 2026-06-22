@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Award, Trophy, PauseCircle, PlayCircle, Trash2, FileText } from 'lucide-react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, Award, Trophy, PauseCircle, PlayCircle, Trash2, FileText, Edit3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { downloadTescilPdf } from '../lib/exportTescilPdf'
 import BeltBadge from '../components/BeltBadge'
@@ -100,6 +100,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -389,6 +390,14 @@ export default function AthleteDetail() {
           >
             <FileText className="h-4 w-4" />
             Tescil Fişi PDF İndir
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/sporcular?duzenle=${athlete.id}`)}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-100 transition"
+          >
+            <Edit3 className="h-4 w-4" />
+            Düzenle
           </button>
           <button
             type="button"
