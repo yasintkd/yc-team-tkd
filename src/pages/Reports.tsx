@@ -166,7 +166,7 @@ export default function Reports() {
     }
 
     const rows = [...attNameMap.entries()]
-      .map(([_id, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
+      .map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
       .sort((a, b) => a[0].localeCompare(b[0]))
 
     downloadCsv(rows, ['Ad Soyad', 'Geldi', 'Gelmedi'], 'yoklama-raporu.csv')
@@ -191,7 +191,7 @@ export default function Reports() {
       }
 
       const rows = [...attNameMap.entries()]
-        .map(([_id, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
+        .map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
         .sort((a, b) => a[0].localeCompare(b[0]))
 
       await downloadReportPng({
@@ -219,7 +219,7 @@ export default function Reports() {
         if (r.status === 'geldi') entry.geldi++
         else entry.gelmedi++
       }
-      const rows = [...attNameMap.entries()].map(([_id, v]) => [v.name, String(v.geldi), String(v.gelmedi)]).sort((a, b) => a[0].localeCompare(b[0]))
+      const rows = [...attNameMap.entries()].map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)]).sort((a, b) => a[0].localeCompare(b[0]))
       await downloadReportPdf({
         title: 'Yoklama Raporu', subtitle: 'Son 30 gün',
         columns: ['#', 'Ad Soyad', 'Geldi', 'Gelmedi'],

@@ -50,7 +50,7 @@ export default function PhoneCard({
   const cleanPhone = phone.replace(/\D/g, '')
   const intl = cleanPhone.startsWith('0') ? '90' + cleanPhone.slice(1) : cleanPhone
   const waUrl = waMessage
-    ? `https://wa.me/${intl}?text=${encodeURIComponent(waMessage)}`
+    ? `https://wa.me/${intl}?text=${encodeURIComponent(waMessage).replace(/%0A/g, '%0D%0A')}`
     : `https://wa.me/${intl}`
 
   return (

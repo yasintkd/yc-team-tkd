@@ -5,14 +5,13 @@ import { useAuth } from '../auth/AuthProvider'
 import Logo from '../components/Logo'
 import { BRAND } from '../lib/brand'
 
-const USERNAME_EMAIL_DOMAIN = 'yc-team-tkd.local'
-
-function usernameToEmail(username: string) {
-  const u = username.trim().toLowerCase()
-  return `${u}@${USERNAME_EMAIL_DOMAIN}`
-}
-
 export default function Login() {
+  const USERNAME_EMAIL_DOMAIN = 'yc-team-tkd.local'
+  const usernameToEmail = (username: string) => {
+    const u = username.trim().toLowerCase()
+    return `${u}@${USERNAME_EMAIL_DOMAIN}`
+  }
+
   const navigate = useNavigate()
   const { status } = useAuth()
 

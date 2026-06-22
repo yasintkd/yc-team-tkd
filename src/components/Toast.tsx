@@ -17,6 +17,7 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined)
 
 let nextId = 0
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 

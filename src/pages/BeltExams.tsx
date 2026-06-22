@@ -603,7 +603,7 @@ export default function BeltExams() {
     const paidCount = participants.filter((p) => p.fee_paid).length
     const total = selectedExam ? paidCount * selectedExam.fee_amount : 0
     return { paidCount, total }
-  }, [participants, selectedExam])
+  }, [participants, selectedExam?.id])
 
   // Sıralı katılımcı listesi — kuşak sırası (beyaz→siyah), aynı kuşakta alfabetik
   const sortedParticipants = useMemo(() => {

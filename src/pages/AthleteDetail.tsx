@@ -357,7 +357,7 @@ export default function AthleteDetail() {
               label={`Veli — ${parentDisplayName(athlete)}`}
               contactName={`${parentDisplayName(athlete)} (${athlete.first_name}) SLV`}
               phone={athlete.parent_phone}
-              waMessage=""
+              waMessage={`👋 Merhaba ${parentDisplayName(athlete)},  🏫 ${athlete.first_name}'nın Suluova Gençlik Merkezi Taekwondo kursuna kaydı başarıyla gerçekleşmiştir ✅  📢 Aşağıdaki link ile WhatsApp duyuru grubumuza katılmanız önem arz etmektedir:  🔗 https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t  🤝 YC Team Taekwondo`}
               showWelcome
             />
           </div>

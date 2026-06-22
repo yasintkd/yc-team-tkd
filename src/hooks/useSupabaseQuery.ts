@@ -22,8 +22,8 @@ interface UseSupabaseQueryResult<T> {
  * )
  */
 export function useSupabaseQuery<T>(
-  fetcher: () => Promise<{ data: T | null; error: any }>,
-  deps: unknown[] = [],
+  fetcher: () => Promise<{ data: T | null; error: unknown }>,
+  deps: React.DependencyList = [],
   immediate = true,
 ): UseSupabaseQueryResult<T> {
   const [data, setData] = useState<T | null>(null)
@@ -38,7 +38,7 @@ export function useSupabaseQuery<T>(
       const { data: result, error: err } = await fetcher()
       if (!mountedRef.current) return
       if (err) {
-        setError(err?.message ?? 'Beklenmeyen hata')
+        setError(err instanceof Error ? err.message : String(err))
         setStatus('error')
       } else {
         setData(result)
@@ -49,7 +49,7 @@ export function useSupabaseQuery<T>(
       setError(err instanceof Error ? err.message : 'Beklenmeyen hata')
       setStatus('error')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo
   }, deps)
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export function useCrud() {
   const [message, setMessage] = useState<string | null>(null)
 
   const execute = useCallback(async <T>(
-    operation: () => Promise<{ error: any }>,
+    operation: () => Promise<{ error: unknown }>,
     successMsg?: string,
   ): Promise<T | null> => {
     setSaving(true)
@@ -80,7 +80,7 @@ export function useCrud() {
     try {
       const { error: err } = await operation()
       if (err) {
-        setError(err?.message ?? 'İşlem başarısız.')
+        setError(err instanceof Error ? err.message : String(err))
         return null
       }
       if (successMsg) setMessage(successMsg)
