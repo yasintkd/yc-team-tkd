@@ -95,6 +95,7 @@ export default function Competitions() {
   const [athletes, setAthletes] = useState<AthleteOption[]>([])
   const [saving, setSaving] = useState(false)
   const [exportingPng, setExportingPng] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
 
   const [title, setTitle] = useState('')
   const [compDate, setCompDate] = useState('')
@@ -330,6 +331,25 @@ export default function Competitions() {
     if (gender === 'erkek') return selectedCompetition.weight_categories_male ?? []
     if (gender === 'kiz') return selectedCompetition.weight_categories_female ?? []
     return []
+  }
+
+  const finalizeCompetition = async () => {
+    if (!selectedCompetition) return
+    if (!window.confirm(`"${selectedCompetition.title}" yarışmasını sonuçlandırmak istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return
+    setFinalizing(true)
+    setError(null)
+    const { error: upErr } = await supabase
+      .from('competitions')
+      .update({ status: 'tamamlandi' })
+      .eq('id', selectedCompetition.id)
+    if (upErr) {
+      setError(upErr.message)
+      setFinalizing(false)
+      return
+    }
+    setMessage(`"${selectedCompetition.title}" sonuçlandırıldı.`)
+    await loadCompetitions()
+    setFinalizing(false)
   }
 
   const exportPng = async () => {
@@ -598,17 +618,29 @@ export default function Competitions() {
                 {selectedCompetition.notes && ` • ${selectedCompetition.notes}`}
               </p>
             </div>
-            {participants.length > 0 && (
-              <button
-                type="button"
-                disabled={exportingPng}
-                onClick={() => void exportPng()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {exportingPng ? 'Oluşturuluyor...' : 'PNG İndir'}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {selectedCompetition.status === 'planlandi' && (
+                <button
+                  type="button"
+                  disabled={finalizing}
+                  onClick={() => void finalizeCompetition()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-60"
+                >
+                  {finalizing ? 'Sonuçlandırılıyor...' : 'Yarışmayı Sonuçlandır'}
+                </button>
+              )}
+              {participants.length > 0 && (
+                <button
+                  type="button"
+                  disabled={exportingPng}
+                  onClick={() => void exportPng()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {exportingPng ? 'Oluşturuluyor...' : 'PNG İndir'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Filtre özeti */}

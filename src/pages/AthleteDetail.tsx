@@ -42,6 +42,7 @@ type CompHistory = {
   comp_date: string
   weight_category: string | null
   ranking: string | null
+  status: string
 }
 
 type AttendanceSummary = {
@@ -128,9 +129,8 @@ export default function AthleteDetail() {
           .order('belt_exams(exam_date)', { ascending: false }),
         supabase
           .from('competition_participants')
-          .select('id, weight_category, ranking, competitions!inner ( id, title, competition_date )')
-          .eq('athlete_id', id)
-          .order('competitions(competition_date)', { ascending: false }),
+          .select('*')
+          .eq('athlete_id', id),
         supabase
           .from('attendance_records')
           .select('status')
@@ -149,25 +149,53 @@ export default function AthleteDetail() {
 
       const beltData = (beltRes.data ?? []) as any[]
       setBeltHistory(
-        beltData.map((b: any) => ({
-          id: b.id,
-          exam_title: b.belt_exams?.title ?? 'Sınav',
-          exam_date: b.belt_exams?.exam_date ?? '',
-          belt_before: b.belt_before,
-          target_belt: b.target_belt,
-          result: b.result,
-        })),
+        beltData.map((b: any) => {
+          const exam = Array.isArray(b.belt_exams) ? b.belt_exams[0] : b.belt_exams
+          return {
+            id: b.id,
+            exam_title: exam?.title ?? 'Sınav',
+            exam_date: exam?.exam_date ?? '',
+            belt_before: b.belt_before,
+            target_belt: b.target_belt,
+            result: b.result,
+          }
+        }),
       )
 
       const compData = (compRes.data ?? []) as any[]
+      // client-side join: competition_id'leri topla, competitions'ı çek
+      const compIds: string[] = []
+      const compMap = new Map<string, { title: string; competition_date: string; status: string }>()
+      for (const c of compData) {
+        if (c.competition_id && !compIds.includes(c.competition_id)) compIds.push(c.competition_id)
+      }
+      if (compIds.length > 0) {
+        const { data: comps } = await supabase
+          .from('competitions')
+          .select('id, title, competition_date, status')
+          .in('id', compIds)
+        if (comps) {
+          for (const comp of comps) {
+            compMap.set(comp.id, {
+              title: comp.title ?? 'Yarışma',
+              competition_date: comp.competition_date ?? '',
+              status: comp.status ?? '',
+            })
+          }
+        }
+      }
       setCompHistory(
-        compData.map((c: any) => ({
-          id: c.id,
-          comp_title: c.competitions?.title ?? 'Yarışma',
-          comp_date: c.competitions?.competition_date ?? '',
-          weight_category: c.weight_category,
-          ranking: c.ranking,
-        })),
+        compData.map((c: any) => {
+          const comp = compMap.get(c.competition_id)
+          return {
+            id: c.id,
+            comp_title: comp?.title ?? 'Yarışma',
+            comp_date: comp?.competition_date ?? '',
+            weight_category: c.weight_category,
+            ranking: c.ranking,
+            status: comp?.status ?? '',
+          }
+        }),
       )
 
       const attData = attRes.data ?? []
@@ -301,6 +329,11 @@ export default function AthleteDetail() {
               >
                 {licensedThisYear ? 'Vizeli' : 'Vizesiz'}
               </span>
+              {compHistory.some((c) => c.status === 'planlandi') && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                  🏆 Yarışması Var
+                </span>
+              )}
             </div>
           </div>
         </div>
