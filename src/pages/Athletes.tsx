@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, UserPlus, Users, X, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Search, UserPlus, Users, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
 import BeltBadge from '../components/BeltBadge'
 import LoadingSkeleton from '../components/LoadingSkeleton'
+import AthleteFormModal from '../components/AthleteFormModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,38 +29,6 @@ type Athlete = {
   is_active: boolean
   training_groups: { name: string } | { name: string }[] | null
   licensed_this_year: boolean
-}
-
-type FormData = {
-  first_name: string
-  last_name: string
-  birth_date: string
-  phone: string
-  belt: string
-  gender: 'erkek' | 'kiz' | ''
-  tc_no: string
-  mother_name: string
-  father_name: string
-  parent_name: string
-  parent_phone: string
-  parent_type: 'anne' | 'baba' | ''
-  training_group_id: string
-}
-
-const EMPTY_FORM: FormData = {
-  first_name: '',
-  last_name: '',
-  birth_date: '',
-  phone: '',
-  belt: BELTS[0],
-  gender: '',
-  tc_no: '',
-  mother_name: '',
-  father_name: '',
-  parent_name: '',
-  parent_phone: '',
-  parent_type: '',
-  training_group_id: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -86,17 +55,6 @@ function genderBadgeClass(g: string | null) {
   return 'bg-slate-100 text-slate-500'
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Field({ label, children, col2 = false }: { label: string; children: React.ReactNode; col2?: boolean }) {
-  return (
-    <div className={`space-y-1 text-xs min-w-0${col2 ? ' sm:col-span-2' : ''}`}>
-      <label className="font-medium text-slate-500">{label}</label>
-      {children}
-    </div>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Athletes() {
@@ -104,16 +62,15 @@ export default function Athletes() {
   const [rows, setRows] = useState<Athlete[]>([])
   const [groups, setGroups] = useState<TrainingGroup[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
   const [beltFilter, setBeltFilter] = useState('')
   const [groupFilter, setGroupFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'passive' | 'all'>('active')
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<FormData>(EMPTY_FORM)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [modalEditingId, setModalEditingId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   const CURRENT_YEAR = new Date().getFullYear()
 
@@ -143,7 +100,6 @@ export default function Athletes() {
       setRows([])
     } else {
       const athletes = (data ?? []) as Athlete[]
-      // Vize durumlarını çek
       const ids = athletes.map((a) => a.id)
       const { data: licenses } = await supabase
         .from('athlete_licenses')
@@ -174,7 +130,8 @@ export default function Athletes() {
     if (!editId) return
     const athlete = rows.find((r) => r.id === editId)
     if (athlete) {
-      openEditForm(athlete)
+      setModalEditingId(athlete.id)
+      setModalOpen(true)
     }
   }, [searchParams, rows])
 
@@ -215,202 +172,71 @@ export default function Athletes() {
   const activeCount = useMemo(() => rows.filter((r) => r.is_active).length, [rows])
   const passiveCount = useMemo(() => rows.filter((r) => !r.is_active).length, [rows])
 
-  // ── Form helpers ─────────────────────────────────────────────────────────────
+  // ── Bulk actions ──────────────────────────────────────────────────────────
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const pagedIds = paged.map((a) => a.id)
+    setSelectedIds((prev) => {
+      const allSelected = pagedIds.every((id) => prev.has(id))
+      const next = new Set(prev)
+      for (const id of pagedIds) {
+        if (allSelected) next.delete(id)
+        else next.add(id)
+      }
+      return next
+    })
+  }
+
+  const bulkLicense = async () => {
+    const unlicensedIds = paged
+      .filter((a) => selectedIds.has(a.id) && !a.licensed_this_year)
+      .map((a) => a.id)
+    if (unlicensedIds.length === 0) return
+    await supabase.from('athlete_licenses').insert(
+      unlicensedIds.map((athlete_id) => ({ athlete_id, year: CURRENT_YEAR })),
+    )
+    await loadAthletes()
+    setSelectedIds(new Set())
+  }
+
+  // ── Modal handlers ─────────────────────────────────────────────────────────
 
   const openNewForm = () => {
-    setEditingId(null)
-    setForm(EMPTY_FORM)
-    setError(null)
-    setShowForm(true)
+    setModalEditingId(null)
+    setModalOpen(true)
   }
 
   const openEditForm = (a: Athlete) => {
-    setEditingId(a.id)
-    setForm({
-      first_name: a.first_name,
-      last_name: a.last_name,
-      birth_date: a.birth_date ?? '',
-      phone: a.phone ?? '',
-      belt: a.belt,
-      gender: (a.gender as 'erkek' | 'kiz' | '') ?? '',
-      tc_no: a.tc_no ?? '',
-      mother_name: a.mother_name ?? '',
-      father_name: a.father_name ?? '',
-      parent_name: a.parent_name ?? '',
-      parent_phone: a.parent_phone ?? '',
-      parent_type: (a.parent_type ?? '') as 'anne' | 'baba' | '',
-      training_group_id: a.training_group_id ?? '',
-    })
-    setError(null)
-    setShowForm(true)
+    setModalEditingId(a.id)
+    setModalOpen(true)
   }
 
-  const closeForm = () => {
-    setShowForm(false)
-    setEditingId(null)
-    setError(null)
+  const closeModal = () => {
+    setModalOpen(false)
+    setModalEditingId(null)
   }
 
-  const setField = (field: keyof FormData) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  // ── CRUD ─────────────────────────────────────────────────────────────────────
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.first_name.trim() || !form.last_name.trim()) return
-    setSaving(true)
-    setError(null)
-
-    const payload = {
-      first_name: form.first_name.trim(),
-      last_name: form.last_name.trim(),
-      birth_date: form.birth_date || null,
-      phone: form.phone.trim() || null,
-      belt: form.belt,
-      gender: form.gender || null,
-      tc_no: form.tc_no.trim() || null,
-      mother_name: form.mother_name.trim() || null,
-      father_name: form.father_name.trim() || null,
-      parent_name: form.parent_name.trim() || null,
-      parent_phone: form.parent_phone.trim() || null,
-      parent_type: form.parent_type || null,
-      training_group_id: form.training_group_id || null,
-      branch: 'Taekwondo',
-    }
-
-    const { data: insertResult, error: dbErr } = editingId
-      ? await supabase.from('athletes').update(payload).eq('id', editingId).select('id').maybeSingle()
-      : await supabase.from('athletes').insert(payload).select('id').maybeSingle()
-
-    if (dbErr) {
-      setError(dbErr.message)
-      setSaving(false)
-      return
-    }
-
-    // Yeni sporcu → geçen yıl vizesini otomatik ekle
-    if (!editingId && insertResult?.id) {
-      await supabase
-        .from('athlete_licenses')
-        .insert({ athlete_id: insertResult.id, year: CURRENT_YEAR - 1 })
-        .maybeSingle()
-    }
-
-    closeForm()
-    await loadAthletes()
-    setSaving(false)
-  }
-
-  // ── Render helpers ────────────────────────────────────────────────────────────
-
-  const canSubmit = form.first_name.trim().length > 0 && form.last_name.trim().length > 0
-
-  if (showForm) {
-    return (
-      <div className="space-y-4 md:space-y-6">
-        <section className="glass-panel rounded-2xl p-5">
-          <div className="flex items-center justify-between border-b border-app-border/40 pb-3">
-            <div>
-              <h2 className="text-sm font-semibold">
-                {editingId ? 'Sporcu Düzenle' : 'Yeni Sporcu Ekle'}
-              </h2>
-              <p className="mt-0.5 text-xs text-brand-muted">
-                {editingId ? 'Mevcut sporcunun bilgilerini güncelleyin.' : 'Sisteme yeni bir sporcu ekleyin.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-app-border text-slate-500 hover:bg-app-bg-soft transition"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {error && (
-            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Adı *">
-              <input className="input-field" placeholder="Ali" value={form.first_name} onChange={setField('first_name')} />
-            </Field>
-            <Field label="Soyadı *">
-              <input className="input-field" placeholder="Yılmaz" value={form.last_name} onChange={setField('last_name')} />
-            </Field>
-            <Field label="Doğum Tarihi">
-              <input type="date" className="input-field" value={form.birth_date} onChange={setField('birth_date')} />
-            </Field>
-            <Field label="Cinsiyet">
-              <select className="input-field" value={form.gender} onChange={setField('gender')}>
-                <option value="">Seçilmedi</option>
-                <option value="erkek">Erkek</option>
-                <option value="kiz">Kız</option>
-              </select>
-            </Field>
-            <Field label="Telefon">
-              <input className="input-field" placeholder="05xx xxx xx xx" value={form.phone} onChange={setField('phone')} />
-            </Field>
-            <Field label="Kuşak">
-              <select className="input-field" value={form.belt} onChange={setField('belt')}>
-                {BELTS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </Field>
-            <Field label="Antrenman Grubu" col2>
-              <select className="input-field" value={form.training_group_id} onChange={setField('training_group_id')}>
-                <option value="">Grup seçilmedi</option>
-                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </Field>
-
-            <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">Kimlik Bilgileri (Lisans / Tescil)</p>
-            </div>
-            <Field label="TC Kimlik No" col2>
-              <input className="input-field" placeholder="12345678901" maxLength={11} value={form.tc_no} onChange={setField('tc_no')} />
-            </Field>
-            <Field label="Anne Adı">
-              <input className="input-field" placeholder="Fatma" value={form.mother_name} onChange={setField('mother_name')} />
-            </Field>
-            <Field label="Baba Adı Soyadı">
-              <input className="input-field" placeholder="Ahmet Arif" value={form.father_name} onChange={setField('father_name')} />
-            </Field>
-
-            <div className="col-span-1 sm:col-span-2 mt-1 border-t border-app-border/40 pt-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">Veli İrtibat</p>
-            </div>
-            <Field label="Veli Telefonu" col2>
-              <input className="input-field" placeholder="05xx xxx xx xx" value={form.parent_phone} onChange={setField('parent_phone')} />
-            </Field>
-            <div className="col-span-1 sm:col-span-2 flex gap-4 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="parent_type" value="anne" checked={form.parent_type === 'anne'} onChange={() => setForm((p) => ({ ...p, parent_type: 'anne' }))} className="accent-brand-cyan" />
-                Anne
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="parent_type" value="baba" checked={form.parent_type === 'baba'} onChange={() => setForm((p) => ({ ...p, parent_type: 'baba' }))} className="accent-brand-cyan" />
-                Baba
-              </label>
-            </div>
-
-            <div className="col-span-1 sm:col-span-2 pt-4 flex gap-2">
-              <button type="button" onClick={closeForm} className="flex-1 rounded-lg border border-app-border bg-white py-2.5 text-sm font-semibold text-slate-600 hover:bg-app-bg-soft transition active:scale-[0.98]">Vazgeç</button>
-              <button type="submit" disabled={!canSubmit || saving} className="btn-primary flex-1">
-                {saving ? 'Kaydediliyor...' : editingId ? 'Değişiklikleri Kaydet' : 'Sporcu Ekle'}
-              </button>
-            </div>
-          </form>
-        </section>
-      </div>
-    )
-  }
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {modalOpen && (
+        <AthleteFormModal
+          editingId={modalEditingId}
+          groups={groups}
+          onSaved={async () => { await loadAthletes(); closeModal() }}
+          onClose={closeModal}
+        />
+      )}
+
       <section className="glass-panel rounded-2xl p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -444,10 +270,23 @@ export default function Athletes() {
               </button>
             ))}
           </div>
+          {selectedIds.size > 0 && (
+            <div className="mt-3 flex items-center gap-2 border-t border-app-border/40 pt-3">
+              <span className="text-xs text-brand-muted">{selectedIds.size} sporcu seçildi</span>
+              <button type="button" onClick={bulkLicense}
+                className="rounded-lg bg-brand-cyan px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 transition">
+                Seçilileri Vizele
+              </button>
+              <button type="button" onClick={() => setSelectedIds(new Set())}
+                className="rounded-lg border border-app-border px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-app-bg-soft transition">
+                İptal
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
-      {error && !showForm && (
+      {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>
       )}
 
@@ -503,6 +342,10 @@ export default function Athletes() {
             <table className="w-full min-w-[720px] text-left text-xs">
               <thead className="border-b border-app-border bg-app-bg-soft/60">
                 <tr>
+                  <th className="px-3 py-3">
+                    <input type="checkbox" checked={paged.length > 0 && paged.every((a) => selectedIds.has(a.id))}
+                      onChange={toggleSelectAll} className="accent-brand-cyan h-4 w-4" />
+                  </th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Ad Soyad</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Doğum Yılı</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">Cinsiyet</th>
@@ -516,6 +359,10 @@ export default function Athletes() {
               <tbody className="divide-y divide-app-border">
                 {paged.map((a) => (
                   <tr key={a.id} className={`transition hover:bg-app-bg-soft/60 ${!a.is_active ? 'opacity-60' : ''}`}>
+                    <td className="px-3 py-3">
+                      <input type="checkbox" checked={selectedIds.has(a.id)}
+                        onChange={() => toggleSelect(a.id)} className="accent-brand-cyan h-4 w-4" />
+                    </td>
                     <td className="px-4 py-3 font-medium text-slate-800">
                       <Link to={`/sporcular/${a.id}`} className="hover:text-brand-red transition">{a.first_name} {a.last_name}</Link>
                     </td>

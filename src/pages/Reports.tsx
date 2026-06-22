@@ -6,9 +6,7 @@ import {
   Award,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { downloadCsv } from '../lib/exportCsv'
-import { downloadReportPng } from '../lib/exportReportPng'
-import { downloadReportPdf } from '../lib/exportReportPdf'
+import { useReportExport } from '../hooks/useReportExport'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,11 +45,22 @@ const REPORTS: ReportMeta[] = [
   },
 ]
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function groupName(a: any): string {
+  const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
+  return g?.name ?? '—'
+}
+
+function athleteName(a: any): string {
+  return a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : ''
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function Reports() {
+  const { exportCsv, exportPng, exportPdf, isExporting } = useReportExport()
   const [loading, setLoading] = useState(true)
-  const [exporting, setExporting] = useState<string | null>(null)
   const [athletes, setAthletes] = useState<any[]>([])
   const [attendance, setAttendance] = useState<any[]>([])
   const [orders, setOrders] = useState<any[]>([])
@@ -90,185 +99,6 @@ export default function Reports() {
     })()
   }, [])
 
-  // ── Export handlers ─────────────────────────────────────────────────────────
-
-  const exportAthletesCsv = () => {
-    const rows = athletes.map((a: any) => {
-      const g = Array.isArray(a.training_groups)
-        ? a.training_groups[0]
-        : a.training_groups
-      return [
-        a.first_name + ' ' + a.last_name,
-        a.belt,
-        a.phone ?? '',
-        g?.name ?? '',
-      ]
-    })
-    downloadCsv(
-      rows,
-      ['Ad Soyad', 'Kuşak', 'Telefon', 'Grup'],
-      'sporcu-listesi.csv',
-    )
-  }
-
-  const exportAthletesPng = async () => {
-    setExporting('athletes')
-    try {
-      await downloadReportPng({
-        title: 'Sporcu Listesi',
-        subtitle: `${athletes.length} aktif sporcu`,
-        columns: ['#', 'Ad Soyad', 'Kuşak', 'Telefon', 'Grup'],
-        rows: athletes.map((a: any, i: number) => {
-          const g = Array.isArray(a.training_groups)
-            ? a.training_groups[0]
-            : a.training_groups
-          return [i + 1, a.first_name + ' ' + a.last_name, a.belt, a.phone ?? '', g?.name ?? '']
-        }),
-        filename: 'sporcu-listesi',
-      })
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  const exportAthletesPdf = async () => {
-    setExporting('athletes-pdf')
-    try {
-      await downloadReportPdf({
-        title: 'Sporcu Listesi',
-        subtitle: `${athletes.length} aktif sporcu`,
-        columns: ['#', 'Ad Soyad', 'Kuşak', 'Telefon', 'Grup'],
-        rows: athletes.map((a: any, i: number) => {
-          const g = Array.isArray(a.training_groups) ? a.training_groups[0] : a.training_groups
-          return [i + 1, a.first_name + ' ' + a.last_name, a.belt, a.phone ?? '', g?.name ?? '']
-        }),
-        filename: 'sporcu-listesi',
-      })
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  const exportAttendanceCsv = () => {
-    const attNameMap = new Map<string, { name: string; geldi: number; gelmedi: number }>()
-    for (const r of attendance as any[]) {
-      if (!attNameMap.has(r.athlete_id)) {
-        const athlete = (athletes as any[]).find((a: any) => a.id === r.athlete_id)
-        attNameMap.set(r.athlete_id, {
-          name: athlete ? athlete.first_name + ' ' + athlete.last_name : r.athlete_id,
-          geldi: 0,
-          gelmedi: 0,
-        })
-      }
-      const entry = attNameMap.get(r.athlete_id)!
-      if (r.status === 'geldi') entry.geldi++
-      else entry.gelmedi++
-    }
-
-    const rows = [...attNameMap.entries()]
-      .map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
-      .sort((a, b) => a[0].localeCompare(b[0]))
-
-    downloadCsv(rows, ['Ad Soyad', 'Geldi', 'Gelmedi'], 'yoklama-raporu.csv')
-  }
-
-  const exportAttendancePng = async () => {
-    setExporting('attendance')
-    try {
-      const attNameMap = new Map<string, { name: string; geldi: number; gelmedi: number }>()
-      for (const r of attendance as any[]) {
-        if (!attNameMap.has(r.athlete_id)) {
-          const athlete = (athletes as any[]).find((a: any) => a.id === r.athlete_id)
-          attNameMap.set(r.athlete_id, {
-            name: athlete ? athlete.first_name + ' ' + athlete.last_name : r.athlete_id,
-            geldi: 0,
-            gelmedi: 0,
-          })
-        }
-        const entry = attNameMap.get(r.athlete_id)!
-        if (r.status === 'geldi') entry.geldi++
-        else entry.gelmedi++
-      }
-
-      const rows = [...attNameMap.entries()]
-        .map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
-        .sort((a, b) => a[0].localeCompare(b[0]))
-
-      await downloadReportPng({
-        title: 'Yoklama Raporu',
-        subtitle: 'Son 30 gün',
-        columns: ['#', 'Ad Soyad', 'Geldi', 'Gelmedi'],
-        rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2]]),
-        filename: 'yoklama-raporu',
-      })
-    } finally {
-      setExporting(null)
-    }
-  }
-
-  const exportAttendancePdf = async () => {
-    setExporting('attendance-pdf')
-    try {
-      const attNameMap = new Map<string, { name: string; geldi: number; gelmedi: number }>()
-      for (const r of attendance as any[]) {
-        if (!attNameMap.has(r.athlete_id)) {
-          const athlete = (athletes as any[]).find((a: any) => a.id === r.athlete_id)
-          attNameMap.set(r.athlete_id, { name: athlete ? athlete.first_name + ' ' + athlete.last_name : r.athlete_id, geldi: 0, gelmedi: 0 })
-        }
-        const entry = attNameMap.get(r.athlete_id)!
-        if (r.status === 'geldi') entry.geldi++
-        else entry.gelmedi++
-      }
-      const rows = [...attNameMap.entries()].map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)]).sort((a, b) => a[0].localeCompare(b[0]))
-      await downloadReportPdf({
-        title: 'Yoklama Raporu', subtitle: 'Son 30 gün',
-        columns: ['#', 'Ad Soyad', 'Geldi', 'Gelmedi'],
-        rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2]]),
-        filename: 'yoklama-raporu',
-      })
-    } finally { setExporting(null) }
-  }
-
-  const exportOrdersCsv = () => {
-    const rows = (orders as any[]).map((o: any) => {
-      const a = Array.isArray(o.athletes) ? o.athletes[0] : o.athletes
-      return [
-        a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '',
-        String(o.total_amount ?? 0),
-        new Date(o.created_at).toLocaleDateString('tr-TR'),
-      ]
-    })
-    downloadCsv(
-      rows,
-      ['Sporcu', 'Tutar', 'Sipariş Tarihi'],
-      'bekleyen-siparisler.csv',
-    )
-  }
-
-  const exportOrdersPng = async () => {
-    setExporting('orders')
-    try {
-      const rows = (orders as any[]).map((o: any) => {
-        const a = Array.isArray(o.athletes) ? o.athletes[0] : o.athletes
-        return [
-          a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '',
-          String(o.total_amount ?? 0),
-          new Date(o.created_at).toLocaleDateString('tr-TR'),
-        ]
-      })
-
-      await downloadReportPng({
-        title: 'Bekleyen Siparişler',
-        subtitle: `${orders.length} sipariş teslim edilmemiş`,
-        columns: ['#', 'Sporcu', 'Tutar', 'Tarih'],
-        rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2]]),
-        filename: 'bekleyen-siparisler',
-      })
-    } finally {
-      setExporting(null)
-    }
-  }
-
   const loadExamParticipants = async (examId: string) => {
     if (!examId) {
       setExamParticipants([])
@@ -282,70 +112,97 @@ export default function Reports() {
     setExamParticipants(data ?? [])
   }
 
-  const exportExamCsv = () => {
-    const rows = (examParticipants as any[]).map((p: any) => {
-      const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
-      return [
-        a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '',
-        p.belt_before,
-        p.target_belt,
-        p.result === 'gecti' ? 'Geçti' : p.result === 'kaldi' ? 'Kaldı' : 'Bekliyor',
-      ]
-    })
-    downloadCsv(
-      rows,
-      ['Ad Soyad', 'Önceki Kuşak', 'Hedef Kuşak', 'Sonuç'],
-      `sinav-katilim-${selectedExam.slice(0, 8)}.csv`,
-    )
-  }
+  // ── Export handlers ─────────────────────────────────────────────────────────
 
-  const exportExamPng = async () => {
-    setExporting('exams')
-    try {
-      const rows = (examParticipants as any[]).map((p: any) => {
-        const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
-        return [
-          a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '',
-          p.belt_before,
-          p.target_belt,
-          p.result === 'gecti' ? 'Geçti' : p.result === 'kaldi' ? 'Kaldı' : 'Bekliyor',
-        ]
-      })
+  const athleteRows = () => athletes.map((a: any) => [
+    athleteName(a), a.belt, a.phone ?? '', groupName(a),
+  ])
 
-      const exam = exams.find((e: any) => e.id === selectedExam)
-      await downloadReportPng({
-        title: exam?.title ?? 'Sınav Katılım',
-        subtitle: `${rows.length} katılımcı`,
-        columns: ['#', 'Ad Soyad', 'Önceki Kuşak', 'Hedef Kuşak', 'Sonuç'],
-        rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2], r[3]]),
-        filename: `sinav-katilim`,
-      })
-    } finally {
-      setExporting(null)
+  const attendanceSummary = () => {
+    const map = new Map<string, { name: string; geldi: number; gelmedi: number }>()
+    for (const r of attendance) {
+      if (!map.has(r.athlete_id)) {
+        const a = athletes.find((x: any) => x.id === r.athlete_id)
+        map.set(r.athlete_id, {
+          name: a ? athleteName(a) : r.athlete_id,
+          geldi: 0,
+          gelmedi: 0,
+        })
+      }
+      const e = map.get(r.athlete_id)!
+      if (r.status === 'geldi') e.geldi++
+      else e.gelmedi++
     }
+    return [...map.entries()]
+      .map(([_, v]) => [v.name, String(v.geldi), String(v.gelmedi)])
+      .sort((a, b) => a[0].localeCompare(b[0]))
   }
 
-  const exportOrdersPdf = async () => {
-    setExporting('orders-pdf')
-    try {
-      const rows = (orders as any[]).map((o: any) => {
-        const a = Array.isArray(o.athletes) ? o.athletes[0] : o.athletes
-        return [a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '', String(o.total_amount ?? 0), new Date(o.created_at).toLocaleDateString('tr-TR')]
-      })
-      await downloadReportPdf({ title: 'Bekleyen Siparişler', subtitle: `${orders.length} sipariş teslim edilmemiş`, columns: ['#', 'Sporcu', 'Tutar', 'Tarih'], rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2]]), filename: 'bekleyen-siparisler' })
-    } finally { setExporting(null) }
-  }
+  const orderRows = () => orders.map((o: any) => {
+    const a = Array.isArray(o.athletes) ? o.athletes[0] : o.athletes
+    return [
+      athleteName(a),
+      String(o.total_amount ?? 0),
+      new Date(o.created_at).toLocaleDateString('tr-TR'),
+    ]
+  })
 
-  const exportExamPdf = async () => {
-    setExporting('exams-pdf')
-    try {
-      const rows = (examParticipants as any[]).map((p: any) => {
-        const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
-        return [a?.first_name && a?.last_name ? `${a.first_name} ${a.last_name}` : '', p.belt_before, p.target_belt, p.result === 'gecti' ? 'Geçti' : p.result === 'kaldi' ? 'Kaldı' : 'Bekliyor']
-      })
-      const exam = exams.find((e: any) => e.id === selectedExam)
-      await downloadReportPdf({ title: exam?.title ?? 'Sınav Katılım', subtitle: `${rows.length} katılımcı`, columns: ['#', 'Ad Soyad', 'Önceki Kuşak', 'Hedef Kuşak', 'Sonuç'], rows: rows.map((r, i) => [i + 1, r[0], r[1], r[2], r[3]]), filename: 'sinav-katilim' })
-    } finally { setExporting(null) }
+  const examRows = () => examParticipants.map((p: any) => {
+    const a = Array.isArray(p.athletes) ? p.athletes[0] : p.athletes
+    const result = p.result === 'gecti' ? 'Geçti' : p.result === 'kaldi' ? 'Kaldı' : 'Bekliyor'
+    return [athleteName(a), p.belt_before, p.target_belt, result]
+  })
+
+  const handleExport = (id: string, format: 'csv' | 'png' | 'pdf') => {
+    if (format === 'csv') {
+      if (id === 'athletes') return exportCsv('athletes', athleteRows(), ['Ad Soyad', 'Kuşak', 'Telefon', 'Grup'], 'sporcu-listesi.csv')
+      if (id === 'attendance') return exportCsv('attendance', attendanceSummary(), ['Ad Soyad', 'Geldi', 'Gelmedi'], 'yoklama-raporu.csv')
+      if (id === 'orders') return exportCsv('orders', orderRows(), ['Sporcu', 'Tutar', 'Sipariş Tarihi'], 'bekleyen-siparisler.csv')
+      if (id === 'exams') return exportCsv('exams', examRows(), ['Ad Soyad', 'Önceki Kuşak', 'Hedef Kuşak', 'Sonuç'], `sinav-katilim-${selectedExam.slice(0, 8)}.csv`)
+      return
+    }
+
+    const opts = (() => {
+      if (id === 'athletes') return {
+        title: 'Sporcu Listesi',
+        subtitle: `${athletes.length} aktif sporcu`,
+        columns: ['#', 'Ad Soyad', 'Kuşak', 'Telefon', 'Grup'] as string[],
+        rows: athleteRows().map((r, i) => [i + 1, ...r]) as (string | number)[][],
+        filename: 'sporcu-listesi',
+      }
+      if (id === 'attendance') {
+        const summary = attendanceSummary()
+        return {
+          title: 'Yoklama Raporu',
+          subtitle: 'Son 30 gün',
+          columns: ['#', 'Ad Soyad', 'Geldi', 'Gelmedi'] as string[],
+          rows: summary.map((r, i) => [i + 1, r[0], r[1], r[2]]) as (string | number)[][],
+          filename: 'yoklama-raporu',
+        }
+      }
+      if (id === 'orders') return {
+        title: 'Bekleyen Siparişler',
+        subtitle: `${orders.length} sipariş teslim edilmemiş`,
+        columns: ['#', 'Sporcu', 'Tutar', 'Tarih'] as string[],
+        rows: orderRows().map((r, i) => [i + 1, r[0], r[1], r[2]]) as (string | number)[][],
+        filename: 'bekleyen-siparisler',
+      }
+      if (id === 'exams') {
+        const exam = exams.find((e: any) => e.id === selectedExam)
+        return {
+          title: exam?.title ?? 'Sınav Katılım',
+          subtitle: `${examParticipants.length} katılımcı`,
+          columns: ['#', 'Ad Soyad', 'Önceki Kuşak', 'Hedef Kuşak', 'Sonuç'] as string[],
+          rows: examRows().map((r, i) => [i + 1, r[0], r[1], r[2], r[3]]) as (string | number)[][],
+          filename: 'sinav-katilim',
+        }
+      }
+      return null as any
+    })()
+    if (!opts) return
+
+    if (format === 'png') void exportPng(id, opts)
+    else void exportPdf(id, opts)
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -362,72 +219,39 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-
-      {/* Rapor kartları */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
         {REPORTS.map((report) => {
           const Icon = report.icon
-          const isCsvExport = exporting === report.id
-          const isPngExport = exporting === `${report.id}-png`
-          const isPdfExport = exporting === `${report.id}-pdf`
+          const csvBusy = isExporting(report.id, 'csv')
+          const pngBusy = isExporting(report.id, 'png')
+          const pdfBusy = isExporting(report.id, 'pdf')
+          const examLocked = report.id === 'exams' && !selectedExam
           return (
-            <div
-              key={report.id}
-              className="glass-panel rounded-2xl p-4 flex flex-col"
-            >
+            <div key={report.id} className="glass-panel rounded-2xl p-4 flex flex-col">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-red/10">
                   <Icon className="h-5 w-5 text-brand-red" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-sm font-semibold text-slate-800">
-                    {report.title}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-brand-muted">
-                    {report.description}
-                  </p>
+                  <h2 className="text-sm font-semibold text-slate-800">{report.title}</h2>
+                  <p className="mt-0.5 text-xs text-brand-muted">{report.description}</p>
                 </div>
               </div>
-
               <div className="mt-auto pt-4 flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (report.id === 'athletes') exportAthletesCsv()
-                    else if (report.id === 'attendance') exportAttendanceCsv()
-                    else if (report.id === 'orders') exportOrdersCsv()
-                    else if (report.id === 'exams') exportExamCsv()
-                  }}
-                  disabled={isCsvExport || (report.id === 'exams' && !selectedExam)}
-                  className="flex-1 rounded-lg border border-app-border bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40"
-                >
-                  CSV
+                <button type="button" onClick={() => handleExport(report.id, 'csv')}
+                  disabled={csvBusy || examLocked}
+                  className="flex-1 rounded-lg border border-app-border bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40">
+                  {csvBusy ? '...' : 'CSV'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (report.id === 'athletes') exportAthletesPng()
-                    else if (report.id === 'attendance') exportAttendancePng()
-                    else if (report.id === 'orders') exportOrdersPng()
-                    else if (report.id === 'exams') exportExamPng()
-                  }}
-                  disabled={isPngExport || (report.id === 'exams' && !selectedExam)}
-                  className="flex-1 rounded-lg bg-brand-red px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-brand-red/90 disabled:opacity-60"
-                >
-                  {isPngExport ? '...' : 'PNG'}
+                <button type="button" onClick={() => handleExport(report.id, 'png')}
+                  disabled={pngBusy || examLocked}
+                  className="flex-1 rounded-lg bg-brand-red px-2 py-1.5 text-[10px] font-semibold text-white hover:bg-brand-red/90 disabled:opacity-60">
+                  {pngBusy ? '...' : 'PNG'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (report.id === 'athletes') exportAthletesPdf()
-                    else if (report.id === 'attendance') exportAttendancePdf()
-                    else if (report.id === 'orders') exportOrdersPdf()
-                    else if (report.id === 'exams') exportExamPdf()
-                  }}
-                  disabled={isPdfExport || (report.id === 'exams' && !selectedExam)}
-                  className="flex-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
-                >
-                  {isPdfExport ? '...' : 'PDF'}
+                <button type="button" onClick={() => handleExport(report.id, 'pdf')}
+                  disabled={pdfBusy || examLocked}
+                  className="flex-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60">
+                  {pdfBusy ? '...' : 'PDF'}
                 </button>
               </div>
             </div>
@@ -435,31 +259,18 @@ export default function Reports() {
         })}
       </section>
 
-      {/* Sınav seçimi (sadece Exams raporu için) */}
       <section className="glass-panel rounded-2xl p-4">
-        <h2 className="text-sm font-semibold text-slate-800 mb-3">
-          Sınav Seçimi
-        </h2>
-        <select
-          value={selectedExam}
-          onChange={(e) => {
-            setSelectedExam(e.target.value)
-            void loadExamParticipants(e.target.value)
-          }}
-          className="input-field max-w-md"
-        >
+        <h2 className="text-sm font-semibold text-slate-800 mb-3">Sınav Seçimi</h2>
+        <select value={selectedExam}
+          onChange={(e) => { setSelectedExam(e.target.value); void loadExamParticipants(e.target.value) }}
+          className="input-field max-w-md">
           <option value="">Sınav seçin...</option>
           {exams.map((e: any) => (
-            <option key={e.id} value={e.id}>
-              {e.title} ({new Date(e.exam_date).toLocaleDateString('tr-TR')})
-            </option>
+            <option key={e.id} value={e.id}>{e.title} ({new Date(e.exam_date).toLocaleDateString('tr-TR')})</option>
           ))}
         </select>
-
         {examParticipants.length > 0 && (
-          <p className="mt-2 text-xs text-brand-muted">
-            {examParticipants.length} katılımcı
-          </p>
+          <p className="mt-2 text-xs text-brand-muted">{examParticipants.length} katılımcı</p>
         )}
       </section>
     </div>

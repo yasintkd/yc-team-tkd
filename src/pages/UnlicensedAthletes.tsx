@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { ShieldAlert, ShieldCheck, ArrowLeft, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import BeltBadge from '../components/BeltBadge'
@@ -137,9 +137,12 @@ export default function UnlicensedAthletes() {
               <li key={a.id} className="glass-panel rounded-xl p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-slate-800">
+                    <Link
+                      to={`/sporcular/${a.id}`}
+                      className="text-sm font-semibold text-slate-800 hover:text-brand-red transition"
+                    >
                       {a.first_name} {a.last_name}
-                    </span>
+                    </Link>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <BeltBadge belt={a.belt} size="sm" />
                       <span className="text-[11px] text-brand-muted">{groupName(a)}</span>
@@ -179,7 +182,9 @@ export default function UnlicensedAthletes() {
                 {athletes.map((a) => (
                   <tr key={a.id} className="transition hover:bg-app-bg-soft/60">
                     <td className="px-4 py-3 font-medium text-slate-800">
-                      {a.first_name} {a.last_name}
+                      <Link to={`/sporcular/${a.id}`} className="hover:text-brand-red transition">
+                        {a.first_name} {a.last_name}
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <BeltBadge belt={a.belt} size="sm" />

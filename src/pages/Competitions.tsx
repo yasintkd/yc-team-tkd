@@ -3,6 +3,7 @@ import {
   Plus, Trophy, Trash2, Users, AlertTriangle,
   Calendar, Weight, Filter, Download,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { BELTS, findBeltIndex } from '../lib/belts'
 import { downloadCompetitionPng } from '../lib/exportCompetitionPng'
@@ -109,6 +110,15 @@ export default function Competitions() {
   const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null)
 
   const selectedCompetition = competitions.find((c) => c.id === selectedCompetitionId) ?? null
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+  const PAGE_SIZE = 15
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(competitions.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pagedCompetitions = competitions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  useEffect(() => { setPage(1) }, [competitions.length])
 
   // ── Load ────────────────────────────────────────────────────────────────────
 
@@ -542,9 +552,19 @@ export default function Competitions() {
             <Trophy className="h-6 w-6 text-slate-300" />
             <p className="text-xs text-brand-muted">Henüz yarışma yok.</p>
           </div>
-        ) : (
+          ) : (
+          <>
+          {totalPages > 1 && (
+            <div className="mt-3 flex items-center justify-center gap-2 border-b border-app-border pb-3">
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}
+                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40">← Önceki</button>
+              <span className="text-xs text-brand-muted">{safePage} / {totalPages}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}
+                className="rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-40">Sonraki →</button>
+            </div>
+          )}
           <ul className="mt-3 space-y-2">
-            {competitions.map((comp) => (
+            {pagedCompetitions.map((comp) => (
               <li key={comp.id}>
                 <div
                   className={`w-full rounded-xl border text-left text-sm transition ${
@@ -603,6 +623,7 @@ export default function Competitions() {
               </li>
             ))}
           </ul>
+          </>
         )}
       </section>
 
@@ -775,7 +796,9 @@ export default function Competitions() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-800">{getAthleteName(p)}</p>
+                        <Link to={`/sporcular/${p.athlete_id}`} className="text-sm font-medium text-slate-800 hover:text-brand-red transition">
+                          {getAthleteName(p)}
+                        </Link>
                         <span className="mt-1 inline-flex items-center gap-1">
                           <BeltBadge belt={getAthleteBelt(p)} size="sm" />
                         </span>
@@ -857,9 +880,11 @@ export default function Competitions() {
                   <tbody>
                     {participants.map((p) => (
                       <tr key={p.id} className="border-t border-app-border">
-                        <td className="px-3 py-2 font-medium text-slate-800">
-                          {getAthleteName(p)}
-                        </td>
+                          <td className="px-3 py-2 font-medium text-slate-800">
+                            <Link to={`/sporcular/${p.athlete_id}`} className="hover:text-brand-red transition">
+                              {getAthleteName(p)}
+                            </Link>
+                          </td>
                         <td className="px-3 py-2">
                           <BeltBadge belt={getAthleteBelt(p)} size="sm" />
                         </td>

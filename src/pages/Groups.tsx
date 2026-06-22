@@ -117,7 +117,7 @@ export default function Groups() {
 
   const ungroupedAthletes = useMemo(
     () => athletes.filter((a) => !a.training_group_id)
-      .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'tr')),
+      .sort((a, b) => (a.first_name + ' ' + a.last_name).localeCompare(b.first_name + ' ' + b.last_name, 'tr')),
     [athletes],
   )
 
@@ -173,11 +173,11 @@ export default function Groups() {
     setError(null)
     try {
       const groupAthletes = [...(athletesByGroup.get(group.id) ?? [])].sort((a, b) =>
-        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`, 'tr'),
+        (a.first_name + ' ' + a.last_name).localeCompare(b.first_name + ' ' + b.last_name, 'tr'),
       )
       const groupSchedules = (schedulesByGroup.get(group.id) ?? []).map((s) => ({
         dayLabel: weekdayLabel(s.day_of_week),
-        timeRange: `${formatTime(s.start_time)} – ${formatTime(s.end_time)}`,
+        timeRange: formatTime(s.start_time) + ' – ' + formatTime(s.end_time),
       }))
       await downloadGroupListPdf({
         groupName: group.name,
@@ -309,7 +309,7 @@ export default function Groups() {
                     <span className="hidden items-center gap-1 rounded-full border border-app-border bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 sm:flex">
                       <Clock className="h-3 w-3 text-brand-muted" />
                       {scheds.length > 0
-                        ? scheds.map((s) => `${weekdayLabel(s.day_of_week)} ${formatTime(s.start_time)}`).join(', ')
+                        ? scheds.map((s) => { return weekdayLabel(s.day_of_week) + ' ' + formatTime(s.start_time) }).join(', ')
                         : 'Program yok'}
                     </span>
                     {/* Mobil: sadece sayılar */}
@@ -387,8 +387,8 @@ export default function Groups() {
                         <ul className="mt-2 flex flex-wrap gap-1.5">
                           {members
                             .sort((a, b) =>
-                              `${a.first_name} ${a.last_name}`.localeCompare(
-                                `${b.first_name} ${b.last_name}`, 'tr',
+                              (a.first_name + ' ' + a.last_name).localeCompare(
+                                b.first_name + ' ' + b.last_name, 'tr',
                               ),
                             )
                             .map((a) => (
@@ -604,12 +604,12 @@ export default function Groups() {
       {/* ConfirmDialog — grup silme */}
       <ConfirmDialog
         open={!!confirmDeleteGroup}
-        title={`"${confirmDeleteGroup?.name}" silinsin mi?`}
+        title={'"' + (confirmDeleteGroup?.name ?? '') + '" silinsin mi?'}
         message={(() => {
           if (!confirmDeleteGroup) return ''
           const count = (athletesByGroup.get(confirmDeleteGroup.id) ?? []).length
           return count > 0
-            ? `${count} sporcu bu gruba kayıtlı. Silince grupsuz kalacaklar.`
+            ? (count + ' sporcu bu gruba kayıtlı. Silince grupsuz kalacaklar.')
             : 'Bu işlem geri alınamaz.'
         })()}
         confirmLabel="Evet, Sil"

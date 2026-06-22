@@ -18,7 +18,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ error: null })
+    window.location.reload()
   }
 
   render() {
@@ -34,6 +34,9 @@ export default class ErrorBoundary extends Component<Props, State> {
             </h2>
             <p className="mt-1 text-xs text-brand-muted">
               {this.state.error.message || 'Sayfa yüklenirken hata oluştu.'}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Cmd+Shift+R ile tam yenilemeyi dene
             </p>
             <button
               type="button"

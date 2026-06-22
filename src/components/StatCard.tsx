@@ -7,6 +7,7 @@ interface StatCardProps {
   trendLabel?: string
   trendPositive?: boolean
   icon: LucideIcon
+  onClick?: () => void
 }
 
 export default function StatCard({
@@ -16,9 +17,18 @@ export default function StatCard({
   trendLabel,
   trendPositive = true,
   icon: Icon,
+  onClick,
 }: StatCardProps) {
+  const Comp = onClick ? 'button' : 'div'
   return (
-    <div className="glass-panel flex flex-1 flex-col rounded-2xl p-4 shadow-lg">
+    <Comp
+      onClick={onClick}
+      className={`glass-panel flex flex-1 flex-col rounded-2xl p-4 shadow-lg ${
+        onClick
+          ? 'cursor-pointer text-left transition hover:scale-[1.02] hover:shadow-xl active:scale-[0.99]'
+          : ''
+      }`}
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">
           {label}
@@ -46,6 +56,6 @@ export default function StatCard({
       {hint && (
         <p className="mt-1 text-[11px] leading-relaxed text-brand-muted">{hint}</p>
       )}
-    </div>
+    </Comp>
   )
 }

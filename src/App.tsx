@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import type { ComponentType } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -13,12 +14,29 @@ const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const EventsPage = lazy(() => import('./pages/EventsPage'))
 const Reports = lazy(() => import('./pages/Reports'))
 const CalendarPage = lazy(() => import('./pages/Calendar'))
-const AttendanceHub = lazy(() => import('./pages/AttendanceHub'))
+const AttendanceHub = retryableLazy(() => import('./pages/AttendanceHub'))
 const Login = lazy(() => import('./pages/Login'))
-const Groups = lazy(() => import('./pages/Groups'))
+const Groups = retryableLazy(() => import('./pages/Groups'))
 const AthleteDetail = lazy(() => import('./pages/AthleteDetail'))
 const UnlicensedAthletes = lazy(() => import('./pages/UnlicensedAthletes'))
 const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
+
+function retryableLazy<T extends ComponentType<any>>(
+  importer: () => Promise<{ default: T }>,
+  retries = 3,
+) {
+  return lazy(async () => {
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        return await importer()
+      } catch (err) {
+        if (attempt === retries - 1) throw err
+        await new Promise((r) => setTimeout(r, 500))
+      }
+    }
+    throw new Error('unreachable')
+  })
+}
 
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return (

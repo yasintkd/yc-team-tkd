@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { weekdayLabel } from '../lib/days'
 import { Calendar, Users, Save, Clock, CheckCheck, XCircle, FileText } from 'lucide-react'
@@ -13,13 +14,16 @@ function trainingGroupValue(groupName: string, startTime: string): string {
 }
 
 export default function AttendancePage() {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [searchParams, _setSearchParams] = useSearchParams()
+  const [date, setDate] = useState(searchParams.get('date') ?? new Date().toISOString().slice(0, 10))
   const [groups, setGroups] = useState<Group[]>([])
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [athletes, setAthletes] = useState<Athlete[]>([])
 
-  const [selectedGroupId, setSelectedGroupId] = useState('')
-  const [selectedScheduleIdx, setSelectedScheduleIdx] = useState<number | null>(null)
+  const [selectedGroupId, setSelectedGroupId] = useState(searchParams.get('group') ?? '')
+  const [selectedScheduleIdx, setSelectedScheduleIdx] = useState<number | null>(
+    searchParams.has('seans') ? Number(searchParams.get('seans')) : null,
+  )
   const [attendance, setAttendance] = useState<Map<string, 'geldi' | 'gelmedi'>>(new Map())
   const [recordIds, setRecordIds] = useState<Map<string, string>>(new Map())
 
@@ -414,9 +418,13 @@ export default function AttendancePage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">
-                          {a.first_name} {a.last_name}
-                        </p>
+                    <Link
+                      to={`/sporcular/${a.id}`}
+                      className="truncate text-sm font-semibold text-slate-800 hover:text-brand-red transition"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {a.first_name} {a.last_name}
+                    </Link>
                         <p className="text-[11px] text-brand-muted">{a.belt}</p>
                       </div>
                       <div className="flex shrink-0 gap-1.5">
@@ -466,7 +474,12 @@ export default function AttendancePage() {
                   return (
                     <tr key={a.id} className="transition hover:bg-app-bg-soft/40">
                       <td className="px-4 py-3 font-medium text-slate-800">
-                        {a.first_name} {a.last_name}
+                        <Link
+                          to={`/sporcular/${a.id}`}
+                          className="hover:text-brand-red transition"
+                        >
+                          {a.first_name} {a.last_name}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-slate-600">{a.belt}</td>
                       <td className="px-4 py-3">
