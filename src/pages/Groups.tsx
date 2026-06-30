@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, X, Download, Trash2, ChevronDown, ChevronUp,
-  Users, Calendar, AlertTriangle, UserPlus, Clock,
+  Users, Calendar, AlertTriangle, UserPlus, UserMinus, Clock,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { weekdayLabel, formatTime } from '../lib/days'
 import { downloadGroupListPdf } from '../lib/exportGroupPdf'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
+import BeltBadge from '../components/BeltBadge'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,12 +32,27 @@ type AthleteLite = {
   first_name: string
   last_name: string
   belt: string
+  birth_date: string | null
   training_group_id: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
+
+const birthYear = (bd: string | null) => bd ? bd.slice(0, 4) : null
+const age = (bd: string | null) => {
+  if (!bd) return null
+  const thisYear = new Date().getFullYear()
+  const y = Number(bd.slice(0, 4))
+  if (!y) return null
+  const m = Number(bd.slice(5, 7))
+  const d = Number(bd.slice(8, 10))
+  const now = new Date()
+  let a = thisYear - y
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--
+  return a
+}
 
 export default function Groups() {
   // Data
@@ -47,7 +63,9 @@ export default function Groups() {
   const [athletes, setAthletes] = useState<AthleteLite[]>([])
   const [saving, setSaving] = useState(false)
   const [exportingGroupId, setExportingGroupId] = useState<string | null>(null)
+  const [removingAllAthletes, setRemovingAllAthletes] = useState(false)
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<TrainingGroup | null>(null)
+  const [confirmRemoveAllFromGroup, setConfirmRemoveAllFromGroup] = useState<TrainingGroup | null>(null)
 
   // Hangi grup kartı açık
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
@@ -78,7 +96,7 @@ export default function Groups() {
       supabase.from('group_schedules').select('id, group_id, day_of_week, start_time, end_time'),
       supabase
         .from('athletes')
-        .select('id, first_name, last_name, belt, training_group_id')
+        .select('id, first_name, last_name, belt, birth_date, training_group_id')
         .eq('is_active', true)
         .order('first_name'),
     ])
@@ -168,6 +186,17 @@ export default function Groups() {
     setConfirmDeleteGroup(group)
   }
 
+  const removeAllAthletesFromGroup = async (groupId: string) => {
+    setRemovingAllAthletes(true)
+    setError(null)
+    const { error: upErr } = await supabase
+      .from('athletes').update({ training_group_id: null }).eq('training_group_id', groupId)
+    if (upErr) setError(upErr.message)
+    else await load()
+    setRemovingAllAthletes(false)
+    setConfirmRemoveAllFromGroup(null)
+  }
+
   const exportGroupPdf = async (group: TrainingGroup) => {
     setExportingGroupId(group.id)
     setError(null)
@@ -245,10 +274,17 @@ export default function Groups() {
                     key={a.id}
                     className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <span className="text-xs font-medium text-slate-800">
-                      {a.first_name} {a.last_name}
-                      <span className="ml-1.5 text-[11px] text-brand-muted">({a.belt})</span>
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium text-slate-800">
+                        {a.first_name} {a.last_name}
+                      </span>
+                      <BeltBadge belt={a.belt} size="sm" />
+                      {birthYear(a.birth_date) && (
+                        <span className="text-[11px] text-brand-muted">
+                          {birthYear(a.birth_date)} · {age(a.birth_date)} yaş
+                        </span>
+                      )}
+                    </div>
                     <select
                       className="input-field max-w-[200px] py-1.5 text-xs"
                       defaultValue=""
@@ -396,10 +432,17 @@ export default function Groups() {
                                 key={a.id}
                                 className="flex items-center gap-1 rounded-full border border-app-border bg-white py-1 pl-2.5 pr-1 text-[11px]"
                               >
-                                <span className="text-slate-700">
-                                  {a.first_name} {a.last_name}
-                                  <span className="ml-1 text-brand-muted">({a.belt})</span>
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-slate-700 text-[11px] font-medium">
+                                    {a.first_name} {a.last_name}
+                                  </span>
+                                  <BeltBadge belt={a.belt} size="sm" />
+                                  {birthYear(a.birth_date) && (
+                                    <span className="text-[10px] text-brand-muted whitespace-nowrap">
+                                      {birthYear(a.birth_date)} · {age(a.birth_date)} yaş
+                                    </span>
+                                  )}
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => void assignAthlete(a.id, null)}
@@ -446,6 +489,15 @@ export default function Groups() {
                       >
                         <Download className="h-3.5 w-3.5" />
                         {exportingGroupId === g.id ? 'PDF hazırlanıyor...' : 'PDF İndir'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={removingAllAthletes || members.length === 0}
+                        onClick={() => setConfirmRemoveAllFromGroup(g)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                        Tüm Öğrencileri Çıkar
                       </button>
                       <button
                         type="button"
@@ -629,6 +681,26 @@ export default function Groups() {
           setSaving(false)
         }}
         onCancel={() => setConfirmDeleteGroup(null)}
+      />
+
+      {/* ConfirmDialog — tüm öğrencileri gruptan çıkar */}
+      <ConfirmDialog
+        open={!!confirmRemoveAllFromGroup}
+        title={'Tüm öğrenciler çıkarılsın mı?'}
+        message={
+          confirmRemoveAllFromGroup
+            ? (athletesByGroup.get(confirmRemoveAllFromGroup.id)?.length ?? 0) +
+              ' sporcunun grup ataması kaldırılacak. Sporcu kayıtları silinmez.'
+            : ''
+        }
+        confirmLabel="Evet, Tümünü Çıkar"
+        danger
+        saving={removingAllAthletes}
+        onConfirm={() => {
+          if (!confirmRemoveAllFromGroup) return
+          void removeAllAthletesFromGroup(confirmRemoveAllFromGroup.id)
+        }}
+        onCancel={() => setConfirmRemoveAllFromGroup(null)}
       />
     </div>
   )
