@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
 import { X } from 'lucide-react'
@@ -60,16 +60,27 @@ export default function AthleteFormModal({ editingId, onSaved, onClose, groups }
     setError(null)
   }
 
-  // Expose init via imperative handle? No, parent will re-mount on key change.
-  // Use useEffect to reset on editingId change
-  const [prevId, setPrevId] = useState<string | null>(null)
-  if (editingId !== prevId) {
-    setPrevId(editingId)
-    // We can't call hooks conditionally but this is fine
-    setTimeout(() => {
-      if (!editingId) initForm()
-    }, 0)
-  }
+  useEffect(() => {
+    if (!editingId) { initForm(); return }
+    supabase.from('athletes').select('*').eq('id', editingId).single().then(({ data, error: fetchErr }) => {
+      if (fetchErr || !data) { setError('Sporcu bilgisi yüklenemedi.'); return }
+      initForm({
+        first_name: data.first_name ?? '',
+        last_name: data.last_name ?? '',
+        birth_date: data.birth_date ?? '',
+        phone: data.phone ?? '',
+        belt: data.belt ?? BELTS[0],
+        gender: data.gender ?? '',
+        tc_no: data.tc_no ?? '',
+        mother_name: data.mother_name ?? '',
+        father_name: data.father_name ?? '',
+        parent_name: data.parent_name ?? '',
+        parent_phone: data.parent_phone ?? '',
+        parent_type: data.parent_type ?? '',
+        training_group_id: data.training_group_id ?? '',
+      })
+    })
+  }, [editingId])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
