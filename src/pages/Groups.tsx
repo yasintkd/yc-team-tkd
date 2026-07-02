@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { weekdayLabel, formatTime } from '../lib/days'
 import { downloadGroupListPdf } from '../lib/exportGroupPdf'
+import { exportGroupPng } from '../lib/exportGroupPng'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 import ConfirmDialog from '../components/ConfirmDialog'
 import BeltBadge from '../components/BeltBadge'
@@ -63,6 +64,7 @@ export default function Groups() {
   const [athletes, setAthletes] = useState<AthleteLite[]>([])
   const [saving, setSaving] = useState(false)
   const [exportingGroupId, setExportingGroupId] = useState<string | null>(null)
+  const [exportingPngGroupId, setExportingPngGroupId] = useState<string | null>(null)
   const [removingAllAthletes, setRemovingAllAthletes] = useState(false)
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<TrainingGroup | null>(null)
   const [confirmRemoveAllFromGroup, setConfirmRemoveAllFromGroup] = useState<TrainingGroup | null>(null)
@@ -218,6 +220,33 @@ export default function Groups() {
       setError(err instanceof Error ? err.message : 'PDF oluşturulamadı.')
     } finally {
       setExportingGroupId(null)
+    }
+  }
+
+  const exportGroupPngFile = async (group: TrainingGroup) => {
+    setExportingPngGroupId(group.id)
+    setError(null)
+    try {
+      const groupAthletes = [...(athletesByGroup.get(group.id) ?? [])].sort((a, b) =>
+        (a.first_name + ' ' + a.last_name).localeCompare(b.first_name + ' ' + b.last_name, 'tr'),
+      )
+      const groupSchedules = (schedulesByGroup.get(group.id) ?? []).map((s) => ({
+        dayLabel: weekdayLabel(s.day_of_week),
+        timeRange: formatTime(s.start_time) + ' – ' + formatTime(s.end_time),
+      }))
+      await exportGroupPng({
+        groupName: group.name,
+        groupNotes: group.notes,
+        schedules: groupSchedules,
+        athletes: groupAthletes.map((a) => ({
+          firstName: a.first_name, lastName: a.last_name, belt: a.belt,
+          birthYear: birthYear(a.birth_date), age: age(a.birth_date),
+        })),
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'PNG oluşturulamadı.')
+    } finally {
+      setExportingPngGroupId(null)
     }
   }
 
@@ -489,6 +518,15 @@ export default function Groups() {
                       >
                         <Download className="h-3.5 w-3.5" />
                         {exportingGroupId === g.id ? 'PDF hazırlanıyor...' : 'PDF İndir'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving || exportingPngGroupId === g.id}
+                        onClick={() => void exportGroupPngFile(g)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {exportingPngGroupId === g.id ? 'PNG hazırlanıyor...' : 'PNG İndir'}
                       </button>
                       <button
                         type="button"
