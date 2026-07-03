@@ -389,8 +389,6 @@ export default function AthleteDetail() {
             <PhoneCard
               label="Sporcu Telefonu"
               contactName={`${athlete.first_name} ${athlete.last_name} SLV`}
-              firstName={athlete.first_name}
-              lastName={athlete.last_name}
               phone={athlete.phone}
               waMessage=""
             />
@@ -401,10 +399,8 @@ export default function AthleteDetail() {
             <PhoneCard
               label={`Veli — ${parentDisplayName(athlete)}`}
               contactName={`${parentDisplayName(athlete)} (${athlete.first_name}) SLV`}
-              firstName={parentFirstLast(athlete)?.firstName}
-              lastName={parentFirstLast(athlete)?.lastName}
               phone={athlete.parent_phone}
-              waMessage={`👋 Merhaba ${parentDisplayName(athlete)},  🏫 ${athlete.first_name}'nın Suluova Gençlik Merkezi Taekwondo kursuna kaydı başarıyla gerçekleşmiştir ✅  📢 Aşağıdaki link ile WhatsApp duyuru grubumuza katılmanız önem arz etmektedir:  🔗 https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t  🤝 YC Team Taekwondo`}
+              waMessage={`👋 Merhaba ${parentDisplayName(athlete)},  🏫 ${athlete.first_name}'nın Suluova Gençlik Merkezi Taekwondo kursuna kaydı başarıyla gerçekleşmiştir ✅  📢 Aşağıdaki link ile WhatsApp duyuru grubumza katılmanız önem arz etmektedir:  🔗 https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t  🤝 YC Team Taekwondo`}
               showWelcome
             />
           </div>
