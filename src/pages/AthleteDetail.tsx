@@ -90,6 +90,16 @@ function parentDisplayName(a: { parent_type: string | null; mother_name: string 
   return 'Veli'
 }
 
+function parentFirstLast(a: { parent_type: string | null; mother_name: string | null; father_name: string | null }): { firstName: string; lastName: string } | null {
+  const full = parentDisplayName(a)
+  if (full === 'Veli') return null
+  const parts = full.trim().split(/\s+/)
+  if (parts.length < 2) return null
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(' ')
+  return { firstName, lastName }
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-app-border bg-app-bg-soft/60 px-3 py-2">
@@ -380,6 +390,8 @@ export default function AthleteDetail() {
             <PhoneCard
               label="Sporcu Telefonu"
               contactName={`${athlete.first_name} ${athlete.last_name} SLV`}
+              firstName={athlete.first_name}
+              lastName={athlete.last_name}
               phone={athlete.phone}
               waMessage=""
             />
@@ -390,6 +402,8 @@ export default function AthleteDetail() {
             <PhoneCard
               label={`Veli — ${parentDisplayName(athlete)}`}
               contactName={`${parentDisplayName(athlete)} (${athlete.first_name}) SLV`}
+              firstName={parentFirstLast(athlete)?.firstName}
+              lastName={parentFirstLast(athlete)?.lastName}
               phone={athlete.parent_phone}
               waMessage={`👋 Merhaba ${parentDisplayName(athlete)},  🏫 ${athlete.first_name}'nın Suluova Gençlik Merkezi Taekwondo kursuna kaydı başarıyla gerçekleşmiştir ✅  📢 Aşağıdaki link ile WhatsApp duyuru grubumuza katılmanız önem arz etmektedir:  🔗 https://chat.whatsapp.com/JzhZoyn2HHU0gkbamHnikg?mode=gi_t  🤝 YC Team Taekwondo`}
               showWelcome

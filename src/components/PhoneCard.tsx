@@ -5,6 +5,8 @@ interface PhoneCardProps {
   label: string
   contactName: string
   phone: string
+  firstName?: string
+  lastName?: string
   waMessage?: string
   showWelcome?: boolean
 }
@@ -13,6 +15,8 @@ export default function PhoneCard({
   label,
   contactName,
   phone,
+  firstName,
+  lastName,
   waMessage = '',
   showWelcome = false,
 }: PhoneCardProps) {
@@ -30,11 +34,17 @@ export default function PhoneCard({
 
   // Kişi kaydet: vCard indirme
   const saveContact = () => {
+    // Görünen isim (FN) her zaman contactName olarak kalır (SLV etiketiyle)
+    // N alanı ise firstName/lastName verilmişse düzgün formatta kaydedilir
+    const nField = (firstName && lastName)
+      ? `N:${lastName};${firstName};;;`
+      : `N:${contactName};;;;`
+
     const vcard = [
       'BEGIN:VCARD',
       'VERSION:3.0',
       `FN:${contactName}`,
-      `N:${contactName};;;;`,
+      nField,
       `TEL;TYPE=CELL:${phone}`,
       'END:VCARD',
     ].join('\n')
