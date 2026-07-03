@@ -58,6 +58,8 @@
   body {
     @apply bg-app-bg text-slate-800 antialiased;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -ms-touch-action: manipulation;
     font-family: var(--font-family-sans);
   }
 
@@ -68,6 +70,13 @@
     font-size: 16px;
     max-width: 100%;
     box-sizing: border-box;
+  }
+
+  /* iOS input zoom'u engellemek için */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 
   /* Tarih girdilerinin mobilde taşmasını engellemek için */
