@@ -82,22 +82,21 @@ function birthDetail(birthDate: string | null): string {
   return `${year} (${age} yaş)`
 }
 
-function parentDisplayName(a: { parent_type: string | null; mother_name: string | null; father_name: string | null }): string {
+function parentDisplayName(a: { parent_type: string | null; mother_name: string | null; father_name: string | null; parent_name?: string | null }): string {
   if (a.parent_type === 'anne' && a.mother_name) return a.mother_name
   if (a.parent_type === 'baba' && a.father_name) return a.father_name
   if (a.mother_name) return a.mother_name
   if (a.father_name) return a.father_name
+  if (a.parent_name) return a.parent_name
   return 'Veli'
 }
 
-function parentFirstLast(a: { parent_type: string | null; mother_name: string | null; father_name: string | null }): { firstName: string; lastName: string } | null {
+function parentFirstLast(a: { parent_type: string | null; mother_name: string | null; father_name: string | null; parent_name?: string | null }): { firstName: string; lastName: string } | null {
   const full = parentDisplayName(a)
   if (full === 'Veli') return null
   const parts = full.trim().split(/\s+/)
-  if (parts.length < 2) return null
-  const firstName = parts[0]
-  const lastName = parts.slice(1).join(' ')
-  return { firstName, lastName }
+  if (parts.length === 0) return null
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

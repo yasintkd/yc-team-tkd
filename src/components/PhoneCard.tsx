@@ -32,19 +32,27 @@ export default function PhoneCard({
     }
   }
 
+  /**
+   * vCard N alanı oluşturur.
+   * - firstName ve lastName varsa: N:lastName;firstName;;;
+   * - sadece firstName varsa (soyadı yok): N:;firstName;;;
+   * - hiçbiri yoksa contactName'in tamamı N alanına yazılır
+   */
+  function buildNField(): string {
+    if (firstName) {
+      const ln = lastName || ''
+      return `N:${ln};${firstName};;;`
+    }
+    return `N:${contactName};;;;`
+  }
+
   // Kişi kaydet: vCard indirme
   const saveContact = () => {
-    // Görünen isim (FN) her zaman contactName olarak kalır (SLV etiketiyle)
-    // N alanı ise firstName/lastName verilmişse düzgün formatta kaydedilir
-    const nField = (firstName && lastName)
-      ? `N:${lastName};${firstName};;;`
-      : `N:${contactName};;;;`
-
     const vcard = [
       'BEGIN:VCARD',
       'VERSION:3.0',
       `FN:${contactName}`,
-      nField,
+      buildNField(),
       `TEL;TYPE=CELL:${phone}`,
       'END:VCARD',
     ].join('\n')
