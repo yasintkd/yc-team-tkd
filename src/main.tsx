@@ -6,9 +6,20 @@ import App from './App.tsx'
 import { AuthProvider } from './auth/AuthProvider'
 import { ToastProvider } from './components/Toast'
 
-// Mobil zoom'u tamamen engelle (çift tıklama & pinch)
+// Mobil zoom'u tamamen engelle (çift tıklama, pinch, gesture)
 if (typeof window !== 'undefined') {
-  // Çift tıklama ile zoom'u engelle
+  // --- iOS Safari gesture events (pinch zoom) ---
+  document.addEventListener('gesturestart', (e) => {
+    e.preventDefault()
+  }, { passive: false })
+  document.addEventListener('gesturechange', (e) => {
+    e.preventDefault()
+  }, { passive: false })
+  document.addEventListener('gestureend', (e) => {
+    e.preventDefault()
+  }, { passive: false })
+
+  // --- Çift tıklama ile zoom'u engelle ---
   let lastTouchEnd = 0
   document.addEventListener('touchend', (e) => {
     const now = Date.now()
@@ -18,14 +29,19 @@ if (typeof window !== 'undefined') {
     lastTouchEnd = now
   }, { passive: false })
 
-  // İki parmak (pinch) zoom'u engelle
+  // --- İki parmak (pinch) zoom'u engelle (touchstart + touchmove) ---
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+      e.preventDefault()
+    }
+  }, { passive: false })
   document.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) {
       e.preventDefault()
     }
   }, { passive: false })
 
-  // Ctrl/Cmd +/- zoom'u da engelle (masaüstünde)
+  // --- Ctrl/Cmd +/- zoom'u engelle (masaüstü) ---
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey) {
       if (e.key === '+' || e.key === '-' || e.key === '=') {
@@ -34,7 +50,7 @@ if (typeof window !== 'undefined') {
     }
   }, { passive: false })
 
-  // Fare tekerleği + Ctrl zoom'unu engelle
+  // --- Fare tekerleği + Ctrl zoom'unu engelle ---
   document.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
