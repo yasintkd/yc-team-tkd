@@ -91,14 +91,6 @@ function parentDisplayName(a: { parent_type: string | null; mother_name: string 
   return 'Veli'
 }
 
-function parentFirstLast(a: { parent_type: string | null; mother_name: string | null; father_name: string | null; parent_name?: string | null }): { firstName: string; lastName: string } | null {
-  const full = parentDisplayName(a)
-  if (full === 'Veli') return null
-  const parts = full.trim().split(/\s+/)
-  if (parts.length === 0) return null
-  return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
-}
-
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-app-border bg-app-bg-soft/60 px-3 py-2">
