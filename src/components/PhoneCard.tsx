@@ -36,7 +36,9 @@ export default function PhoneCard({
       'BEGIN:VCARD',
       'VERSION:3.0',
       `FN:${contactName}`,
-      `N:${contactName};;;;`,
+      // N alanında ilk kısım boş (soyadı), ikinci kısımda contactName'in tamamı (ad)
+      // Böylece telefonda ad kısmında "VeliAdı VeliSoyadı (SporcuAdı) SLV" formatı görünür
+      `N:;${contactName};;;`,
       `TEL;TYPE=CELL:${phone}`,
       'END:VCARD',
     ].join('\n')
