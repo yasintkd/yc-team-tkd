@@ -440,6 +440,10 @@ function DistributeTab({
   const [editPaid, setEditPaid] = useState('')
   const [editStatus, setEditStatus] = useState<'odendi' | 'kismi' | 'bekliyor'>('odendi')
   const [editNote, setEditNote] = useState('')
+  const [editSelectedProductIds, setEditSelectedProductIds] = useState<string[]>([])
+  const [editBoyCm, setEditBoyCm] = useState('')
+  const [editKilo, setEditKilo] = useState('')
+  const [editShoeSize, setEditShoeSize] = useState('')
   const [saving, setSaving] = useState(false)
   const [exportingPng, setExportingPng] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -449,17 +453,72 @@ function DistributeTab({
     setEditPaid(o.paid_amount?.toString() ?? '')
     setEditStatus(o.payment_status)
     setEditNote(o.note ?? '')
+
+    // Ürün seçimlerini ve ölçüleri yükle
+    const productIds = o.items?.map(item => item.product_id) ?? []
+    setEditSelectedProductIds(productIds)
+
+    // İlk item'dan ölçüleri al (tüm itemlar aynı ölçüleri paylaşır)
+    const firstItem = o.items?.[0]
+    setEditBoyCm(firstItem?.boy_cm?.toString() ?? '')
+    setEditKilo(firstItem?.kilo?.toString() ?? '')
+    setEditShoeSize(firstItem?.shoe_size?.toString() ?? '')
+  }
+
+  // Seçilen ürünlere göre hangi ölçülerin gerekli olduğunu hesapla
+  const editNeeds = useMemo(() => {
+    let boy = false, kg = false, shoe = false
+    for (const pid of editSelectedProductIds) {
+      const p = products.find(x => x.id === pid)
+      if (!p) continue
+      if (p.requires_boy) boy = true
+      if (p.requires_kilo) kg = true
+      if (p.requires_shoe_size) shoe = true
+    }
+    return { boy, kg, shoe }
+  }, [editSelectedProductIds, products])
+
+  const editToggleProduct = (pid: string) => {
+    setEditSelectedProductIds(prev =>
+      prev.includes(pid) ? prev.filter(id => id !== pid) : [...prev, pid]
+    )
   }
 
   const saveEdit = async () => {
     if (!editingId) return
     setSaving(true); setError(null)
-    const { error: err } = await supabase.from('athlete_orders').update({
+
+    // Yeni toplam tutarı hesapla
+    let newTotal = 0
+    for (const pid of editSelectedProductIds) {
+      const p = products.find(x => x.id === pid)
+      if (p) newTotal += p.price
+    }
+
+    // Sipariş master kaydını güncelle
+    const { error: oErr } = await supabase.from('athlete_orders').update({
+      total_amount: newTotal,
       payment_status: editStatus,
-      paid_amount: editPaid ? parseFloat(editPaid) : null,
+      paid_amount: editStatus === 'odendi' ? newTotal : (editPaid ? parseFloat(editPaid) : 0),
       note: editNote.trim() || null,
     }).eq('id', editingId)
-    if (err) { setError(err.message); setSaving(false); return }
+    if (oErr) { setError(oErr.message); setSaving(false); return }
+
+    // Eski item'ları sil
+    const { error: dErr } = await supabase.from('athlete_order_items').delete().eq('order_id', editingId)
+    if (dErr) { setError(dErr.message); setSaving(false); return }
+
+    // Yeni item'ları ekle
+    const items = editSelectedProductIds.map(pid => ({
+      order_id: editingId,
+      product_id: pid,
+      boy_cm: editNeeds.boy && editBoyCm ? parseFloat(editBoyCm) : null,
+      kilo: editNeeds.kg && editKilo ? parseFloat(editKilo) : null,
+      shoe_size: editNeeds.shoe && editShoeSize ? parseFloat(editShoeSize) : null,
+    }))
+    const { error: iErr } = await supabase.from('athlete_order_items').insert(items)
+    if (iErr) { setError(iErr.message); setSaving(false); return }
+
     flash('Sipariş güncellendi')
     setEditingId(null); setSaving(false); onRefresh()
   }
@@ -695,30 +754,83 @@ function DistributeTab({
 
                 {/* Inline düzenleme */}
                 {editing && (
-                  <div className="mt-3 border-t border-app-border pt-3 space-y-2" onClick={e => e.stopPropagation()}>
-                    <p className="text-[11px] font-medium text-slate-600">Ödeme Düzenle</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(['odendi', 'kismi', 'bekliyor'] as const).map(s => (
-                        <button key={s} type="button" onClick={() => setEditStatus(s)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                            editStatus === s
-                              ? s === 'odendi' ? 'bg-emerald-100 text-emerald-800'
-                                : s === 'kismi' ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-200 text-slate-700'
-                              : 'border border-app-border bg-white text-slate-500 hover:bg-app-bg-soft'
-                          }`}
-                        >
-                          {s === 'odendi' ? 'Ödendi' : s === 'kismi' ? 'Kısmi' : 'Bekliyor'}
-                        </button>
-                      ))}
+                  <div className="mt-3 border-t border-app-border pt-3 space-y-3" onClick={e => e.stopPropagation()}>
+                    {/* Ürün seçimi */}
+                    <div>
+                      <p className="text-[11px] font-medium text-slate-600 mb-2">Ürünler</p>
+                      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                        {products.map(p => {
+                          const sel = editSelectedProductIds.includes(p.id)
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => editToggleProduct(p.id)}
+                              className={`relative flex shrink-0 flex-col items-center gap-1 rounded-xl border-2 px-3 py-2 text-xs font-medium transition-all ${
+                                sel
+                                  ? 'border-brand-cyan bg-brand-cyan/5 text-brand-cyan shadow-sm'
+                                  : 'border-app-border bg-white text-slate-600 hover:border-slate-300 hover:bg-app-bg-soft/50'
+                              }`}
+                            >
+                              {sel && (
+                                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-cyan text-[10px] text-white shadow-sm">✓</span>
+                              )}
+                              <span className="whitespace-nowrap">{p.name}</span>
+                              <span className="text-[10px] opacity-70">{p.price}₺</span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <input type="number" min="0" step="0.01" className="input-field w-[140px] text-xs"
-                        placeholder="Alınan miktar (₺)" value={editPaid} onChange={e => setEditPaid(e.target.value)} />
-                      <input className="input-field min-w-[200px] flex-1 text-xs"
-                        placeholder="Not" value={editNote} onChange={e => setEditNote(e.target.value)} />
+
+                    {/* Ölçüler */}
+                    {(editNeeds.boy || editNeeds.kg || editNeeds.shoe) && (
+                      <div>
+                        <p className="text-[11px] font-medium text-slate-600 mb-1">Ölçüler</p>
+                        <div className="flex flex-wrap gap-2">
+                          {editNeeds.boy && (
+                            <input type="number" step="0.1" className="input-field w-[120px] text-xs"
+                              placeholder="Boy (cm)" value={editBoyCm} onChange={e => setEditBoyCm(e.target.value)} />
+                          )}
+                          {editNeeds.kg && (
+                            <input type="number" step="0.1" className="input-field w-[120px] text-xs"
+                              placeholder="Kilo (kg)" value={editKilo} onChange={e => setEditKilo(e.target.value)} />
+                          )}
+                          {editNeeds.shoe && (
+                            <input type="number" step="0.5" className="input-field w-[120px] text-xs"
+                              placeholder="Ayakkabı no" value={editShoeSize} onChange={e => setEditShoeSize(e.target.value)} />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ödeme */}
+                    <div>
+                      <p className="text-[11px] font-medium text-slate-600 mb-1">Ödeme</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(['odendi', 'kismi', 'bekliyor'] as const).map(s => (
+                          <button key={s} type="button" onClick={() => setEditStatus(s)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                              editStatus === s
+                                ? s === 'odendi' ? 'bg-emerald-100 text-emerald-800'
+                                  : s === 'kismi' ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-200 text-slate-700'
+                                : 'border border-app-border bg-white text-slate-500 hover:bg-app-bg-soft'
+                            }`}
+                          >
+                            {s === 'odendi' ? 'Ödendi' : s === 'kismi' ? 'Kısmi' : 'Bekliyor'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <input type="number" min="0" step="0.01" className="input-field w-[140px] text-xs"
+                          placeholder="Alınan miktar (₺)" value={editPaid} onChange={e => setEditPaid(e.target.value)} />
+                        <input className="input-field min-w-[200px] flex-1 text-xs"
+                          placeholder="Not" value={editNote} onChange={e => setEditNote(e.target.value)} />
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+
+                    <div className="flex gap-2 pt-1">
                       <button type="button" onClick={saveEdit} disabled={saving}
                         className="btn-primary text-xs">{saving ? 'Kaydediliyor...' : 'Kaydet'}</button>
                       <button type="button" onClick={() => setEditingId(null)}
