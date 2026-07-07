@@ -487,12 +487,6 @@ function DistributeTab({
     onRefresh()
   }
 
-  // Sipariş verilmemiş olanlar
-  const notOrdered = useMemo(
-    () => orders.filter((o) => !o.is_ordered),
-    [orders],
-  )
-
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -503,10 +497,10 @@ function DistributeTab({
   }
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === notOrdered.length) {
+    if (selectedIds.size === orders.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(notOrdered.map(o => o.id)))
+      setSelectedIds(new Set(orders.map(o => o.id)))
     }
   }
 
@@ -514,10 +508,11 @@ function DistributeTab({
     setExportingPng(true)
     setError(null)
     try {
-      // Seçili siparişler (seçili yoksa tüm notOrdered)
+      // Seçili siparişler varsa seçilenlerden sadece sipariş verilmemiş olanları al
+      // Seçili yoksa tüm sipariş verilmemiş olanları al
       const targetOrders = selectedIds.size > 0
-        ? notOrdered.filter(o => selectedIds.has(o.id))
-        : notOrdered
+        ? orders.filter(o => selectedIds.has(o.id) && !o.is_ordered)
+        : orders.filter(o => !o.is_ordered)
 
       if (targetOrders.length === 0) {
         setError('Dışa aktarılacak sipariş bulunamadı.')
@@ -587,19 +582,19 @@ function DistributeTab({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Sipariş Listesi</h2>
-          {notOrdered.length > 0 && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{notOrdered.length} sipariş</span>
+          {orders.length > 0 && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{orders.length} sipariş</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {notOrdered.length > 0 && (
+          {orders.length > 0 && (
             <>
               <button
                 type="button"
                 onClick={toggleSelectAll}
                 className="rounded-lg border border-app-border bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft transition"
               >
-                {selectedIds.size === notOrdered.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                {selectedIds.size === orders.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
               </button>
               <button
                 type="button"
@@ -615,11 +610,11 @@ function DistributeTab({
         </div>
       </div>
 
-      {notOrdered.length === 0 ? (
+      {orders.length === 0 ? (
         <p className="mt-3 text-xs text-brand-muted">Henüz sipariş yok.</p>
       ) : (
         <div className="mt-3 space-y-2">
-          {notOrdered.map(o => {
+          {orders.map(o => {
             const editing = editingId === o.id
             const athlete = athletes.find(a => a.id === o.athlete_id)
             const checked = selectedIds.has(o.id)
