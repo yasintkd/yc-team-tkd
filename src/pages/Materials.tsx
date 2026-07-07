@@ -442,6 +442,7 @@ function DistributeTab({
   const [editNote, setEditNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [exportingPng, setExportingPng] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const startEdit = (o: AthleteOrder) => {
     setEditingId(o.id)
@@ -492,19 +493,47 @@ function DistributeTab({
     [orders],
   )
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === notOrdered.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(notOrdered.map(o => o.id)))
+    }
+  }
+
   const exportNotOrderedPng = async () => {
     setExportingPng(true)
     setError(null)
     try {
+      // Seçili siparişler (seçili yoksa tüm notOrdered)
+      const targetOrders = selectedIds.size > 0
+        ? notOrdered.filter(o => selectedIds.has(o.id))
+        : notOrdered
+
+      if (targetOrders.length === 0) {
+        setError('Dışa aktarılacak sipariş bulunamadı.')
+        setExportingPng(false)
+        return
+      }
+
       // Her sipariş için sporcu bilgisine erişim için lookup
-      const orderAthleteMap = new Map(notOrdered.map(o => [o.id, o.athletes]))
+      const orderAthleteMap = new Map(targetOrders.map(o => [o.id, o.athletes]))
       // Her ürün için cinsiyet gerekip gerekmediği
       const productGenderReq = new Map(products.map(p => [p.id, p.requires_gender]))
 
       // Grupla: ürün adı + beden bilgisi + cinsiyet → adet
       const grouped = new Map<string, { productName: string; sizeInfo: string; quantity: number; genderInfo?: string }>()
 
-      const allItems = notOrdered.flatMap((o) => o.items ?? [])
+      const allItems = targetOrders.flatMap((o) => o.items ?? [])
 
       for (const item of allItems) {
         const pn = productName(item.products)
@@ -534,8 +563,11 @@ function DistributeTab({
 
       await downloadOrderPng(
         [...grouped.values()].sort((a, b) => a.productName.localeCompare(b.productName)),
-        notOrdered.length,
+        targetOrders.length,
       )
+
+      // Seçimleri temizle
+      setSelectedIds(new Set())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Görsel oluşturulamadı.')
     } finally {
@@ -551,31 +583,58 @@ function DistributeTab({
 
   return (
     <section className="glass-panel rounded-2xl p-4">
+      {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Sipariş Listesi</h2>
-        {notOrdered.length > 0 && (
-          <button
-            type="button"
-            disabled={exportingPng}
-            onClick={() => void exportNotOrderedPng()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {exportingPng ? 'Hazırlanıyor...' : 'PNG İndir'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">Sipariş Listesi</h2>
+          {notOrdered.length > 0 && (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">{notOrdered.length} sipariş</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {notOrdered.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="rounded-lg border border-app-border bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-app-bg-soft transition"
+              >
+                {selectedIds.size === notOrdered.length ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+              </button>
+              <button
+                type="button"
+                disabled={exportingPng}
+                onClick={() => void exportNotOrderedPng()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-app-bg-soft disabled:opacity-60"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {exportingPng ? 'Hazırlanıyor...' : `PNG İndir${selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}`}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {orders.length === 0 ? (
+      {notOrdered.length === 0 ? (
         <p className="mt-3 text-xs text-brand-muted">Henüz sipariş yok.</p>
       ) : (
         <div className="mt-3 space-y-2">
-          {orders.map(o => {
+          {notOrdered.map(o => {
             const editing = editingId === o.id
             const athlete = athletes.find(a => a.id === o.athlete_id)
+            const checked = selectedIds.has(o.id)
             return (
               <div key={o.id} className="rounded-xl border border-app-border bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
+                  {/* Checkbox */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSelect(o.id)}
+                    className={`mt-0.5 shrink-0 transition ${checked ? 'text-brand-cyan' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    {checked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                  </button>
+
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-800">{athlete ? `${athlete.first_name} ${athlete.last_name}` : '—'}</p>
                     <p className="text-[11px] text-brand-muted">
