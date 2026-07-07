@@ -82,11 +82,11 @@ function birthDetail(birthDate: string | null): string {
   return `${year} (${age} yaş)`
 }
 
-function parentDisplayName(a: { parent_type: string | null; mother_name: string | null; father_name: string | null; parent_name?: string | null }): string {
-  if (a.parent_type === 'anne' && a.mother_name) return a.mother_name
-  if (a.parent_type === 'baba' && a.father_name) return a.father_name
-  if (a.mother_name) return a.mother_name
-  if (a.father_name) return a.father_name
+function parentDisplayName(a: { parent_type: string | null; mother_name: string | null; father_name: string | null; parent_name?: string | null; last_name: string }): string {
+  if (a.parent_type === 'anne' && a.mother_name) return `${a.mother_name} ${a.last_name}`
+  if (a.parent_type === 'baba' && a.father_name) return `${a.father_name} ${a.last_name}`
+  if (a.mother_name) return `${a.mother_name} ${a.last_name}`
+  if (a.father_name) return `${a.father_name} ${a.last_name}`
   if (a.parent_name) return a.parent_name
   return 'Veli'
 }
