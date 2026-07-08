@@ -109,7 +109,7 @@ export default function Materials() {
 
       {tab === 'products' && <ProductsTab products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
       {tab === 'orders' && <OrdersTab products={products} athletes={athletes} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
-      {tab === 'distribute' && <DistributeTab orders={orders} athletes={athletes} products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} />}
+      {tab === 'distribute' && <DistributeTab orders={orders} athletes={athletes} products={products} onRefresh={() => void loadAll()} flash={flash} setError={setError} setOrders={setOrders} />}
       {tab === 'reports' && <ReportsTab orders={orders} athletes={athletes} />}
     </div>
   )
@@ -433,10 +433,11 @@ function OrdersTab({
 // DAĞITIM
 
 function DistributeTab({
-  products, orders, athletes, onRefresh, flash, setError,
+  products, orders, athletes, onRefresh, flash, setError, setOrders,
 }: {
   products: Product[]; orders: AthleteOrder[]; athletes: Athlete[]
   onRefresh: () => void; flash: (m: string) => void; setError: (e: string | null) => void
+  setOrders: React.Dispatch<React.SetStateAction<AthleteOrder[]>>
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editPaid, setEditPaid] = useState('')
@@ -526,18 +527,20 @@ function DistributeTab({
   }
 
   const toggleOrdered = async (orderId: string, current: boolean) => {
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, is_ordered: !current } : o))
     const { error: err } = await supabase.from('athlete_orders').update({ is_ordered: !current }).eq('id', orderId)
-    if (err) { setError(err.message); return }
-    onRefresh()
+    if (err) { setError(err.message); setOrders(prev => prev.map(o => o.id === orderId ? { ...o, is_ordered: current } : o)); return }
   }
 
   const toggleDelivered = async (orderId: string, current: boolean) => {
     const updates: Record<string, unknown> = { is_delivered: !current }
     if (!current) updates.delivered_at = new Date().toISOString()
     else updates.delivered_at = null
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } as AthleteOrder : o))
     const { error: err } = await supabase.from('athlete_orders').update(updates).eq('id', orderId)
-    if (err) { setError(err.message); return }
-    onRefresh()
+    if (err) { setError(err.message); setOrders(prev => prev.map(o => o.id === orderId ? { ...o, is_delivered: current, delivered_at: current ? new Date().toISOString() : null } as AthleteOrder : o)); return }
   }
 
   const deleteOrder = async (orderId: string) => {
@@ -733,19 +736,46 @@ function DistributeTab({
                       {o.paid_amount != null && o.paid_amount < o.total_amount ? ` (${o.paid_amount}₺ alındı)` : ''}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button type="button" onClick={() => startEdit(o)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-app-bg-soft hover:text-brand-cyan transition"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    {o.is_delivered && (
-                      <button type="button" onClick={() => { if (confirm('Sipariş silinecek. Emin misiniz?')) void deleteOrder(o.id) }}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                  <div className="flex shrink-0 items-start gap-3">
+                    {/* Durum badge'leri - sağ taraf */}
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void toggleOrdered(o.id, o.is_ordered)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
+                          o.is_ordered
+                            ? 'bg-sky-100 text-sky-800 hover:bg-sky-200'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        {o.is_ordered ? '✓' : '○'} Sipariş Verildi
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => void toggleDelivered(o.id, o.is_delivered)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition ${
+                          o.is_delivered
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {o.is_delivered ? '✓' : '○'} Teslim Edildi
+                      </button>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button type="button" onClick={() => startEdit(o)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-app-bg-soft hover:text-brand-cyan transition"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {o.is_delivered && (
+                        <button type="button" onClick={() => { if (confirm('Sipariş silinecek. Emin misiniz?')) void deleteOrder(o.id) }}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -766,26 +796,6 @@ function DistributeTab({
 
                 {/* Not */}
                 {!editing && o.note && <p className="mt-1 text-[11px] text-brand-muted">📝 {o.note}</p>}
-
-                {/* Sipariş verildi / Teslim edildi tikleri */}
-                <div className="mt-3 flex items-center gap-4 text-xs">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <button type="button" onClick={() => void toggleOrdered(o.id, o.is_ordered)}
-                      className={`${o.is_ordered ? 'text-brand-cyan' : 'text-slate-400'}`}
-                    >
-                      {o.is_ordered ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                    </button>
-                    <span className={o.is_ordered ? 'text-slate-700 font-medium' : 'text-slate-500'}>Sipariş Verildi</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <button type="button" onClick={() => void toggleDelivered(o.id, o.is_delivered)}
-                      className={`${o.is_delivered ? 'text-brand-cyan' : 'text-slate-400'}`}
-                    >
-                      {o.is_delivered ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                    </button>
-                    <span className={o.is_delivered ? 'text-slate-700 font-medium' : 'text-slate-500'}>Teslim Edildi</span>
-                  </label>
-                </div>
 
                 {/* Inline düzenleme */}
                 {editing && (
