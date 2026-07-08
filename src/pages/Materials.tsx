@@ -7,9 +7,11 @@ import {
   CheckSquare, Square, Search,
   ShoppingCart,
   Download,
+  AlertTriangle, Clock,
 } from 'lucide-react'
 import Tabs from '../components/Tabs'
 import LoadingSkeleton from '../components/LoadingSkeleton'
+import StatCard from '../components/StatCard'
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -629,6 +631,29 @@ function DistributeTab({
     }
   }
 
+  // ─── Rapor metrikleri ────────────────────────────────────────
+  const stats = useMemo(() => {
+    const total = orders.length
+    const ordered = orders.filter(o => o.is_ordered).length
+    const delivered = orders.filter(o => o.is_delivered).length
+    const notOrdered = orders.filter(o => !o.is_ordered).length
+
+    // Eksik ölçü: ürünün requires_boy/kilo/shoe_size ihtiyacı varsa
+    // ama ilgili item alanı null ise o sipariş "eksik" sayılır
+    const missingData = orders.filter(o =>
+      (o.items ?? []).some(item => {
+        const product = products.find(p => p.id === item.product_id)
+        if (!product) return false
+        if (product.requires_boy && !item.boy_cm) return true
+        if (product.requires_kilo && !item.kilo) return true
+        if (product.requires_shoe_size && !item.shoe_size) return true
+        return false
+      }),
+    ).length
+
+    return { total, ordered, delivered, notOrdered, missingData }
+  }, [orders, products])
+
   const payments: Record<string, { label: string; cls: string }> = {
     odendi: { label: 'Ödendi', cls: 'bg-emerald-100 text-emerald-800' },
     kismi: { label: 'Kısmi', cls: 'bg-amber-100 text-amber-800' },
@@ -637,6 +662,16 @@ function DistributeTab({
 
   return (
     <section className="glass-panel rounded-2xl p-4">
+      {/* Sayısal rapor */}
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Toplam Sipariş" value={String(stats.total)} icon={ClipboardList} />
+        <StatCard label="Sipariş Verildi" value={String(stats.ordered)} icon={Package} />
+        <StatCard label="Teslim Edildi" value={String(stats.delivered)} icon={CheckSquare} />
+        <StatCard label="Bekleyen" value={String(stats.notOrdered)} icon={Clock} />
+        <StatCard label="Eksik Veri" value={String(stats.missingData)} icon={AlertTriangle}
+          hint={stats.missingData > 0 ? 'Boy, kilo veya ayakkabı no girilmemiş' : undefined} />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
