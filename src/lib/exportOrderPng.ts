@@ -160,6 +160,56 @@ function waitForImages(doc: Document) {
   )
 }
 
+function isIOS() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.userAgent.includes('Mac') &&
+      typeof navigator.maxTouchPoints === 'number' &&
+      navigator.maxTouchPoints > 2)
+  )
+}
+
+async function downloadPng(canvas: HTMLCanvasElement) {
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/png'),
+  )
+  if (!blob) throw new Error('PNG oluşturulamadı.')
+
+  const fileName = `siparis-listesi.png`
+
+  if (isIOS() && navigator.share) {
+    // iOS: Web Share API ile paylaş/kaydet
+    try {
+      const file = new File([blob], fileName, { type: 'image/png' })
+      await navigator.share({
+        files: [file],
+        title: fileName,
+      })
+      return
+    } catch (shareErr) {
+      // Kullanıcı iptal ederse hata fırlatma, fallback'e düş
+      if (shareErr instanceof Error && shareErr.name !== 'AbortError') {
+        // Fallback: yeni sekmede aç
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+      }
+      return
+    }
+  }
+
+  // Desktop ve iOS fallback: link.click() veya window.open()
+  if ('download' in HTMLAnchorElement.prototype) {
+    const link = document.createElement('a')
+    link.download = fileName
+    link.href = URL.createObjectURL(blob)
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000)
+  } else {
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  }
+}
+
 export async function downloadOrderPng(items: OrderPngItem[], orderCount: number) {
   const iframe = document.createElement('iframe')
   iframe.style.cssText =
@@ -200,10 +250,7 @@ export async function downloadOrderPng(items: OrderPngItem[], orderCount: number
       windowHeight: doc.body.scrollHeight,
     })
 
-    const link = document.createElement('a')
-    link.download = `siparis-listesi.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    await downloadPng(canvas)
   } finally {
     document.body.removeChild(iframe)
   }
