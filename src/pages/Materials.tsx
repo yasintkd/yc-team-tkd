@@ -658,6 +658,24 @@ function DistributeTab({
     return { total, ordered, delivered, notOrdered, missingData }
   }, [orders, products])
 
+  const filteredOrders = useMemo(() => {
+    if (activeFilter === 'all') return orders
+    if (activeFilter === 'ordered') return orders.filter(o => o.is_ordered)
+    if (activeFilter === 'delivered') return orders.filter(o => o.is_delivered)
+    if (activeFilter === 'notOrdered') return orders.filter(o => !o.is_ordered)
+    if (activeFilter === 'missingData') return orders.filter(o =>
+      (o.items ?? []).some(item => {
+        const product = products.find(p => p.id === item.product_id)
+        if (!product) return false
+        if (product.requires_boy && !item.boy_cm) return true
+        if (product.requires_kilo && !item.kilo) return true
+        if (product.requires_shoe_size && !item.shoe_size) return true
+        return false
+      }),
+    )
+    return orders
+  }, [orders, products, activeFilter])
+
   const payments: Record<string, { label: string; cls: string }> = {
     odendi: { label: 'Ödendi', cls: 'bg-emerald-100 text-emerald-800' },
     kismi: { label: 'Kısmi', cls: 'bg-amber-100 text-amber-800' },
@@ -668,12 +686,22 @@ function DistributeTab({
     <section className="glass-panel rounded-2xl p-4">
       {/* Sayısal rapor */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Toplam Sipariş" value={String(stats.total)} icon={ClipboardList} />
-        <StatCard label="Sipariş Verildi" value={String(stats.ordered)} icon={Package} />
-        <StatCard label="Teslim Edildi" value={String(stats.delivered)} icon={CheckSquare} />
-        <StatCard label="Bekleyen" value={String(stats.notOrdered)} icon={Clock} />
+        <StatCard label="Toplam Sipariş" value={String(stats.total)} icon={ClipboardList}
+          onClick={() => setActiveFilter('all')}
+          className={activeFilter === 'all' ? 'ring-2 ring-brand-cyan' : ''} />
+        <StatCard label="Sipariş Verildi" value={String(stats.ordered)} icon={Package}
+          onClick={() => setActiveFilter('ordered')}
+          className={activeFilter === 'ordered' ? 'ring-2 ring-brand-cyan' : ''} />
+        <StatCard label="Teslim Edildi" value={String(stats.delivered)} icon={CheckSquare}
+          onClick={() => setActiveFilter('delivered')}
+          className={activeFilter === 'delivered' ? 'ring-2 ring-brand-cyan' : ''} />
+        <StatCard label="Bekleyen" value={String(stats.notOrdered)} icon={Clock}
+          onClick={() => setActiveFilter('notOrdered')}
+          className={activeFilter === 'notOrdered' ? 'ring-2 ring-brand-cyan' : ''} />
         <StatCard label="Eksik Veri" value={String(stats.missingData)} icon={AlertTriangle}
-          hint={stats.missingData > 0 ? 'Boy, kilo veya ayakkabı no girilmemiş' : undefined} />
+          hint={stats.missingData > 0 ? 'Boy, kilo veya ayakkabı no girilmemiş' : undefined}
+          onClick={() => setActiveFilter('missingData')}
+          className={activeFilter === 'missingData' ? 'ring-2 ring-brand-cyan' : ''} />
       </div>
 
       {/* Header */}
