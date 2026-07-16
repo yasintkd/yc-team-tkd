@@ -1,5 +1,6 @@
 import { BRAND } from './brand'
 import logoUrl from '../assets/logo-team-taekwondo.png'
+import { downloadPng } from './exportPng'
 
 function escapeHtml(text: string | number) {
   return String(text).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"')
@@ -120,10 +121,7 @@ export async function exportGroupPng(params: {
       width: 800, windowWidth: 800, height: doc.body.scrollHeight, windowHeight: doc.body.scrollHeight,
     })
 
-    const link = document.createElement('a')
-    link.download = `${safeFilename(groupName)}-grup-listesi.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    await downloadPng(canvas, `${safeFilename(groupName)}-grup-listesi.png`)
   } finally {
     document.body.removeChild(iframe)
   }

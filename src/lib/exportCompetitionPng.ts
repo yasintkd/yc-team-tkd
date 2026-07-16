@@ -1,5 +1,6 @@
 import { BRAND } from './brand'
 import logoUrl from '../assets/logo-team-taekwondo.png'
+import { downloadPng } from './exportPng'
 
 export type CompPngInput = {
   competitionTitle: string
@@ -200,10 +201,7 @@ export async function downloadCompetitionPng(data: CompPngInput) {
       windowHeight: doc.body.scrollHeight,
     })
 
-    const link = document.createElement('a')
-    link.download = `${safeFilename(data.competitionTitle)}-katilimcilar.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    await downloadPng(canvas, `${safeFilename(data.competitionTitle)}-katilimcilar.png`)
   } finally {
     document.body.removeChild(iframe)
   }

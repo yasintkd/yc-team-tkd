@@ -1,5 +1,6 @@
 import { BRAND } from './brand'
 import logoUrl from '../assets/logo-team-taekwondo.png'
+import { downloadPng } from './exportPng'
 
 function escapeHtml(text: string | number) {
   return String(text).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"')
@@ -106,11 +107,8 @@ export async function exportExamPng(
       width: 800, windowWidth: 800, height: doc.body.scrollHeight, windowHeight: doc.body.scrollHeight,
     })
 
-    const link = document.createElement('a')
     const suffix = isAttendance ? 'yoklama-listesi' : 'sonuc'
-    link.download = `${safeFilename(title)}-${suffix}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    await downloadPng(canvas, `${safeFilename(title)}-${suffix}.png`)
   } finally {
     document.body.removeChild(iframe)
   }

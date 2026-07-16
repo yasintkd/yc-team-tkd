@@ -13,6 +13,7 @@
 
 import { BRAND } from './brand'
 import logoUrl from '../assets/logo-team-taekwondo.png'
+import { downloadPng } from './exportPng'
 
 export interface ReportPngInput {
   title: string
@@ -200,10 +201,7 @@ export async function downloadReportPng(data: ReportPngInput) {
       windowHeight: doc.body.scrollHeight,
     })
 
-    const link = document.createElement('a')
-    link.download = `${data.filename ?? safeFilename(data.title)}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    await downloadPng(canvas, `${data.filename ?? safeFilename(data.title)}.png`)
   } finally {
     document.body.removeChild(iframe)
   }
