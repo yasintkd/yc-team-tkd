@@ -439,6 +439,7 @@ function DistributeTab({
   onRefresh: () => void; flash: (m: string) => void; setError: (e: string | null) => void
   setOrders: React.Dispatch<React.SetStateAction<AthleteOrder[]>>
 }) {
+  const [activeFilter, setActiveFilter] = useState<'all' | 'ordered' | 'delivered' | 'notOrdered' | 'missingData'>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editPaid, setEditPaid] = useState('')
   const [editStatus, setEditStatus] = useState<'odendi' | 'kismi' | 'bekliyor'>('odendi')
@@ -707,11 +708,11 @@ function DistributeTab({
         </div>
       </div>
 
-      {orders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
         <p className="mt-3 text-xs text-brand-muted">Henüz sipariş yok.</p>
       ) : (
         <div className="mt-3 space-y-2">
-          {orders.map(o => {
+          {filteredOrders.map(o => {
             const editing = editingId === o.id
             const athlete = athletes.find(a => a.id === o.athlete_id)
             const checked = selectedIds.has(o.id)
