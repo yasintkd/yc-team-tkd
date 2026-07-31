@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Plus, X, Download, Trash2, ChevronDown, ChevronUp,
-  Users, Calendar, AlertTriangle, UserPlus, UserMinus, Clock,
+  Users, Calendar, AlertTriangle, UserPlus, UserMinus, Clock, Pencil,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { weekdayLabel, formatTime } from '../lib/days'
@@ -75,7 +75,7 @@ export default function Groups() {
   // Modal state
   const [modal, setModal] = useState<
     | { type: 'newGroup' }
-    | { type: 'addSchedule'; groupId: string; groupName: string }
+    | { type: 'addSchedule'; groupId: string; groupName: string; schedule?: Schedule }
     | null
   >(null)
 
@@ -161,9 +161,10 @@ export default function Groups() {
     if (modal?.type !== 'addSchedule') return
     setSaving(true)
     setError(null)
-    const { error: insErr } = await supabase
-      .from('group_schedules')
-      .insert({ group_id: modal.groupId, day_of_week: dayOfWeek, start_time: startTime, end_time: endTime })
+    const payload = { day_of_week: dayOfWeek, start_time: startTime, end_time: endTime }
+    const { error: insErr } = modal.schedule
+      ? await supabase.from('group_schedules').update(payload).eq('id', modal.schedule.id)
+      : await supabase.from('group_schedules').insert({ group_id: modal.groupId, ...payload })
     if (insErr) { setError(insErr.message) }
     else { setModal(null); await load() }
     setSaving(false)
@@ -426,13 +427,28 @@ export default function Groups() {
                                   {formatTime(s.start_time)} – {formatTime(s.end_time)}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void removeSchedule(s.id)}
-                                className="rounded-md px-2 py-0.5 text-[11px] text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-                              >
-                                Sil
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDayOfWeek(s.day_of_week)
+                                    setStartTime(s.start_time)
+                                    setEndTime(s.end_time)
+                                    setModal({ type: 'addSchedule', groupId: g.id, groupName: g.name, schedule: s })
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-slate-500 hover:bg-app-bg-soft hover:text-slate-700"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  Düzenle
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void removeSchedule(s.id)}
+                                  className="rounded-md px-2 py-0.5 text-[11px] text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                                >
+                                  Sil
+                                </button>
+                              </div>
                             </li>
                           ))}
                         </ul>
@@ -626,9 +642,9 @@ export default function Groups() {
             className="w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-semibold">Seans Ekle</h3>
+                <h3 className="text-base font-semibold">{modal.schedule ? 'Seansı Düzenle' : 'Seans Ekle'}</h3>
                 <p className="mt-0.5 text-xs text-brand-muted">{modal.groupName}</p>
               </div>
               <button
@@ -684,7 +700,7 @@ export default function Groups() {
                 disabled={saving}
                 className="btn-primary w-full"
               >
-                {saving ? 'Ekleniyor...' : 'Seansı Ekle'}
+                {saving ? 'Kaydediliyor...' : (modal.schedule ? 'Kaydet' : 'Seansı Ekle')}
               </button>
             </form>
           </div>
