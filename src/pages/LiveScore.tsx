@@ -490,7 +490,7 @@ export default function LiveScore() {
     broadcast(fresh)
   }
 
-  const newMatch = (keepAthletes = false) => {
+  const newMatch = (_e?: React.MouseEvent<HTMLButtonElement>, keepAthletes = false) => {
     if (!isAdmin) return
     const id = crypto.randomUUID()
     setMatchId(id)
@@ -1055,14 +1055,14 @@ export default function LiveScore() {
                 <div className="mt-8 grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => newMatch(true)}
+                    onClick={(e) => newMatch(e, true)}
                     className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs"
                   >
                     AYNI SPORCULAR
                   </button>
                   <button
                     type="button"
-                    onClick={() => newMatch(false)}
+                    onClick={(e) => newMatch(e, false)}
                     className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs"
                   >
                     YENİ MAÇ
