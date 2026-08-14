@@ -519,8 +519,9 @@ export default function LiveScore() {
       // Puanın hangi tarafa ekleneceğini belirle (Gam-jeom ise rakibe)
       const getScoreSide = (v: RefVote): Side => (v.statKey === 'gamjeom' ? (v.side === 1 ? 2 : 1) : v.side)
 
-      // Tek hakem modu veya admin puanı
-      if (prev.refCount === 1 || isAdmin) {
+      // Tek hakem modu: Oylar anında işlenir. 
+      // Çoklu hakem modu: Admin olsak bile konsensüs (en az 2 oy) beklenir.
+      if (prev.refCount === 1) {
         const vote = incomingVote
         const scoreSide = getScoreSide(vote)
         nextState = {
@@ -606,13 +607,11 @@ export default function LiveScore() {
     side,
     disabled,
     onScore,
-    onGamJeom,
   }: {
     isReferee: boolean
     side: Side
     disabled: boolean
     onScore: (vote: RefVote) => void
-    onGamJeom: (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => void
   }) {
     const buttons = [
       { d: 6, k: 'turnHead' as const, label: '+6' },
@@ -636,13 +635,6 @@ export default function LiveScore() {
             {label}
           </button>
         ))}
-        <button
-          disabled={disabled || !isReferee}
-          onClick={() => onGamJeom(side, 1, 'gamjeom')}
-          className={`flex items-center justify-center gap-1 rounded-xl border-2 bg-amber-500 text-white border-amber-600 hover:bg-amber-600 py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
-        >
-          <AlertTriangle className="h-3.5 w-3.5" /> GJ
-        </button>
       </>
     )
   }
@@ -805,7 +797,6 @@ export default function LiveScore() {
                 side={1}
                 disabled={state.phase !== 'round'}
                 onScore={broadcastVote}
-                onGamJeom={(s, d, k) => broadcastVote({ refId: urlRef, side: s, delta: d, statKey: k, ts: Date.now() })}
               />
             </div>
             <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
@@ -817,7 +808,6 @@ export default function LiveScore() {
                 side={2}
                 disabled={state.phase !== 'round'}
                 onScore={broadcastVote}
-                onGamJeom={(s, d, k) => broadcastVote({ refId: urlRef, side: s, delta: d, statKey: k, ts: Date.now() })}
               />
             </div>
           </div>
