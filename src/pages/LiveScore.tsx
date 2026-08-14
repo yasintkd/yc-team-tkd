@@ -451,6 +451,12 @@ export default function LiveScore() {
     broadcast(next)
   }
 
+  const updateRefCount = (v: number) => {
+    if (!isAdmin) return
+    const next = { ...state, refCount: v }
+    broadcast(next)
+  }
+
   const pauseToggle = () => {
     if (!isAdmin) return
     setState((prev) => {
@@ -497,6 +503,8 @@ export default function LiveScore() {
   // ── Referee consensus helpers ──────────────────────────
 
   const broadcastVote = (vote: RefVote) => {
+    // Kendi oyumuzu da yerelde işleyelim ki konsensüs hesaplanabilsin
+    handleIncomingVote(vote)
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
   }
@@ -555,10 +563,11 @@ export default function LiveScore() {
             now - v.ts <= prev.voteToleranceMs,
         )
 
-        // 2 veya 3 hakem için en az 2 oy gerekli
+        // Farklı hakemlerin oylarını sayalım
+        const uniqueRefIds = new Set(relevantVotes.map(v => v.refId))
         const requiredVotes = prev.refCount > 1 ? 2 : 1
 
-        if (relevantVotes.length >= requiredVotes) {
+        if (uniqueRefIds.size >= requiredVotes) {
           const vote = incomingVote
           const scoreSide = getScoreSide(vote)
           nextState = {
@@ -763,10 +772,7 @@ export default function LiveScore() {
             <label className="text-xs font-medium text-slate-700">Hakem Sayısı</label>
             <select
               value={state.refCount}
-              onChange={(e) => {
-                const v = Math.max(1, Math.min(3, parseInt(e.target.value, 10)))
-                setState((prev) => ({ ...prev, refCount: v }))
-              }}
+              onChange={(e) => updateRefCount(Math.max(1, Math.min(3, parseInt(e.target.value, 10))))}
               className="input-field text-sm"
             >
               <option value={1}>1 Hakem (Tek)</option>
