@@ -34,6 +34,14 @@ type Stats = {
   gamjeom: number
 }
 
+type RefVote = {
+  refId: number
+  side: Side
+  delta: number
+  statKey: keyof Stats | 'gamjeom'
+  ts: number
+}
+
 type MatchState = {
   matchId: string
   startedAt: number
@@ -57,6 +65,9 @@ type MatchState = {
   // match meta
   winner: Side | null
   refereeWinner: Side | null
+  // referee consensus (1-3 hakem)
+  refCount: number
+  pendingVotes: RefVote[]
 }
 
 const DEFAULT_ROUND = 120
@@ -88,6 +99,8 @@ const initialState = (matchId: string): MatchState => ({
   phase: 'idle',
   winner: null,
   refereeWinner: null,
+  refCount: 1,
+  pendingVotes: [],
 })
 
 // ─── Tie-breaker (spec §5.4, birebir) ───────────────────
@@ -110,9 +123,13 @@ export default function LiveScore() {
   const { status, user } = useAuth()
   const [params, setParams] = useSearchParams()
   const urlMatchId = params.get('matchId') || ''
+  const urlRef = parseInt(params.get('ref') || '0', 10)
 
   // Admin = authenticated user (logged in)
   const isAuthAdmin = status === 'authenticated' && !!user
+
+  // Ref mode: ?ref=1/2/3 ile gelen hakem
+  const isReferee = urlRef >= 1 && urlRef <= 3
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return isAuthAdmin || sessionStorage.getItem('liveScore:admin') === '1'
@@ -165,6 +182,12 @@ export default function LiveScore() {
     ch.on('broadcast', { event: BROADCAST_NAME }, ({ payload }) => {
       if (payload && typeof payload === 'object') {
         setState(payload as MatchState)
+      }
+    })
+    // Hakem oyları için ayrı event
+    ch.on('broadcast', { event: 'vote' }, ({ payload }) => {
+      if (payload && typeof payload === 'object') {
+        handleIncomingVote(payload as RefVote)
       }
     })
     ch.subscribe()
@@ -406,6 +429,126 @@ export default function LiveScore() {
     })
   }
 
+  // ── Referee consensus helpers ──────────────────────────
+
+  const broadcastVote = (vote: RefVote) => {
+    const ch = channelRef.current
+    if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
+  }
+
+  const handleIncomingVote = (vote: RefVote) => {
+    // Sadece admin işler
+    if (!isAdmin) return
+    setState((prev) => {
+      // Aynı hakem aynı puan için tekrar oy vermesin
+      const already = prev.pendingVotes.find(
+        (v) => v.refId === vote.refId && v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey,
+      )
+      if (already) return prev
+
+      const nextVotes = [...prev.pendingVotes, vote]
+
+      // Consensus kontrolü
+      const matching = nextVotes.filter(
+        (v) => v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey,
+      )
+
+      // Zaman penceresi: 3 saniye içinde gelmiş olmalı
+      const now = Date.now()
+      const recent = matching.filter((v) => now - v.ts <= 3000)
+
+      if (recent.length >= prev.refCount) {
+        // Consensus sağlandı → puanı uygula, oyları temizle
+        const applied: MatchState = {
+          ...prev,
+          score: { ...prev.score, [vote.side]: prev.score[vote.side] + vote.delta },
+          stats: {
+            ...prev.stats,
+            [vote.side]: {
+              ...prev.stats[vote.side],
+              ...(vote.statKey !== 'gamjeom'
+                ? { [vote.statKey]: prev.stats[vote.side][vote.statKey] + 1 }
+                : { gamjeom: prev.stats[vote.side].gamjeom + 1 }),
+            },
+          },
+          pendingVotes: prev.pendingVotes.filter(
+            (v) => !(v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey),
+          ),
+        }
+        // 5. gam-jeom → auto round loss
+        if (vote.statKey === 'gamjeom' && applied.stats[vote.side].gamjeom >= 5) {
+          return finalizeRound(applied, vote.side === 1 ? 2 : 1)
+        }
+        broadcast(applied)
+        return applied
+      }
+
+      return { ...prev, pendingVotes: nextVotes }
+    })
+  }
+
+  // ── Hakem butonu handler (ref mode) ────────────────────
+
+  const handleRefButton = (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => {
+    if (!isReferee) return
+    const vote: RefVote = {
+      refId: urlRef,
+      side,
+      delta,
+      statKey,
+      ts: Date.now(),
+    }
+    broadcastVote(vote)
+  }
+
+  // ── RefereeScoreButtons component (hakem UI) ───────────
+
+  function RefereeScoreButtons({
+    isReferee,
+    side,
+    disabled,
+    onScore,
+    onGamJeom,
+  }: {
+    isReferee: boolean
+    side: Side
+    disabled: boolean
+    onScore: (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => void
+    onGamJeom: (side: Side) => void
+  }) {
+    const buttons = [
+      { d: 6, k: 'turnHead' as const, label: '+6' },
+      { d: 4, k: 'turnBody' as const, label: '+4' },
+      { d: 3, k: 'straightHead' as const, label: '+3' },
+      { d: 2, k: 'straightBody' as const, label: '+2' },
+      { d: 1, k: 'punch' as const, label: '+1' },
+    ]
+
+    return (
+      <>
+        {buttons.map(({ d, k, label }) => (
+          <button
+            key={k}
+            disabled={disabled || !isReferee}
+            onClick={() => onScore(side, d, k)}
+            className={`flex flex-1 items-center justify-center rounded-xl border-2 ${
+              side === 1 ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700' : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
+            } py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          disabled={disabled || !isReferee}
+          onClick={() => onGamJeom(side)}
+          className={`flex items-center justify-center gap-1 rounded-xl border-2 bg-amber-500 text-white border-amber-600 hover:bg-amber-600 py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          <AlertTriangle className="h-3.5 w-3.5" /> GJ
+        </button>
+      </>
+    )
+  }
+
   // ── UI (tam ekran) ─────────────────────────────────────
 
   const mm = String(Math.floor(state.timerSec / 60)).padStart(2, '0')
@@ -485,9 +628,9 @@ export default function LiveScore() {
         </div>
       </div>
 
-      {/* Sporcu seçimi (admin idle durumda) */}
+      {/* Sporcu seçimi + Hakem sayısı (admin idle durumda) */}
       {isAdmin && (state.phase === 'idle' || state.phase === 'finished') && (
-        <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-3">
           <AthleteSelect
             label="Mavi Sporcu"
             color="blue"
@@ -502,36 +645,85 @@ export default function LiveScore() {
             value={state.athlete2}
             onChange={(a) => setAthlete(2, a)}
           />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-slate-700">Hakem Sayısı</label>
+            <select
+              value={state.refCount}
+              onChange={(e) => {
+                const v = Math.max(1, Math.min(3, parseInt(e.target.value, 10)))
+                setState((prev) => ({ ...prev, refCount: v }))
+              }}
+              className="input-field text-sm"
+            >
+              <option value={1}>1 Hakem (Tek)</option>
+              <option value={2}>2 Hakem (İkili)</option>
+              <option value={3}>3 Hakem (Üçlü)</option>
+            </select>
+          </div>
         </div>
       )}
 
-      {/* Ana puan butonları - 3 sütun */}
-      <div className="grid flex-1 min-h-0 grid-cols-2 gap-1.5 px-2 py-2">
-        {/* Mavi butonlar */}
-        <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
-          <p className="text-center text-[10px] font-bold uppercase tracking-wider text-blue-700">Mavi Puanları</p>
-          <ScoreButtons
-            color="blue"
-            isAdmin={isAdmin}
-            disabled={!canControl || state.phase !== 'round'}
-            stats={state.stats[1]}
-            onScore={(delta, key) => setScore(1, delta, key)}
-            onGamJeom={() => addGamJeom(1)}
-          />
+      {/* Hakem UI (ref mode) */}
+      {isReferee && state.phase === 'round' && (
+        <div className="flex-1 min-h-0 px-2 py-2">
+          <div className="grid grid-cols-2 gap-1.5">
+            <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
+              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                Mavi (Hakem #{urlRef})
+              </p>
+              <RefereeScoreButtons
+                isReferee={isReferee}
+                side={1}
+                disabled={state.phase !== 'round'}
+                onScore={handleRefButton}
+                onGamJeom={(s) => handleRefButton(s, 1, 'gamjeom')}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
+              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-red-700">
+                Kırmızı (Hakem #{urlRef})
+              </p>
+              <RefereeScoreButtons
+                isReferee={isReferee}
+                side={2}
+                disabled={state.phase !== 'round'}
+                onScore={handleRefButton}
+                onGamJeom={(s) => handleRefButton(s, 1, 'gamjeom')}
+              />
+            </div>
+          </div>
         </div>
-        {/* Kırmızı butonlar */}
-        <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
-          <p className="text-center text-[10px] font-bold uppercase tracking-wider text-red-700">Kırmızı Puanları</p>
-          <ScoreButtons
-            color="red"
-            isAdmin={isAdmin}
-            disabled={!canControl || state.phase !== 'round'}
-            stats={state.stats[2]}
-            onScore={(delta, key) => setScore(2, delta, key)}
-            onGamJeom={() => addGamJeom(2)}
-          />
+      )}
+
+      {/* Admin/Guest UI - Ana puan butonları */}
+      {(!isReferee || isAdmin) && (
+        <div className="grid flex-1 min-h-0 grid-cols-2 gap-1.5 px-2 py-2">
+          {/* Mavi butonlar */}
+          <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
+            <p className="text-center text-[10px] font-bold uppercase tracking-wider text-blue-700">Mavi Puanları</p>
+            <ScoreButtons
+              color="blue"
+              isAdmin={isAdmin}
+              disabled={!canControl || state.phase !== 'round'}
+              stats={state.stats[1]}
+              onScore={(delta, key) => setScore(1, delta, key)}
+              onGamJeom={() => addGamJeom(1)}
+            />
+          </div>
+          {/* Kırmızı butonlar */}
+          <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
+            <p className="text-center text-[10px] font-bold uppercase tracking-wider text-red-700">Kırmızı Puanları</p>
+            <ScoreButtons
+              color="red"
+              isAdmin={isAdmin}
+              disabled={!canControl || state.phase !== 'round'}
+              stats={state.stats[2]}
+              onScore={(delta, key) => setScore(2, delta, key)}
+              onGamJeom={() => addGamJeom(2)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Alt kontrol bar - kompakt */}
       <div className="flex items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 backdrop-blur">
