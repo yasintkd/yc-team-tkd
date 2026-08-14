@@ -546,7 +546,16 @@ export default function LiveScore() {
                 : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
             },
           },
-          pendingVotes: [], // İşlendiği için temizle
+          pendingVotes: [],
+        }
+
+        // 15 Puan fark kuralı (Yüksek Puan)
+        const diff = Math.abs(nextState.score[1] - nextState.score[2])
+        if (diff >= 15) {
+          const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
+          const finished = finalizeRound(nextState, winner)
+          broadcast(finished)
+          return finished
         }
 
         if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
@@ -581,10 +590,18 @@ export default function LiveScore() {
                   : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
               },
             },
-            // Konsensüs sağlanan oyları temizle
             pendingVotes: updatedPendingVotes.filter(
               (v) => !(v.side === incomingVote.side && v.delta === incomingVote.delta && v.statKey === incomingVote.statKey)
             ),
+          }
+
+          // 15 Puan fark kuralı
+          const diff = Math.abs(nextState.score[1] - nextState.score[2])
+          if (diff >= 15) {
+            const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
+            const finished = finalizeRound(nextState, winner)
+            broadcast(finished)
+            return finished
           }
 
           if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
