@@ -1036,23 +1036,23 @@ export default function LiveScore() {
 
       {/* Maç bitti banner */}
       {state.phase === 'finished' && state.winner && (
-        <div className="glass-panel flex items-center justify-between rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-emerald-600" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-700">
-                Maç Bitti — Kazanan: {state.winner === 1 ? (state.athlete1?.first_name ?? 'Mavi') : (state.athlete2?.first_name ?? 'Kırmızı')}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={isAdmin ? newMatch : undefined}>
+          <div className={`w-full max-w-sm rounded-3xl p-8 text-center text-white shadow-2xl border-8 ${state.winner === 1 ? 'bg-blue-600 border-blue-400' : 'bg-red-600 border-red-400'}`}>
+            <Trophy className="mx-auto h-20 w-20 animate-pulse mb-4" />
+            <h2 className="text-3xl font-black uppercase tracking-tighter">MAÇ BİTTİ</h2>
+            <div className="mt-6 rounded-2xl bg-white/20 p-6 backdrop-blur">
+              <p className="text-sm font-bold uppercase opacity-80">ŞAMPİYON</p>
+              <p className="text-4xl font-black mt-2">
+                {state.winner === 1 ? (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi') : (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı')}
               </p>
-              {state.refereeWinner && (
-                <p className="text-xs text-emerald-600">(Hakem kararı ile)</p>
-              )}
             </div>
+            {state.refereeWinner && <p className="mt-4 text-sm font-bold opacity-75">Hakem Kararı İle</p>}
+            {isAdmin && (
+              <button onClick={newMatch} className="mt-8 w-full rounded-2xl bg-white px-6 py-4 text-lg font-black text-slate-800 shadow-xl hover:bg-slate-100">
+                YENİ MAÇ
+              </button>
+            )}
           </div>
-          {isAdmin && (
-            <button onClick={newMatch} className="btn-primary text-xs">
-              Yeni Maç
-            </button>
-          )}
         </div>
       )}
 
