@@ -747,16 +747,16 @@ export default function LiveScore() {
 
       {/* Üst kart - skor + süre */}
       <div className="grid grid-cols-3 gap-1.5 px-2 pt-2">
-        <div className="rounded-2xl bg-blue-600 px-3 py-3 text-center text-white shadow-lg">
-          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Mavi</p>
-          <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
+        <div className="rounded-2xl bg-blue-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-blue-800">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Mavi</p>
+          <p className="mt-0.5 truncate text-xs font-semibold text-white">
             {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
           </p>
-          <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[1]}</p>
-          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[1]}</p>
-          <div className="mt-2 flex justify-center gap-1">
+          <p className="mt-1 text-6xl font-black leading-none text-white drop-shadow-md">{state.score[1]}</p>
+          <p className="mt-1 text-sm font-bold text-blue-200">Raunt: {state.roundWins[1]}</p>
+          <div className="mt-2 flex justify-center gap-1.5">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className={`h-3 w-3 rounded-full border border-white/30 ${i < state.stats[1].gamjeom ? 'bg-blue-400' : 'bg-white/20'}`} />
+              <div key={i} className={`h-3.5 w-3.5 rounded-full border-2 ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
             ))}
           </div>
         </div>
@@ -773,16 +773,16 @@ export default function LiveScore() {
             <span className="text-blue-300">{state.roundWins[1]}</span> – <span className="text-red-300">{state.roundWins[2]}</span>
           </p>
         </div>
-        <div className="rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg">
-          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Kırmızı</p>
-          <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
+        <div className="rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-red-800">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-red-100">Kırmızı</p>
+          <p className="mt-0.5 truncate text-xs font-semibold text-white">
             {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
           </p>
-          <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[2]}</p>
-          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[2]}</p>
-          <div className="mt-2 flex justify-center gap-1">
+          <p className="mt-1 text-6xl font-black leading-none text-white drop-shadow-md">{state.score[2]}</p>
+          <p className="mt-1 text-sm font-bold text-red-200">Raunt: {state.roundWins[2]}</p>
+          <div className="mt-2 flex justify-center gap-1.5">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className={`h-3 w-3 rounded-full border border-white/30 ${i < state.stats[2].gamjeom ? 'bg-red-400' : 'bg-white/20'}`} />
+              <div key={i} className={`h-3.5 w-3.5 rounded-full border-2 ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
             ))}
           </div>
         </div>
