@@ -706,8 +706,10 @@ export default function LiveScore() {
               isAdmin={isAdmin}
               disabled={!canControl || state.phase !== 'round'}
               stats={state.stats[1]}
+              score={state.score[1]}
               onScore={(delta, key) => setScore(1, delta, key)}
               onGamJeom={() => addGamJeom(1)}
+              onUndo={() => setScore(1, -1)}
             />
           </div>
           {/* Kırmızı butonlar */}
@@ -718,8 +720,10 @@ export default function LiveScore() {
               isAdmin={isAdmin}
               disabled={!canControl || state.phase !== 'round'}
               stats={state.stats[2]}
+              score={state.score[2]}
               onScore={(delta, key) => setScore(2, delta, key)}
               onGamJeom={() => addGamJeom(2)}
+              onUndo={() => setScore(2, -1)}
             />
           </div>
         </div>
@@ -960,15 +964,19 @@ function ScoreButtons({
   isAdmin,
   disabled,
   stats,
+  score,
   onScore,
   onGamJeom,
+  onUndo,
 }: {
   color: 'blue' | 'red'
   isAdmin: boolean
   disabled: boolean
   stats: Stats
+  score: number
   onScore: (delta: number, statKey?: keyof Stats) => void
   onGamJeom: () => void
+  onUndo: () => void
 }) {
   const isBlue = color === 'blue'
   const btnBase = isBlue
@@ -977,6 +985,9 @@ function ScoreButtons({
   const gjBase = isBlue
     ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
     : 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
+  const undoBase = isBlue
+    ? 'bg-slate-500 text-white border-slate-600 hover:bg-slate-600'
+    : 'bg-slate-500 text-white border-slate-600 hover:bg-slate-600'
 
   const buttons = [
     { d: 6, k: 'turnHead' as const, label: '+6' },
@@ -998,6 +1009,16 @@ function ScoreButtons({
           {label}
         </button>
       ))}
+      {/* Admin-only undo (-1) — only when score > 0 */}
+      {isAdmin && score > 0 && (
+        <button
+          disabled={disabled}
+          onClick={onUndo}
+          className={`flex flex-1 items-center justify-center rounded-xl border-2 ${undoBase} py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          -1
+        </button>
+      )}
       <button
         disabled={disabled || !isAdmin || stats.gamjeom >= 5}
         onClick={onGamJeom}
