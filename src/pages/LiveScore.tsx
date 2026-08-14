@@ -825,7 +825,7 @@ export default function LiveScore() {
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
-                disabled={state.phase !== 'round'}
+                disabled={state.phase !== 'round' || !state.timerRunning}
                 onScore={broadcastVote}
               />
             </div>
@@ -833,7 +833,7 @@ export default function LiveScore() {
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
-                disabled={state.phase !== 'round'}
+                disabled={state.phase !== 'round' || !state.timerRunning}
                 onScore={broadcastVote}
               />
             </div>
