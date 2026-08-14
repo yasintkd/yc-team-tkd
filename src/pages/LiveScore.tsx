@@ -833,7 +833,7 @@ export default function LiveScore() {
 
       {/* Admin Puanlama ve Bekleyen Oylar */}
       {isAdmin && state.refCount > 1 && state.pendingVotes.length > 0 && (
-        <div className="mx-2 mt-2 flex flex-wrap gap-1 rounded-lg bg-amber-50 p-2 border border-amber-200">
+        <div className="mx-2 mt-2 z-10 flex flex-wrap gap-1 rounded-lg bg-amber-50 p-2 border border-amber-200">
           <span className="text-[10px] font-bold text-amber-700 w-full mb-1 uppercase">Bekleyen Oylar:</span>
           {state.pendingVotes.map((v, i) => (
             <div key={i} className={`text-[10px] px-1.5 py-0.5 rounded border ${v.side === 1 ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-red-100 border-red-200 text-red-700'}`}>
