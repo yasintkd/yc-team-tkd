@@ -155,9 +155,7 @@ function App() {
             <Route
               path="/canli-skor"
               element={
-                <ProtectedRoute>
-                  <SuspenseWrapper><LiveScore /></SuspenseWrapper>
-                </ProtectedRoute>
+                <SuspenseWrapper><LiveScore /></SuspenseWrapper>
               }
             />
             <Route path="/odemeler" element={<Navigate to="/dashboard" replace />} />
