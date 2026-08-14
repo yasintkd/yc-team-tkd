@@ -138,7 +138,7 @@ export default function LiveScore() {
   const isAuthAdmin = status === 'authenticated' && !!user
 
   // Ref mode: ?ref=1/2/3 ile gelen hakem
-  const isReferee = urlRef >= 1 && urlRef <= 3
+  const isReferee = urlRef >= 1 && urlRef <= 3 || !urlMatchId
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return isAuthAdmin || sessionStorage.getItem('liveScore:admin') === '1'
@@ -149,9 +149,6 @@ export default function LiveScore() {
     if (urlMatchId) return urlMatchId
     return crypto.randomUUID()
   })
-
-  // URL ile geldiyse → misafir modu, kendi state'i başlatma
-  const isGuestByUrl = !!urlMatchId
 
   // Sync isAdmin with auth status
   useEffect(() => {
@@ -260,7 +257,7 @@ export default function LiveScore() {
     ch.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         // Presence'e gir
-        await ch.track({ user_id: user?.id || 'guest', role: isAdmin ? 'admin' : isReferee ? 'referee' : 'guest', ref: urlRef })
+        await ch.track({ user_id: user?.id || `ref-${urlRef || 'temp'}`, role: isAdmin ? 'admin' : 'referee', ref: urlRef })
       }
     })
     channelRef.current = ch
@@ -272,10 +269,10 @@ export default function LiveScore() {
 
   // ── Admin olarak URL'e matchId yaz
   useEffect(() => {
-    if (!isGuestByUrl && matchId) {
+    if (isAdmin && !urlMatchId && matchId) {
       setParams({ matchId }, { replace: true })
     }
-  }, [matchId, isGuestByUrl, setParams])
+  }, [matchId, isAdmin, urlMatchId, setParams])
 
   // ── Broadcast (admin ve referee)
   const broadcast = (next: MatchState) => {
@@ -615,7 +612,7 @@ export default function LiveScore() {
       <div className="flex items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 backdrop-blur">
         <div className="flex items-center gap-2 text-xs text-brand-muted">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{matchId.slice(0, 6)}</span>
-          <span>{isAdmin ? 'Admin' : 'Misafir'}</span>
+          <span>{isAdmin ? 'Admin' : isReferee ? `Hakem #${urlRef}` : ''}</span>
         </div>
         <div className="flex gap-1.5">
           {isAdmin && (
@@ -669,7 +666,7 @@ export default function LiveScore() {
               </button>
             </>
           )}
-          {!isAdmin && !isGuestByUrl && (
+          {!isAdmin && !isAuthAdmin && (
             <button onClick={promoteToAdmin} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
               Admin Ol
             </button>
@@ -777,8 +774,8 @@ export default function LiveScore() {
         </div>
       )}
 
-      {/* Admin/Guest UI - Ana puan butonları */}
-      {(!isReferee || isAdmin) && (
+      {/* Admin/Referee UI - Ana puan butonları */}
+      {isAdmin || !isReferee && (
         <div className="grid flex-1 min-h-0 grid-cols-2 gap-1.5 px-2 py-2">
           {/* Mavi butonlar */}
           <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
