@@ -198,18 +198,13 @@ export default function LiveScore() {
         handleIncomingVote(payload as RefVote)
       }
     })
-    // Presence: yeni client katıldığında mevcut state'i broadcast et (admin veya ilk referee)
+    // Presence: yeni client katıldığında mevcut state'i broadcast et (sadece admin)
     ch.on('presence', { event: 'join' }, ({ newPresences }) => {
-      // Kendi join'imiz değilse ve state varsa broadcast et
       const joined = newPresences.find((p: any) => p.user_id !== user?.id)
-      if (joined) {
-        // Admin ya da en az bir referee varsa state'i paylaş
-        const canBroadcast = isAdmin || isReferee
-        if (canBroadcast) {
-          const ch2 = channelRef.current
-          if (ch2 && stateRef.current) {
-            void ch2.send({ type: 'broadcast', event: BROADCAST_NAME, payload: stateRef.current })
-          }
+      if (joined && isAdmin) {
+        const ch2 = channelRef.current
+        if (ch2 && stateRef.current) {
+          void ch2.send({ type: 'broadcast', event: BROADCAST_NAME, payload: stateRef.current })
         }
       }
       // Hakem bağlandığında refereeStatus güncelle
@@ -510,26 +505,33 @@ export default function LiveScore() {
   }
 
   const handleIncomingVote = (incomingVote: RefVote) => {
+    if (!isAdmin) return
+
     setState((prev) => {
-      // Aynı hakem aynı puan için tekrar oy vermesin (idempotent)
-      const alreadyVoted = prev.pendingVotes.some(
+      const now = Date.now()
+      
+      // 1. Önce süresi dolmuş oyları temizle
+      const freshVotes = prev.pendingVotes.filter(v => now - v.ts <= prev.voteToleranceMs)
+
+      // 2. Mükerrer oy kontrolü (aynı hakem, aynı taraf, aynı tuş)
+      const alreadyVoted = freshVotes.some(
         (v) =>
           v.refId === incomingVote.refId &&
           v.side === incomingVote.side &&
           v.delta === incomingVote.delta &&
           v.statKey === incomingVote.statKey,
       )
-      if (alreadyVoted) return prev
+      if (alreadyVoted) return { ...prev, pendingVotes: freshVotes }
 
-      const updatedPendingVotes = [...prev.pendingVotes, incomingVote]
+      // 3. Yeni oyu ekle
+      const updatedPendingVotes = [...freshVotes, incomingVote]
       let nextState: MatchState = { ...prev, pendingVotes: updatedPendingVotes }
 
-      // Puanın hangi tarafa ekleneceğini belirle (Gam-jeom ise rakibe)
       const getScoreSide = (v: RefVote): Side => (v.statKey === 'gamjeom' ? (v.side === 1 ? 2 : 1) : v.side)
 
-      // Tek hakem modu: Oylar anında işlenir. 
-      // Çoklu hakem modu: Admin olsak bile konsensüs (en az 2 oy) beklenir.
+      // 4. Konsensüs kontrolü
       if (prev.refCount === 1) {
+        // Tek hakem modu: Anında işle
         const vote = incomingVote
         const scoreSide = getScoreSide(vote)
         nextState = {
@@ -544,7 +546,7 @@ export default function LiveScore() {
                 : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
             },
           },
-          pendingVotes: nextState.pendingVotes.filter((v) => v !== incomingVote),
+          pendingVotes: [], // İşlendiği için temizle
         }
 
         if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
@@ -553,19 +555,16 @@ export default function LiveScore() {
           return finished
         }
       } else {
-        // Çoklu hakem konsensüsü
-        const now = Date.now()
+        // Çoklu hakem modu (2 veya 3)
         const relevantVotes = updatedPendingVotes.filter(
           (v) =>
             v.side === incomingVote.side &&
             v.delta === incomingVote.delta &&
-            v.statKey === incomingVote.statKey &&
-            now - v.ts <= prev.voteToleranceMs,
+            v.statKey === incomingVote.statKey
         )
 
-        // Farklı hakemlerin oylarını sayalım
         const uniqueRefIds = new Set(relevantVotes.map(v => v.refId))
-        const requiredVotes = prev.refCount > 1 ? 2 : 1
+        const requiredVotes = 2 // 2 veya 3 hakem için her zaman en az 2 oy
 
         if (uniqueRefIds.size >= requiredVotes) {
           const vote = incomingVote
@@ -582,15 +581,9 @@ export default function LiveScore() {
                   : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
               },
             },
-            pendingVotes: nextState.pendingVotes.filter(
-              (v) =>
-                !(
-                  v.side === incomingVote.side &&
-                  v.delta === incomingVote.delta &&
-                  v.statKey === incomingVote.statKey &&
-                  now - v.ts <= prev.voteToleranceMs
-                ) &&
-                now - v.ts <= prev.voteToleranceMs,
+            // Konsensüs sağlanan oyları temizle
+            pendingVotes: updatedPendingVotes.filter(
+              (v) => !(v.side === incomingVote.side && v.delta === incomingVote.delta && v.statKey === incomingVote.statKey)
             ),
           }
 
@@ -600,7 +593,8 @@ export default function LiveScore() {
             return finished
           }
         } else {
-          nextState.pendingVotes = updatedPendingVotes.filter((v) => now - v.ts <= prev.voteToleranceMs)
+          // Konsensüs henüz yok
+          nextState.pendingVotes = updatedPendingVotes
         }
       }
 
@@ -820,8 +814,20 @@ export default function LiveScore() {
         </div>
       )}
 
+      {/* Admin Puanlama ve Bekleyen Oylar */}
+      {isAdmin && state.refCount > 1 && state.pendingVotes.length > 0 && (
+        <div className="mx-2 mt-2 flex flex-wrap gap-1 rounded-lg bg-amber-50 p-2 border border-amber-200">
+          <span className="text-[10px] font-bold text-amber-700 w-full mb-1 uppercase">Bekleyen Oylar:</span>
+          {state.pendingVotes.map((v, i) => (
+            <div key={i} className={`text-[10px] px-1.5 py-0.5 rounded border ${v.side === 1 ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-red-100 border-red-200 text-red-700'}`}>
+              H#{v.refId}: {v.delta > 0 ? `+${v.delta}` : v.delta}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Admin/Referee UI - Ana puan butonları */}
-      {isAdmin || !isReferee && (
+      {(isAdmin || !isReferee) && (
         <div className="grid flex-1 min-h-0 grid-cols-2 gap-1.5 px-2 py-2">
           {/* Mavi butonlar */}
           <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
@@ -832,7 +838,14 @@ export default function LiveScore() {
               disabled={!canControl || state.phase !== 'round'}
               stats={state.stats[1]}
               score={state.score[1]}
-              onScore={(delta, key) => setScore(1, delta, key)}
+              onScore={(delta, key) => {
+                // Çoklu hakem varsa Admin'in puan butonu da konsensüse girer (refId: 0)
+                if (state.refCount > 1) {
+                  broadcastVote({ refId: 0, side: 1, delta, statKey: key || 'punch', ts: Date.now() })
+                } else {
+                  setScore(1, delta, key)
+                }
+              }}
               onGamJeom={() => addGamJeom(1)}
               onUndo={() => setScore(1, -1)}
             />
@@ -846,7 +859,13 @@ export default function LiveScore() {
               disabled={!canControl || state.phase !== 'round'}
               stats={state.stats[2]}
               score={state.score[2]}
-              onScore={(delta, key) => setScore(2, delta, key)}
+              onScore={(delta, key) => {
+                if (state.refCount > 1) {
+                  broadcastVote({ refId: 0, side: 2, delta, statKey: key || 'punch', ts: Date.now() })
+                } else {
+                  setScore(2, delta, key)
+                }
+              }}
               onGamJeom={() => addGamJeom(2)}
               onUndo={() => setScore(2, -1)}
             />
