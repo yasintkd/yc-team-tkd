@@ -72,7 +72,6 @@ type MatchState = {
   winner: Side | null
   refereeWinner: Side | null
   // referee consensus (1-3 hakem)
-  refCount: number
   voteToleranceMs: number // Yeni: Hakem oyu tolerans süresi
   pendingVotes: RefVote[]
   // referee connection status (admin panel)
@@ -108,7 +107,6 @@ const initialState = (matchId: string): MatchState => ({
   phase: 'idle',
   winner: null,
   refereeWinner: null,
-  refCount: 1,
   voteToleranceMs: 1500, // Yeni: Varsayılan 1500ms tolerans
   pendingVotes: [],
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
@@ -457,11 +455,6 @@ export default function LiveScore() {
     broadcast(next)
   }
 
-  const updateRefCount = (v: number) => {
-    if (!isAdmin) return
-    const next = { ...state, refCount: v }
-    broadcast(next)
-  }
 
   const pauseToggle = () => {
     if (!isAdmin) return
@@ -548,7 +541,8 @@ export default function LiveScore() {
       const getScoreSide = (v: RefVote): Side => (v.statKey === 'gamjeom' ? (v.side === 1 ? 2 : 1) : v.side)
 
       // 4. Konsensüs kontrolü
-      if (prev.refCount === 1) {
+      const activeRefCount = Object.values(prev.refereeStatus).filter(r => r.connected).length
+      if (activeRefCount <= 1) {
         // Tek hakem modu: Anında işle
         const vote = incomingVote
         const scoreSide = getScoreSide(vote)
@@ -793,8 +787,8 @@ export default function LiveScore() {
       </div>
 
       {/* Sporcu seçimi + Hakem sayısı (admin idle durumda) */}
-      {isAdmin && (state.phase === 'idle' || state.phase === 'finished') && (
-        <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-3">
+          {isAdmin && (state.phase === 'idle' || state.phase === 'finished') && (
+        <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-2">
           <AthleteSelect
             label="Mavi Sporcu"
             color="blue"
@@ -802,18 +796,6 @@ export default function LiveScore() {
             value={state.athlete1}
             onChange={(a) => setAthlete(1, a)}
           />
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-slate-700">Hakem Sayısı</label>
-            <select
-              value={state.refCount}
-              onChange={(e) => updateRefCount(Math.max(1, Math.min(3, parseInt(e.target.value, 10))))}
-              className="input-field text-sm"
-            >
-              <option value={1}>1 Hakem (Tek)</option>
-              <option value={2}>2 Hakem (İkili)</option>
-              <option value={3}>3 Hakem (Üçlü)</option>
-            </select>
-          </div>
           <AthleteSelect
             label="Kırmızı Sporcu"
             color="red"
@@ -855,7 +837,7 @@ export default function LiveScore() {
       )}
 
       {/* Admin Puanlama ve Bekleyen Oylar */}
-      {isAdmin && state.refCount > 1 && state.pendingVotes.filter(v => Date.now() - v.ts <= state.voteToleranceMs).length > 0 && (
+      {isAdmin && Object.values(state.refereeStatus).filter(r => r.connected).length > 1 && state.pendingVotes.filter(v => Date.now() - v.ts <= state.voteToleranceMs).length > 0 && (
         <div className="mx-2 mt-2 z-10 flex flex-wrap gap-1 rounded-lg bg-amber-50 p-2 border border-amber-200">
           <span className="text-[10px] font-bold text-amber-700 w-full mb-1 uppercase">Bekleyen Oylar:</span>
           {state.pendingVotes
