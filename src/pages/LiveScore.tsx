@@ -10,9 +10,11 @@ import {
   AlertTriangle,
   X,
   Users,
+  QrCode,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import QRCode from 'qrcode'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -142,6 +144,8 @@ export default function LiveScore() {
   const [refereeOpen, setRefereeOpen] = useState(false)
   const [roundEndConfirmOpen, setRoundEndConfirmOpen] = useState(false)
   const [pendingRoundWinner, setPendingRoundWinner] = useState<Side | null>(null)
+  const [inviteQr, setInviteQr] = useState<string>('')
+  const [showInvite, setShowInvite] = useState(false)
 
   // ── Sporcuları çek
   useEffect(() => {
@@ -415,9 +419,26 @@ export default function LiveScore() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isAdmin && (
-            <button onClick={copyInvite} className="btn-primary flex items-center gap-1.5 text-xs">
-              <Copy className="h-3.5 w-3.5" /> Davet Linki
-            </button>
+            <>
+              <button
+                onClick={async () => {
+                  const url = `${window.location.origin}/canli-skor?matchId=${matchId}`
+                  try {
+                    const qr = await QRCode.toDataURL(url, { width: 200, margin: 2 })
+                    setInviteQr(qr)
+                    setShowInvite(true)
+                  } catch (e) {
+                    console.error(e)
+                  }
+                }}
+                className="btn-primary flex items-center gap-1.5 text-xs"
+              >
+                <QrCode className="h-3.5 w-3.5" /> QR Davet
+              </button>
+              <button onClick={copyInvite} className="rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft flex items-center gap-1">
+                <Copy className="h-3.5 w-3.5" /> Kopyala
+              </button>
+            </>
           )}
           {isAdmin && (
             <button onClick={newMatch} className="rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft">
@@ -430,6 +451,36 @@ export default function LiveScore() {
             </button>
           )}
         </div>
+
+        {/* QR Modal */}
+        {showInvite && inviteQr && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInvite(false)}>
+            <div className="glass-panel rounded-2xl bg-white p-5 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-800">Davet QR Kodu</h3>
+                <button onClick={() => setShowInvite(false)} className="text-slate-400 hover:text-slate-700">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <img src={inviteQr} alt="Davet QR" className="mx-auto h-48 w-48" />
+              <p className="mt-3 text-xs text-brand-muted">Tarayıp paylaşın</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={copyInvite}
+                  className="flex-1 btn-primary text-xs"
+                >
+                  Linki Kopyala
+                </button>
+                <button
+                  onClick={() => setShowInvite(false)}
+                  className="flex-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sporcu seçimi (admin) */}
