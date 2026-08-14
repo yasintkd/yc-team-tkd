@@ -1053,10 +1053,10 @@ export default function LiveScore() {
             {state.refereeWinner && <p className="mt-4 text-sm font-bold opacity-75">Hakem Kararı İle</p>}
             {isAdmin && (
               <div className="mt-8 grid grid-cols-2 gap-3">
-                <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); newMatch(true); }} className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs">
+                <button onClick={() => newMatch(true)} className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs">
                   AYNI SPORCULAR
                 </button>
-                <button onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); newMatch(false); }} className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs">
+                <button onClick={() => newMatch(false)} className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs">
                   YENİ MAÇ
                 </button>
               </div>
