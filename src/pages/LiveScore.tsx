@@ -602,8 +602,8 @@ export default function LiveScore() {
           <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
             {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
           </p>
-          <p className="mt-1 text-4xl font-black leading-none">{state.score[1]}</p>
-          <p className="mt-1 text-[10px] opacity-75">R{state.roundWins[1]} • GJ {state.stats[1].gamjeom}/5</p>
+          <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[1]}</p>
+          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[1]} • GJ {state.stats[1].gamjeom}/5</p>
         </div>
         <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-800 px-2 py-3 text-center text-white shadow-lg">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
@@ -614,8 +614,8 @@ export default function LiveScore() {
           }`}>
             {mm}:{ss}
           </p>
-          <p className="mt-1 text-[10px] text-slate-300">
-            <span className="text-blue-300 font-bold">{state.roundWins[1]}</span> – <span className="text-red-300 font-bold">{state.roundWins[2]}</span>
+          <p className="mt-1 text-sm font-bold text-slate-200">
+            <span className="text-blue-300">{state.roundWins[1]}</span> – <span className="text-red-300">{state.roundWins[2]}</span>
           </p>
         </div>
         <div className="rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg">
@@ -623,8 +623,8 @@ export default function LiveScore() {
           <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
             {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
           </p>
-          <p className="mt-1 text-4xl font-black leading-none">{state.score[2]}</p>
-          <p className="mt-1 text-[10px] opacity-75">R{state.roundWins[2]} • GJ {state.stats[2].gamjeom}/5</p>
+          <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[2]}</p>
+          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[2]} • GJ {state.stats[2].gamjeom}/5</p>
         </div>
       </div>
 
@@ -637,13 +637,6 @@ export default function LiveScore() {
             athletes={athletes}
             value={state.athlete1}
             onChange={(a) => setAthlete(1, a)}
-          />
-          <AthleteSelect
-            label="Kırmızı Sporcu"
-            color="red"
-            athletes={athletes}
-            value={state.athlete2}
-            onChange={(a) => setAthlete(2, a)}
           />
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-700">Hakem Sayısı</label>
@@ -660,6 +653,13 @@ export default function LiveScore() {
               <option value={3}>3 Hakem (Üçlü)</option>
             </select>
           </div>
+          <AthleteSelect
+            label="Kırmızı Sporcu"
+            color="red"
+            athletes={athletes}
+            value={state.athlete2}
+            onChange={(a) => setAthlete(2, a)}
+          />
         </div>
       )}
 
