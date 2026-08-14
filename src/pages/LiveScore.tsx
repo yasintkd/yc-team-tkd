@@ -326,7 +326,8 @@ export default function LiveScore() {
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
-    if (!isAdmin) return
+    // Admin her zaman yetkili, referee sadece round phase'inde
+    if (!isAdmin && state.phase !== 'round') return
     setState((prev) => {
       let next: MatchState = {
         ...prev,
