@@ -5,6 +5,7 @@ import {
   Calendar,
   CheckSquare,
   Wrench,
+  Timer,
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/sporcular', label: 'Sporcular', icon: Users },
   { to: '/etkinlikler', label: 'Etkinlikler', icon: Calendar },
   { to: '/yoklama', label: 'Yoklama', icon: CheckSquare },
+  { to: '/canli-skor', label: 'Canlı Skor', icon: Timer },
   { to: '/malzeme', label: 'Araçlar', icon: Wrench },
 ]
 
@@ -21,7 +23,7 @@ export default function MobileNav() {
       className="fixed inset-x-0 bottom-0 z-20 border-t border-app-border bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(148,180,212,0.25)] backdrop-blur-xl md:hidden"
       aria-label="Ana menü"
     >
-      <ul className="mx-auto grid max-w-lg grid-cols-5 px-0.5 pt-1">
+      <ul className="mx-auto grid max-w-lg grid-cols-6 px-0.5 pt-1">
         {navItems.map(({ to, label, icon: Icon }) => (
           <li key={to}>
             <NavLink

@@ -19,6 +19,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Groups = retryableLazy(() => import('./pages/Groups'))
 const AthleteDetail = lazy(() => import('./pages/AthleteDetail'))
 const UnlicensedAthletes = lazy(() => import('./pages/UnlicensedAthletes'))
+const LiveScore = lazy(() => import('./pages/LiveScore'))
 const ProtectedRoute = lazy(() => import('./auth/ProtectedRoute'))
 
 function retryableLazy<T extends ComponentType<any>>(
@@ -148,6 +149,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <SuspenseWrapper><CalendarPage /></SuspenseWrapper>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/canli-skor"
+              element={
+                <ProtectedRoute>
+                  <SuspenseWrapper><LiveScore /></SuspenseWrapper>
                 </ProtectedRoute>
               }
             />

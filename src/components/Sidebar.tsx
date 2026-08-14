@@ -10,6 +10,7 @@ import {
   Package,
   FileText,
   CalendarDays,
+  Timer,
 } from 'lucide-react'
 import Logo from './Logo'
 import { BRAND } from '../lib/brand'
@@ -31,6 +32,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/kusak-sinavi', label: 'Kuşak Sınavı', icon: Award },
       { to: '/yarisma', label: 'Yarışmalar', icon: Trophy },
+      { to: '/canli-skor', label: 'Canlı Skor', icon: Timer },
     ],
   },
   {
