@@ -490,13 +490,17 @@ export default function LiveScore() {
     broadcast(fresh)
   }
 
-  const newMatch = () => {
+  const newMatch = (keepAthletes = false) => {
     if (!isAdmin) return
     const id = crypto.randomUUID()
     setMatchId(id)
     const fresh = initialState(id)
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
+    if (keepAthletes) {
+      fresh.athlete1 = state.athlete1
+      fresh.athlete2 = state.athlete2
+    }
     setState(fresh)
     setParams({ matchId: id }, { replace: true })
   }
@@ -1036,7 +1040,7 @@ export default function LiveScore() {
 
       {/* Maç bitti banner */}
       {state.phase === 'finished' && state.winner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={isAdmin ? newMatch : undefined}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className={`w-full max-w-sm rounded-3xl p-8 text-center text-white shadow-2xl border-8 ${state.winner === 1 ? 'bg-blue-600 border-blue-400' : 'bg-red-600 border-red-400'}`}>
             <Trophy className="mx-auto h-20 w-20 animate-pulse mb-4" />
             <h2 className="text-3xl font-black uppercase tracking-tighter">MAÇ BİTTİ</h2>
@@ -1048,9 +1052,14 @@ export default function LiveScore() {
             </div>
             {state.refereeWinner && <p className="mt-4 text-sm font-bold opacity-75">Hakem Kararı İle</p>}
             {isAdmin && (
-              <button onClick={newMatch} className="mt-8 w-full rounded-2xl bg-white px-6 py-4 text-lg font-black text-slate-800 shadow-xl hover:bg-slate-100">
-                YENİ MAÇ
-              </button>
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                <button onClick={() => newMatch(true)} className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs">
+                  AYNI SPORCULAR
+                </button>
+                <button onClick={() => newMatch(false)} className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs">
+                  YENİ MAÇ
+                </button>
+              </div>
             )}
           </div>
         </div>
