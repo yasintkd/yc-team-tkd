@@ -384,7 +384,9 @@ export default function LiveScore() {
       updated.timerSec = 0
       return updated
     }
-    // sonraki raunt → araya geç ve ara süresini otomatik başlat
+    // sonraki raunt → puanları sıfırla, araya geç ve ara süresini otomatik başlat
+    updated.score = { 1: 0, 2: 0 }
+    updated.stats = { 1: emptyStats(), 2: emptyStats() }
     updated.phase = 'break'
     updated.timerSec = updated.breakDurationSec
     updated.timerRunning = true
