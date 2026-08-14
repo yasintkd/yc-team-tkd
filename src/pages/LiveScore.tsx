@@ -753,7 +753,12 @@ export default function LiveScore() {
             {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
           </p>
           <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[1]}</p>
-          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[1]} • GJ {state.stats[1].gamjeom}/5</p>
+          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[1]}</p>
+          <div className="mt-2 flex justify-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className={`h-3 w-3 rounded-full border border-white/30 ${i < state.stats[1].gamjeom ? 'bg-blue-400' : 'bg-white/20'}`} />
+            ))}
+          </div>
         </div>
         <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-800 px-2 py-3 text-center text-white shadow-lg">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
@@ -774,7 +779,12 @@ export default function LiveScore() {
             {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
           </p>
           <p className="mt-1 text-6xl font-extrabold leading-none drop-shadow-lg">{state.score[2]}</p>
-          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[2]} • GJ {state.stats[2].gamjeom}/5</p>
+          <p className="mt-1 text-sm font-bold opacity-90">R{state.roundWins[2]}</p>
+          <div className="mt-2 flex justify-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className={`h-3 w-3 rounded-full border border-white/30 ${i < state.stats[2].gamjeom ? 'bg-red-400' : 'bg-white/20'}`} />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1246,7 +1256,7 @@ function ScoreButtons({
         onClick={onGamJeom}
         className={`flex items-center justify-center gap-1 rounded-xl border-2 ${gjBase} py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
       >
-        <AlertTriangle className="h-3.5 w-3.5" /> GJ {stats.gamjeom}/5
+        <AlertTriangle className="h-3.5 w-3.5" /> GAM-JEOM
       </button>
     </>
   )
