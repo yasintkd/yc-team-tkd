@@ -451,36 +451,6 @@ export default function LiveScore() {
             </button>
           )}
         </div>
-
-        {/* QR Modal */}
-        {showInvite && inviteQr && (
-          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInvite(false)}>
-            <div className="glass-panel rounded-2xl bg-white p-5 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-800">Davet QR Kodu</h3>
-                <button onClick={() => setShowInvite(false)} className="text-slate-400 hover:text-slate-700">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <img src={inviteQr} alt="Davet QR" className="mx-auto h-48 w-48" />
-              <p className="mt-3 text-xs text-brand-muted">Tarayıp paylaşın</p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={copyInvite}
-                  className="flex-1 btn-primary text-xs"
-                >
-                  Linki Kopyala
-                </button>
-                <button
-                  onClick={() => setShowInvite(false)}
-                  className="flex-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
-                >
-                  Kapat
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Sporcu seçimi (admin) */}
@@ -635,6 +605,36 @@ export default function LiveScore() {
               Yeni Maç
             </button>
           )}
+        </div>
+      )}
+
+      {/* QR Modal - en üstte (z-50) */}
+      {showInvite && inviteQr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInvite(false)}>
+          <div className="glass-panel rounded-2xl bg-white p-5 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-800">Davet QR Kodu</h3>
+              <button onClick={() => setShowInvite(false)} className="text-slate-400 hover:text-slate-700">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <img src={inviteQr} alt="Davet QR" className="mx-auto h-48 w-48" />
+            <p className="mt-3 text-xs text-brand-muted">Tarayıp paylaşın</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={copyInvite}
+                className="flex-1 btn-primary text-xs"
+              >
+                Linki Kopyala
+              </button>
+              <button
+                onClick={() => setShowInvite(false)}
+                className="flex-1 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
