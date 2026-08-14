@@ -747,7 +747,12 @@ export default function LiveScore() {
       <div className="flex flex-[2] flex-col gap-2 p-2">
         <div className="flex flex-1 gap-2">
           {/* Mavi Skorboard */}
-          <div className="flex flex-1 flex-col rounded-2xl bg-blue-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-blue-800">
+          <div className="relative flex flex-1 flex-col rounded-2xl bg-blue-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-blue-800">
+            <div className="absolute left-1 top-2 flex flex-col gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`h-3 w-3 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
+              ))}
+            </div>
             <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Mavi</p>
             <p className="truncate text-sm font-semibold text-white">
               {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
@@ -756,7 +761,12 @@ export default function LiveScore() {
             <p className="text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
           </div>
           {/* Kırmızı Skorboard */}
-          <div className="flex flex-1 flex-col rounded-2xl bg-red-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-red-800">
+          <div className="relative flex flex-1 flex-col rounded-2xl bg-red-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-red-800">
+            <div className="absolute right-1 top-2 flex flex-col gap-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`h-3 w-3 rounded-full border ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
+              ))}
+            </div>
             <p className="text-xs font-bold uppercase tracking-wider text-red-200">Kırmızı</p>
             <p className="truncate text-sm font-semibold text-white">
               {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
