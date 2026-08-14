@@ -756,7 +756,7 @@ export default function LiveScore() {
 
       {/* Skorboard Paneli */}
       <div className="flex flex-1 flex-col gap-1 p-1">
-        <div className="flex flex-1 gap-1 md:max-w-4xl md:mx-auto md:w-full">
+        <div className="flex flex-1 gap-1">
           {/* Mavi Skorboard */}
           <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
             <div className="absolute left-1 inset-y-2 flex flex-col justify-between py-1">
