@@ -9,7 +9,9 @@ import {
   X,
   QrCode,
   Settings,
+  ArrowLeft,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import QRCode from 'qrcode'
@@ -133,6 +135,7 @@ const BROADCAST_NAME = 'state'
 
 export default function LiveScore() {
   const { status, user } = useAuth()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const urlMatchId = params.get('matchId') || ''
   const urlRef = parseInt(params.get('ref') || '0', 10)
@@ -689,6 +692,7 @@ export default function LiveScore() {
       {/* Top bar - kompakt */}
       <div className="flex flex-none items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="flex items-center gap-2 text-xs text-brand-muted">
+          <button onClick={() => navigate('/dashboard')} className="p-1 hover:bg-slate-200 rounded-full"><ArrowLeft className="h-3 w-3" /></button>
           <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{matchId.slice(0, 6)}</span>
           <span>{isAdmin ? 'Admin' : isReferee ? `Hakem #${urlRef}` : ''}</span>
         </div>
