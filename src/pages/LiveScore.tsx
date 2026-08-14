@@ -165,6 +165,7 @@ export default function LiveScore() {
   const [athletes, setAthletes] = useState<AthleteMini[]>([])
   const [refereeOpen, setRefereeOpen] = useState(false)
   const [roundEndConfirmOpen, setRoundEndConfirmOpen] = useState(false)
+  const [roundWinnerPopup, setRoundWinnerPopup] = useState<{ winner: Side; method?: string } | null>(null)
   const [pendingRoundWinner, setPendingRoundWinner] = useState<Side | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [refereeQrs, setRefereeQrs] = useState<Record<number, string>>({})
@@ -339,7 +340,7 @@ export default function LiveScore() {
       const diff = Math.abs(next.score[1] - next.score[2])
       if (diff >= 15) {
         const winner = next.score[1] > next.score[2] ? 1 : 2
-        next = finalizeRound(next, winner)
+        next = finalizeRound(next, winner, '15 Puan Fark (Gap Match)')
       }
       broadcast(next)
       return next
@@ -353,25 +354,25 @@ export default function LiveScore() {
       const penalizedStats = { ...prev.stats[penalized], gamjeom: prev.stats[penalized].gamjeom + 1 }
       // 5. cezada otomatik raunt kaybı
       const autoRoundLoss = penalizedStats.gamjeom >= 5
-      const next: MatchState = {
+      let next: MatchState = {
         ...prev,
         score: { ...prev.score, [opp]: prev.score[opp] + 1 },
         stats: { ...prev.stats, [penalized]: penalizedStats },
       }
       if (autoRoundLoss) {
-        // anında raunt sonucu işle
-        return finalizeRound(next, opp)
+        next = finalizeRound(next, opp, '5 Gam-jeom Cezası')
       }
       broadcast(next)
       return next
     })
   }
 
-  const finalizeRound = (s: MatchState, winner: Side | null): MatchState => {
+  const finalizeRound = (s: MatchState, winner: Side | null, method?: string): MatchState => {
     const updated: MatchState = { ...s, timerRunning: false }
     if (winner) {
       updated.roundWins = { ...updated.roundWins, [winner]: updated.roundWins[winner] + 1 }
       updated.roundWinners = { ...updated.roundWinners, [updated.currentRound]: winner }
+      setRoundWinnerPopup({ winner, method })
     } else {
       updated.roundWinners = { ...updated.roundWinners, [updated.currentRound]: 'draw' }
     }
@@ -410,7 +411,7 @@ export default function LiveScore() {
   const confirmRoundEnd = (winner: Side) => {
     setRoundEndConfirmOpen(false)
     setState((prev) => {
-      const next = finalizeRound(prev, winner)
+      const next = finalizeRound(prev, winner, 'Normal Süre / Kriterler')
       broadcast(next)
       return next
     })
@@ -419,7 +420,7 @@ export default function LiveScore() {
   const confirmRefereeWinner = (side: Side) => {
     setRefereeOpen(false)
     setState((prev) => {
-      const next = finalizeRound(prev, side)
+      const next = finalizeRound(prev, side, 'Hakem Kararı (Beraberlik)')
       next.refereeWinner = side
       broadcast(next)
       return next
@@ -557,17 +558,15 @@ export default function LiveScore() {
 
         // 15 Puan fark kuralı (Yüksek Puan)
         const diff = Math.abs(nextState.score[1] - nextState.score[2])
-        console.log('Consensus check - diff:', diff, 'scores:', nextState.score);
         if (diff >= 15) {
           const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-          console.log('15-point rule triggered, winner:', winner);
-          nextState = finalizeRound(nextState, winner)
+          nextState = finalizeRound(nextState, winner, '15 Puan Fark (Gap Match)')
           broadcast(nextState)
           return nextState
         }
 
         if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
-          const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1)
+          const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1, '5 Gam-jeom Cezası')
           broadcast(finished)
           return finished
         }
@@ -605,17 +604,15 @@ export default function LiveScore() {
 
           // 15 Puan fark kuralı
           const diff = Math.abs(nextState.score[1] - nextState.score[2])
-          console.log('Consensus check (multi) - diff:', diff, 'scores:', nextState.score);
           if (diff >= 15) {
             const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-            console.log('15-point rule triggered (multi), winner:', winner);
-            nextState = finalizeRound(nextState, winner)
+            nextState = finalizeRound(nextState, winner, '15 Puan Fark (Gap Match)')
             broadcast(nextState)
             return nextState
           }
 
           if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
-            const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1)
+            const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1, '5 Gam-jeom Cezası')
             broadcast(finished)
             return finished
           }
@@ -965,6 +962,31 @@ export default function LiveScore() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Raunt Sonu Kazanan Popup Bildirimi */}
+      {roundWinnerPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRoundWinnerPopup(null)}>
+          <div className={`w-full max-w-sm rounded-2xl p-6 text-center text-white shadow-2xl ${roundWinnerPopup.winner === 1 ? 'bg-blue-600 border-4 border-blue-400' : 'bg-red-600 border-4 border-red-400'}`} onClick={(e) => e.stopPropagation()}>
+            <Trophy className="mx-auto h-12 w-12 animate-bounce mb-2" />
+            <h2 className="text-xl font-black uppercase tracking-wider">RAUNT BİTTİ</h2>
+            <div className="mt-3 rounded-xl bg-white/10 p-3 backdrop-blur">
+              <p className="text-xs font-bold uppercase opacity-80">{roundWinnerPopup.winner === 1 ? 'Mavi Köşe' : 'Kırmızı Köşe'}</p>
+              <p className="text-2xl font-extrabold mt-0.5">
+                {roundWinnerPopup.winner === 1 ? (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi Sporcu') : (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı Sporcu')}
+              </p>
+            </div>
+            {roundWinnerPopup.method && (
+              <p className="mt-2 text-xs font-medium opacity-90">Kazanma Şekli: {roundWinnerPopup.method}</p>
+            )}
+            <button
+              onClick={() => setRoundWinnerPopup(null)}
+              className="mt-5 w-full rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-800 shadow hover:bg-slate-100"
+            >
+              Tamam / Devam Et
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Raunt sonu onay */}
