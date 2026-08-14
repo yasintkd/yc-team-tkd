@@ -816,14 +816,19 @@ export default function LiveScore() {
         </div>
       )}
 
-      {/* Hakem UI (ref mode) */}
-      {isReferee && state.phase === 'round' && (
-        <div className="flex-1 min-h-0 px-2 py-2">
-          <div className="grid grid-cols-2 gap-1.5">
-            <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
-              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-blue-700">
-                Mavi (Hakem #{urlRef})
-              </p>
+      {/* Hakem UI (ref mode) - Optimize Edilmiş Thumb Zone */}
+      {isReferee && (
+        <div className="flex flex-col h-full bg-slate-50 touch-none select-none">
+          {/* Kompakt Skor Bilgisi */}
+          <div className="flex-none flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
+            <div className="text-sm font-bold text-blue-600">Mavi: {state.score[1]}</div>
+            <div className="text-xs font-bold text-slate-500">Raunt {state.currentRound}</div>
+            <div className="text-sm font-bold text-red-600">Kırmızı: {state.score[2]}</div>
+          </div>
+
+          {/* Puanlama Alanı */}
+          <div className="flex-1 flex overflow-hidden">
+            <div className={`flex-1 flex flex-col gap-1 p-2 ${state.phase === 'round' ? 'bg-blue-100' : 'bg-slate-100'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
@@ -831,10 +836,7 @@ export default function LiveScore() {
                 onScore={broadcastVote}
               />
             </div>
-            <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
-              <p className="text-center text-[10px] font-bold uppercase tracking-wider text-red-700">
-                Kırmızı (Hakem #{urlRef})
-              </p>
+            <div className={`flex-1 flex flex-col gap-1 p-2 ${state.phase === 'round' ? 'bg-red-100' : 'bg-slate-100'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
