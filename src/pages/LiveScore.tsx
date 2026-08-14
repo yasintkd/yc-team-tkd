@@ -190,13 +190,36 @@ export default function LiveScore() {
         handleIncomingVote(payload as RefVote)
       }
     })
-    ch.subscribe()
+    // Presence: yeni client katıldığında admin mevcut state'i broadcast eder
+    ch.on('presence', { event: 'join' }, ({ newPresences }) => {
+      // Sadece admin yanıt verir, ve kendi join'i değil
+      if (!isAdmin) return
+      const joined = newPresences.find((p: any) => p.user_id !== user?.id)
+      if (joined) {
+        // Mevcut state'i yeni katılan için broadcast et
+        const ch2 = channelRef.current
+        if (ch2 && stateRef.current) {
+          void ch2.send({ type: 'broadcast', event: BROADCAST_NAME, payload: stateRef.current })
+        }
+      }
+    })
+    // Kendi presence'ini tanımla
+    ch.on('presence', { event: 'sync' }, () => {
+      ch.presenceState()
+      // console.log('presence sync', state)
+    })
+    ch.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        // Presence'e gir
+        await ch.track({ user_id: user?.id || 'guest', role: isAdmin ? 'admin' : isReferee ? 'referee' : 'guest', ref: urlRef })
+      }
+    })
     channelRef.current = ch
     return () => {
       void supabase.removeChannel(ch)
       channelRef.current = null
     }
-  }, [matchId])
+  }, [matchId, isAdmin, isReferee, urlRef, user?.id])
 
   // ── Admin olarak URL'e matchId yaz
   useEffect(() => {
