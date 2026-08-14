@@ -327,13 +327,19 @@ export default function LiveScore() {
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
     if (!isAdmin) return
     setState((prev) => {
-      const next: MatchState = {
+      let next: MatchState = {
         ...prev,
         score: { ...prev.score, [side]: prev.score[side] + delta },
         stats: {
           ...prev.stats,
           [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey] + 1 } : {}) },
         },
+      }
+      // 15 Puan fark kuralı (Tek hakem / doğrudan admin skor artışı)
+      const diff = Math.abs(next.score[1] - next.score[2])
+      if (diff >= 15) {
+        const winner = next.score[1] > next.score[2] ? 1 : 2
+        next = finalizeRound(next, winner)
       }
       broadcast(next)
       return next
