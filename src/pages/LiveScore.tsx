@@ -109,7 +109,7 @@ const initialState = (matchId: string): MatchState => ({
   winner: null,
   refereeWinner: null,
   refCount: 1,
-  voteToleranceMs: 500, // Yeni: Varsayılan 500ms tolerans
+  voteToleranceMs: 1500, // Yeni: Varsayılan 1500ms tolerans
   pendingVotes: [],
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
 })
