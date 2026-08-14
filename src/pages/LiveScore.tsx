@@ -886,12 +886,7 @@ export default function LiveScore() {
               stats={state.stats[1]}
               score={state.score[1]}
               onScore={(delta, key) => {
-                // Çoklu hakem varsa Admin'in puan butonu da konsensüse girer (refId: 0)
-                if (state.refCount > 1) {
-                  broadcastVote({ refId: 0, side: 1, delta, statKey: key || 'punch', ts: Date.now() })
-                } else {
-                  setScore(1, delta, key)
-                }
+                setScore(1, delta, key)
               }}
               onGamJeom={() => addGamJeom(1)}
               onUndo={() => setScore(1, -1)}
@@ -907,11 +902,7 @@ export default function LiveScore() {
               stats={state.stats[2]}
               score={state.score[2]}
               onScore={(delta, key) => {
-                if (state.refCount > 1) {
-                  broadcastVote({ refId: 0, side: 2, delta, statKey: key || 'punch', ts: Date.now() })
-                } else {
-                  setScore(2, delta, key)
-                }
+                setScore(2, delta, key)
               }}
               onGamJeom={() => addGamJeom(2)}
               onUndo={() => setScore(2, -1)}
