@@ -383,9 +383,10 @@ export default function LiveScore() {
       updated.timerSec = 0
       return updated
     }
-    // sonraki raunt → araya geç
+    // sonraki raunt → araya geç ve ara süresini otomatik başlat
     updated.phase = 'break'
     updated.timerSec = updated.breakDurationSec
+    updated.timerRunning = true
     updated.currentRound = updated.currentRound + 1
     return updated
   }
