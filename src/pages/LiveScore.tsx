@@ -658,20 +658,20 @@ export default function LiveScore() {
     ]
 
     return (
-      <>
+      <div className="grid grid-cols-1 gap-2 p-1">
         {buttons.map(({ d, k, label }) => (
           <button
             key={k}
             disabled={disabled || !isReferee}
             onClick={() => onScore({ refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
-            className={`flex flex-1 items-center justify-center rounded-lg border ${
+            className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
-            } py-1.5 text-lg font-black shadow active:scale-95 disabled:opacity-40`}
+            } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
           >
             {label}
           </button>
         ))}
-      </>
+      </div>
     )
   }
 
@@ -751,44 +751,44 @@ export default function LiveScore() {
       </div>
 
       {/* Skorboard Paneli */}
-      <div className="flex flex-[2] flex-col gap-2 p-2">
-        <div className="flex flex-1 gap-2">
+      <div className="flex flex-1 flex-col gap-1 p-1">
+        <div className="flex flex-1 gap-1">
           {/* Mavi Skorboard */}
-          <div className="relative flex flex-1 flex-col rounded-2xl bg-blue-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-blue-800">
-            <div className="absolute left-1 inset-y-2 flex flex-col justify-between py-2">
+          <div className="relative flex flex-1 flex-col rounded-xl bg-blue-600 px-1 py-1 text-center text-white shadow-lg border-b-4 border-blue-800">
+            <div className="absolute left-0.5 inset-y-1 flex flex-col justify-between py-1">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className={`h-4 w-4 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
+                <div key={i} className={`h-3 w-3 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
               ))}
             </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Mavi</p>
-            <p className="truncate text-sm font-semibold text-white">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Mavi</p>
+            <p className="truncate text-[10px] font-semibold text-white">
               {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
             </p>
-            <p className="my-auto text-9xl font-black leading-none text-white drop-shadow-2xl">{state.score[1]}</p>
-            <p className="text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
+            <p className="my-auto text-6xl font-black leading-none text-white drop-shadow-xl">{state.score[1]}</p>
+            <p className="text-xs font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
           </div>
           {/* Kırmızı Skorboard */}
-          <div className="relative flex flex-1 flex-col rounded-2xl bg-red-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-red-800">
-            <div className="absolute right-1 inset-y-2 flex flex-col justify-between py-2">
+          <div className="relative flex flex-1 flex-col rounded-xl bg-red-600 px-1 py-1 text-center text-white shadow-lg border-b-4 border-red-800">
+            <div className="absolute right-0.5 inset-y-1 flex flex-col justify-between py-1">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className={`h-4 w-4 rounded-full border ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
+                <div key={i} className={`h-3 w-3 rounded-full border ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
               ))}
             </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-red-200">Kırmızı</p>
-            <p className="truncate text-sm font-semibold text-white">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-red-200">Kırmızı</p>
+            <p className="truncate text-[10px] font-semibold text-white">
               {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
             </p>
-            <p className="my-auto text-9xl font-black leading-none text-white drop-shadow-2xl">{state.score[2]}</p>
-            <p className="text-lg font-bold text-red-100">Raunt: {state.roundWins[2]}</p>
+            <p className="my-auto text-6xl font-black leading-none text-white drop-shadow-xl">{state.score[2]}</p>
+            <p className="text-xs font-bold text-red-100">Raunt: {state.roundWins[2]}</p>
           </div>
         </div>
         
         {/* Merkez Zamanlayıcı */}
-        <div className="flex flex-col items-center justify-center rounded-xl bg-slate-900 py-1 text-white shadow">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex flex-col items-center justify-center rounded-lg bg-slate-900 py-0.5 text-white shadow">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
             {phaseLabel} • {Math.min(state.currentRound, 3)}/3
           </p>
-          <p className={`font-mono text-5xl font-black leading-none ${
+          <p className={`font-mono text-3xl font-black leading-none ${
             state.timerSec <= 10 && state.phase === 'round' && state.timerRunning ? 'text-red-400' : 'text-white'
           }`}>
             {mm}:{ss}
@@ -818,10 +818,10 @@ export default function LiveScore() {
 
       {/* Hakem UI (ref mode) - Optimize Edilmiş Thumb Zone */}
       {isReferee && (
-        <div className="flex flex-col flex-1 bg-slate-50 touch-none select-none overflow-hidden pb-[env(safe-area-inset-bottom)]">
-          {/* Puanlama Alanı - Sıkıştırılmış */}
-          <div className="flex-1 grid grid-cols-2 gap-1 p-1 overflow-hidden">
-            <div className={`flex flex-col gap-0.5 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
+        <div className="flex flex-col flex-[2] bg-slate-50 touch-none select-none overflow-hidden pb-[env(safe-area-inset-bottom)]">
+          {/* Puanlama Alanı - Büyütülmüş */}
+          <div className="flex-1 grid grid-cols-2 gap-2 p-2 pb-10 overflow-hidden">
+            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
@@ -829,7 +829,7 @@ export default function LiveScore() {
                 onScore={broadcastVote}
               />
             </div>
-            <div className={`flex flex-col gap-0.5 ${state.phase === 'round' ? 'bg-red-50' : 'bg-slate-50'}`}>
+            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-red-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
