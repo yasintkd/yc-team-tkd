@@ -744,34 +744,34 @@ export default function LiveScore() {
       </div>
 
       {/* Skorboard Paneli */}
-      <div className="flex flex-1 flex-col gap-2 p-2">
-        <div className="flex h-1/2 gap-2">
+      <div className="flex flex-[2] flex-col gap-2 p-2">
+        <div className="flex flex-1 gap-2">
           {/* Mavi Skorboard */}
-          <div className="flex flex-1 flex-col rounded-2xl bg-blue-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-blue-800">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-100">Mavi</p>
-            <p className="mt-1 truncate text-sm font-semibold text-white">
+          <div className="flex flex-1 flex-col rounded-2xl bg-blue-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-blue-800">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Mavi</p>
+            <p className="truncate text-sm font-semibold text-white">
               {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
             </p>
-            <p className="my-auto text-7xl font-black leading-none text-white drop-shadow-md">{state.score[1]}</p>
-            <p className="text-sm font-bold text-blue-200">Raunt: {state.roundWins[1]}</p>
+            <p className="my-auto text-9xl font-black leading-none text-white drop-shadow-2xl">{state.score[1]}</p>
+            <p className="text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
           </div>
           {/* Kırmızı Skorboard */}
-          <div className="flex flex-1 flex-col rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-red-800">
-            <p className="text-xs font-bold uppercase tracking-wider text-red-100">Kırmızı</p>
-            <p className="mt-1 truncate text-sm font-semibold text-white">
+          <div className="flex flex-1 flex-col rounded-2xl bg-red-600 px-2 py-2 text-center text-white shadow-xl border-b-8 border-red-800">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-200">Kırmızı</p>
+            <p className="truncate text-sm font-semibold text-white">
               {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
             </p>
-            <p className="my-auto text-7xl font-black leading-none text-white drop-shadow-md">{state.score[2]}</p>
-            <p className="text-sm font-bold text-red-200">Raunt: {state.roundWins[2]}</p>
+            <p className="my-auto text-9xl font-black leading-none text-white drop-shadow-2xl">{state.score[2]}</p>
+            <p className="text-lg font-bold text-red-100">Raunt: {state.roundWins[2]}</p>
           </div>
         </div>
         
         {/* Merkez Zamanlayıcı */}
-        <div className="flex flex-col items-center justify-center rounded-xl bg-slate-800 py-2 text-white shadow">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-            {phaseLabel} • R{Math.min(state.currentRound, 3)}/3
+        <div className="flex flex-col items-center justify-center rounded-xl bg-slate-900 py-1 text-white shadow">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {phaseLabel} • {Math.min(state.currentRound, 3)}/3
           </p>
-          <p className={`font-mono text-4xl font-black leading-none ${
+          <p className={`font-mono text-5xl font-black leading-none ${
             state.timerSec <= 10 && state.phase === 'round' && state.timerRunning ? 'text-red-400' : 'text-white'
           }`}>
             {mm}:{ss}
@@ -845,10 +845,10 @@ export default function LiveScore() {
 
       {/* Admin/Referee UI - Ana puan butonları */}
       {(isAdmin || !isReferee) && (
-        <div className="flex flex-1 flex-col overflow-y-auto px-2 py-1">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-[3] flex-col px-2 pb-2 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3 h-full">
             {/* Mavi Bölge */}
-            <div className="grid grid-cols-2 gap-1.5 content-start">
+            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
               <ScoreButtons
                 color="blue"
                 isAdmin={isAdmin}
@@ -863,7 +863,7 @@ export default function LiveScore() {
               />
             </div>
             {/* Kırmızı Bölge */}
-            <div className="grid grid-cols-2 gap-1.5 content-start">
+            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
               <ScoreButtons
                 color="red"
                 isAdmin={isAdmin}
