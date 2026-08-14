@@ -147,7 +147,7 @@ export default function LiveScore() {
   })
 
   // matchId: önce URL, yoksa yeni UUID
-  const [matchId, setMatchId] = useState<string>(() => {
+  const [matchId] = useState<string>(() => {
     if (urlMatchId) return urlMatchId
     return crypto.randomUUID()
   })
@@ -492,9 +492,7 @@ export default function LiveScore() {
 
   const newMatch = (_e?: React.MouseEvent<HTMLButtonElement>, keepAthletes = false) => {
     if (!isAdmin) return
-    const id = crypto.randomUUID()
-    setMatchId(id)
-    const fresh = initialState(id)
+    const fresh = initialState(matchId)
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
     if (keepAthletes) {
@@ -502,7 +500,7 @@ export default function LiveScore() {
       fresh.athlete2 = state.athlete2
     }
     setState(fresh)
-    setParams({ matchId: id }, { replace: true })
+    broadcast(fresh)
   }
 
   const promoteToAdmin = () => {
