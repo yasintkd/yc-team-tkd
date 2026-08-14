@@ -685,9 +685,9 @@ export default function LiveScore() {
     state.phase === 'break' ? 'Ara' : 'Bitti'
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-[100dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
       {/* Top bar - kompakt */}
-      <div className="flex flex-none items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 backdrop-blur">
+      <div className="flex flex-none items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="flex items-center gap-2 text-xs text-brand-muted">
           <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{matchId.slice(0, 6)}</span>
           <span>{isAdmin ? 'Admin' : isReferee ? `Hakem #${urlRef}` : ''}</span>
@@ -818,7 +818,7 @@ export default function LiveScore() {
 
       {/* Hakem UI (ref mode) - Optimize Edilmiş Thumb Zone */}
       {isReferee && (
-        <div className="flex flex-col h-full bg-slate-50 touch-none select-none">
+        <div className="flex flex-col flex-1 bg-slate-50 touch-none select-none overflow-hidden">
           {/* Kompakt Skor Bilgisi */}
           <div className="flex-none flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
             <div className="text-sm font-bold text-blue-600">Mavi: {state.score[1]}</div>
@@ -826,9 +826,9 @@ export default function LiveScore() {
             <div className="text-sm font-bold text-red-600">Kırmızı: {state.score[2]}</div>
           </div>
 
-          {/* Puanlama Alanı */}
-          <div className="flex-1 flex overflow-hidden">
-            <div className={`flex-1 flex flex-col gap-1 p-2 ${state.phase === 'round' ? 'bg-blue-100' : 'bg-slate-100'}`}>
+          {/* Puanlama Alanı - dikey ölçeklenebilir */}
+          <div className="flex-1 flex overflow-hidden gap-1 p-2">
+            <div className={`flex-1 flex flex-col gap-1 ${state.phase === 'round' ? 'bg-blue-100' : 'bg-slate-100'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
@@ -836,7 +836,7 @@ export default function LiveScore() {
                 onScore={broadcastVote}
               />
             </div>
-            <div className={`flex-1 flex flex-col gap-1 p-2 ${state.phase === 'round' ? 'bg-red-100' : 'bg-slate-100'}`}>
+            <div className={`flex-1 flex flex-col gap-1 ${state.phase === 'round' ? 'bg-red-100' : 'bg-slate-100'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
