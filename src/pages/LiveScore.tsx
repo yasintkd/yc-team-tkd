@@ -1051,30 +1051,24 @@ export default function LiveScore() {
               </p>
             </div>
             {state.refereeWinner && <p className="mt-4 text-sm font-bold opacity-75">Hakem Kararı İle</p>}
-            {isAdmin && (
-              <div className="mt-8 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const keep = true;
-                    newMatch(keep);
-                  }}
-                  className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs"
-                >
-                  AYNI SPORCULAR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const keep = false;
-                    newMatch(keep);
-                  }}
-                  className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs"
-                >
-                  YENİ MAÇ
-                </button>
-              </div>
-            )}
+              {isAdmin && (
+                <div className="mt-8 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => newMatch(true)}
+                    className="rounded-2xl bg-white px-4 py-4 font-black text-slate-800 shadow-xl hover:bg-slate-100 text-xs"
+                  >
+                    AYNI SPORCULAR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => newMatch(false)}
+                    className="rounded-2xl bg-slate-800 px-4 py-4 font-black text-white shadow-xl hover:bg-slate-900 text-xs"
+                  >
+                    YENİ MAÇ
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       )}
