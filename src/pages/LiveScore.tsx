@@ -167,7 +167,6 @@ export default function LiveScore() {
   const [refereeOpen, setRefereeOpen] = useState(false)
   const [roundEndConfirmOpen, setRoundEndConfirmOpen] = useState(false)
   const [pendingRoundWinner, setPendingRoundWinner] = useState<Side | null>(null)
-  const [inviteQr, setInviteQr] = useState<string>('')
   const [showInvite, setShowInvite] = useState(false)
   const [refereeQrs, setRefereeQrs] = useState<Record<number, string>>({})
 
@@ -485,21 +484,6 @@ export default function LiveScore() {
   const promoteToAdmin = () => {
     sessionStorage.setItem('liveScore:admin', '1')
     setIsAdmin(true)
-  }
-
-  const copyInvite = async () => {
-    const url = `${window.location.origin}/canli-skor?matchId=${matchId}`
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      // fallback
-      const ta = document.createElement('textarea')
-      ta.value = url
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
   }
 
   const setAthlete = (side: Side, a: AthleteMini | null) => {
