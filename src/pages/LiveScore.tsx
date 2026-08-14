@@ -551,8 +551,10 @@ export default function LiveScore() {
 
         // 15 Puan fark kuralı (Yüksek Puan)
         const diff = Math.abs(nextState.score[1] - nextState.score[2])
+        console.log('Consensus check - diff:', diff, 'scores:', nextState.score);
         if (diff >= 15) {
           const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
+          console.log('15-point rule triggered, winner:', winner);
           nextState = finalizeRound(nextState, winner)
           broadcast(nextState)
           return nextState
@@ -597,8 +599,10 @@ export default function LiveScore() {
 
           // 15 Puan fark kuralı
           const diff = Math.abs(nextState.score[1] - nextState.score[2])
+          console.log('Consensus check (multi) - diff:', diff, 'scores:', nextState.score);
           if (diff >= 15) {
             const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
+            console.log('15-point rule triggered (multi), winner:', winner);
             nextState = finalizeRound(nextState, winner)
             broadcast(nextState)
             return nextState
