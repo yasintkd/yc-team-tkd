@@ -743,48 +743,39 @@ export default function LiveScore() {
         </div>
       </div>
 
-      {/* Üst kart - skor + süre */}
-      <div className="flex flex-none flex-col gap-2 p-2">
-        <div className="grid grid-cols-3 gap-1.5">
-          <div className="rounded-2xl bg-blue-600 px-3 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">Mavi</p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-white">
+      {/* Skorboard Paneli */}
+      <div className="flex flex-1 flex-col gap-2 p-2">
+        <div className="flex h-1/2 gap-2">
+          {/* Mavi Skorboard */}
+          <div className="flex flex-1 flex-col rounded-2xl bg-blue-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-blue-800">
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-100">Mavi</p>
+            <p className="mt-1 truncate text-sm font-semibold text-white">
               {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
             </p>
-            <p className="mt-1 text-6xl font-black leading-none text-white drop-shadow-md">{state.score[1]}</p>
-            <p className="mt-1 text-sm font-bold text-blue-200">Raunt: {state.roundWins[1]}</p>
-            <div className="mt-2 flex justify-center gap-1.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`h-3.5 w-3.5 rounded-full border-2 ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
-              ))}
-            </div>
+            <p className="my-auto text-7xl font-black leading-none text-white drop-shadow-md">{state.score[1]}</p>
+            <p className="text-sm font-bold text-blue-200">Raunt: {state.roundWins[1]}</p>
           </div>
-          <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-800 px-2 py-3 text-center text-white shadow-lg">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-              {phaseLabel} • R{Math.min(state.currentRound, 3)}/3
-            </p>
-            <p className={`mt-1 font-mono text-5xl font-black leading-none ${
-              state.timerSec <= 10 && state.phase === 'round' && state.timerRunning ? 'text-red-400' : 'text-white'
-            }`}>
-              {mm}:{ss}
-            </p>
-            <p className="mt-1 text-sm font-bold text-slate-200">
-              <span className="text-blue-300">{state.roundWins[1]}</span> – <span className="text-red-300">{state.roundWins[2]}</span>
-            </p>
-          </div>
-          <div className="rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-red-800">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-red-100">Kırmızı</p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-white">
+          {/* Kırmızı Skorboard */}
+          <div className="flex flex-1 flex-col rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg border-b-4 border-red-800">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-100">Kırmızı</p>
+            <p className="mt-1 truncate text-sm font-semibold text-white">
               {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
             </p>
-            <p className="mt-1 text-6xl font-black leading-none text-white drop-shadow-md">{state.score[2]}</p>
-            <p className="mt-1 text-sm font-bold text-red-200">Raunt: {state.roundWins[2]}</p>
-            <div className="mt-2 flex justify-center gap-1.5">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`h-3.5 w-3.5 rounded-full border-2 ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
-              ))}
-            </div>
+            <p className="my-auto text-7xl font-black leading-none text-white drop-shadow-md">{state.score[2]}</p>
+            <p className="text-sm font-bold text-red-200">Raunt: {state.roundWins[2]}</p>
           </div>
+        </div>
+        
+        {/* Merkez Zamanlayıcı */}
+        <div className="flex flex-col items-center justify-center rounded-xl bg-slate-800 py-2 text-white shadow">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
+            {phaseLabel} • R{Math.min(state.currentRound, 3)}/3
+          </p>
+          <p className={`font-mono text-4xl font-black leading-none ${
+            state.timerSec <= 10 && state.phase === 'round' && state.timerRunning ? 'text-red-400' : 'text-white'
+          }`}>
+            {mm}:{ss}
+          </p>
         </div>
       </div>
 
@@ -856,30 +847,36 @@ export default function LiveScore() {
       {(isAdmin || !isReferee) && (
         <div className="flex flex-1 flex-col overflow-y-auto px-2 py-1">
           <div className="grid grid-cols-2 gap-2">
-            <ScoreButtons
-              color="blue"
-              isAdmin={isAdmin}
-              disabled={!canControl || state.phase !== 'round'}
-              stats={state.stats[1]}
-              score={state.score[1]}
-              onScore={(delta, key) => {
-                setScore(1, delta, key)
-              }}
-              onGamJeom={() => addGamJeom(1)}
-              onUndo={() => setScore(1, -1)}
-            />
-            <ScoreButtons
-              color="red"
-              isAdmin={isAdmin}
-              disabled={!canControl || state.phase !== 'round'}
-              stats={state.stats[2]}
-              score={state.score[2]}
-              onScore={(delta, key) => {
-                setScore(2, delta, key)
-              }}
-              onGamJeom={() => addGamJeom(2)}
-              onUndo={() => setScore(2, -1)}
-            />
+            {/* Mavi Bölge */}
+            <div className="grid grid-cols-2 gap-1.5 content-start">
+              <ScoreButtons
+                color="blue"
+                isAdmin={isAdmin}
+                disabled={!canControl || state.phase !== 'round'}
+                stats={state.stats[1]}
+                score={state.score[1]}
+                onScore={(delta, key) => {
+                  setScore(1, delta, key)
+                }}
+                onGamJeom={() => addGamJeom(1)}
+                onUndo={() => setScore(1, -1)}
+              />
+            </div>
+            {/* Kırmızı Bölge */}
+            <div className="grid grid-cols-2 gap-1.5 content-start">
+              <ScoreButtons
+                color="red"
+                isAdmin={isAdmin}
+                disabled={!canControl || state.phase !== 'round'}
+                stats={state.stats[2]}
+                score={state.score[2]}
+                onScore={(delta, key) => {
+                  setScore(2, delta, key)
+                }}
+                onGamJeom={() => addGamJeom(2)}
+                onUndo={() => setScore(2, -1)}
+              />
+            </div>
           </div>
         </div>
       )}
