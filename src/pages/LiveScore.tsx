@@ -553,9 +553,9 @@ export default function LiveScore() {
         const diff = Math.abs(nextState.score[1] - nextState.score[2])
         if (diff >= 15) {
           const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-          const finished = finalizeRound(nextState, winner)
-          broadcast(finished)
-          return finished
+          nextState = finalizeRound(nextState, winner)
+          broadcast(nextState)
+          return nextState
         }
 
         if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
@@ -599,9 +599,9 @@ export default function LiveScore() {
           const diff = Math.abs(nextState.score[1] - nextState.score[2])
           if (diff >= 15) {
             const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-            const finished = finalizeRound(nextState, winner)
-            broadcast(finished)
-            return finished
+            nextState = finalizeRound(nextState, winner)
+            broadcast(nextState)
+            return nextState
           }
 
           if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
