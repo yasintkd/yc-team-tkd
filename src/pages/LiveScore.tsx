@@ -503,10 +503,6 @@ export default function LiveScore() {
     broadcast(fresh)
   }
 
-  const promoteToAdmin = () => {
-    sessionStorage.setItem('liveScore:admin', '1')
-    setIsAdmin(true)
-  }
 
   const setAthlete = (side: Side, a: AthleteMini | null) => {
     if (!isAdmin) return
@@ -749,11 +745,6 @@ export default function LiveScore() {
                 Yeni
               </button>
             </>
-          )}
-          {!isAdmin && !isAuthAdmin && (
-            <button onClick={promoteToAdmin} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
-              Admin Ol
-            </button>
           )}
         </div>
       </div>
