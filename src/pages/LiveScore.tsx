@@ -756,9 +756,9 @@ export default function LiveScore() {
 
       {/* Skorboard Paneli */}
       <div className="flex flex-1 flex-col gap-1 p-1">
-        <div className="flex flex-1 gap-1">
+        <div className="flex flex-1 gap-1 md:max-w-4xl md:mx-auto md:w-full">
           {/* Mavi Skorboard */}
-          <div className="relative flex flex-[2] md:flex-[1] md:max-w-xl mx-auto w-full flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
+          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
             <div className="absolute left-1 inset-y-2 flex flex-col justify-between py-1">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className={`h-4 w-4 md:h-6 md:w-6 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
@@ -768,11 +768,11 @@ export default function LiveScore() {
             <p className="truncate text-[10px] md:text-lg font-semibold text-white">
               {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
             </p>
-            <p className="my-auto text-6xl md:text-9xl font-black leading-none text-white drop-shadow-xl">{state.score[1]}</p>
+            <p className="my-auto text-6xl md:text-[10rem] font-black leading-none text-white drop-shadow-xl">{state.score[1]}</p>
             <p className="text-xs md:text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
           </div>
           {/* Kırmızı Skorboard */}
-          <div className="relative flex flex-[2] md:flex-[1] md:max-w-xl mx-auto w-full flex-col rounded-xl bg-red-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-red-800">
+          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-red-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-red-800">
             <div className="absolute right-1 inset-y-2 flex flex-col justify-between py-1">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className={`h-4 w-4 md:h-6 md:w-6 rounded-full border ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
@@ -782,7 +782,7 @@ export default function LiveScore() {
             <p className="truncate text-[10px] md:text-lg font-semibold text-white">
               {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
             </p>
-            <p className="my-auto text-6xl md:text-9xl font-black leading-none text-white drop-shadow-xl">{state.score[2]}</p>
+            <p className="my-auto text-6xl md:text-[10rem] font-black leading-none text-white drop-shadow-xl">{state.score[2]}</p>
             <p className="text-xs md:text-lg font-bold text-red-100">Raunt: {state.roundWins[2]}</p>
           </div>
         </div>
