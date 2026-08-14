@@ -11,6 +11,18 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const isLogin = location.pathname === '/giris'
+  const isLive = location.pathname.startsWith('/canli-skor')
+
+  if (isLive) {
+    // Tam ekran - sidebar/topbar/mobilnav yok
+    return (
+      <div className="flex h-full min-h-0">
+        <main className="flex-1 overflow-hidden bg-gradient-to-br from-app-bg via-app-bg-soft to-sky-100">
+          {children}
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0">

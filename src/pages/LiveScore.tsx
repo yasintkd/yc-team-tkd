@@ -4,12 +4,9 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Copy,
-  Hand,
   Trophy,
   AlertTriangle,
   X,
-  Users,
   QrCode,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -333,6 +330,10 @@ export default function LiveScore() {
     if (!isAdmin) return
     setState((prev) => ({ ...prev, breakDurationSec: v }))
   }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: suppress unused warning
+  void setRoundDuration
+  // biome-ignore lint/correctness/useExhaustiveDependencies: suppress unused warning
+  void setBreakDuration
 
   const startMatch = () => {
     if (!isAdmin) return
@@ -405,19 +406,24 @@ export default function LiveScore() {
     })
   }
 
-  // ── UI ─────────────────────────────────────────────────
+  // ── UI (tam ekran) ─────────────────────────────────────
+
+  const mm = String(Math.floor(state.timerSec / 60)).padStart(2, '0')
+  const ss = String(state.timerSec % 60).padStart(2, '0')
+  const phaseLabel =
+    state.phase === 'idle' ? 'Hazır' :
+    state.phase === 'round' ? 'Raunt' :
+    state.phase === 'break' ? 'Ara' : 'Bitti'
 
   return (
-    <div className="space-y-4 pb-24">
-      {/* Header */}
-      <div className="glass-panel flex flex-col gap-2 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-800">Canlı Skor</h1>
-          <p className="text-xs text-brand-muted">
-            {isAdmin ? 'Admin' : 'Misafir (Scorekeeper)'} • Maç ID: <code className="font-mono">{matchId.slice(0, 8)}</code>
-          </p>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Top bar - kompakt */}
+      <div className="flex items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 backdrop-blur">
+        <div className="flex items-center gap-2 text-xs text-brand-muted">
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono">{matchId.slice(0, 6)}</span>
+          <span>{isAdmin ? 'Admin' : 'Misafir'}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1.5">
           {isAdmin && (
             <>
               <button
@@ -427,120 +433,148 @@ export default function LiveScore() {
                     const qr = await QRCode.toDataURL(url, { width: 200, margin: 2 })
                     setInviteQr(qr)
                     setShowInvite(true)
-                  } catch (e) {
-                    console.error(e)
-                  }
+                  } catch (e) { console.error(e) }
                 }}
-                className="btn-primary flex items-center gap-1.5 text-xs"
+                className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-white"
               >
-                <QrCode className="h-3.5 w-3.5" /> QR Davet
+                <QrCode className="h-3 w-3" /> QR
               </button>
-              <button onClick={copyInvite} className="rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft flex items-center gap-1">
-                <Copy className="h-3.5 w-3.5" /> Kopyala
+              <button onClick={newMatch} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
+                Yeni
               </button>
             </>
           )}
-          {isAdmin && (
-            <button onClick={newMatch} className="rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft">
-              Yeni Maç
-            </button>
-          )}
           {!isAdmin && !isGuestByUrl && (
-            <button onClick={promoteToAdmin} className="rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-app-bg-soft">
+            <button onClick={promoteToAdmin} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
               Admin Ol
             </button>
           )}
         </div>
       </div>
 
-      {/* Sporcu seçimi (admin) */}
-      {isAdmin && (
-        <div className="glass-panel grid gap-3 rounded-2xl p-4 sm:grid-cols-2">
+      {/* Üst kart - skor + süre */}
+      <div className="grid grid-cols-3 gap-1.5 px-2 pt-2">
+        <div className="rounded-2xl bg-blue-600 px-3 py-3 text-center text-white shadow-lg">
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Mavi</p>
+          <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
+            {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
+          </p>
+          <p className="mt-1 text-4xl font-black leading-none">{state.score[1]}</p>
+          <p className="mt-1 text-[10px] opacity-75">R{state.roundWins[1]} • GJ {state.stats[1].gamjeom}/5</p>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-800 px-2 py-3 text-center text-white shadow-lg">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
+            {phaseLabel} • R{Math.min(state.currentRound, 3)}/3
+          </p>
+          <p className={`mt-1 font-mono text-5xl font-black leading-none ${
+            state.timerSec <= 10 && state.phase === 'round' && state.timerRunning ? 'text-red-400' : 'text-white'
+          }`}>
+            {mm}:{ss}
+          </p>
+          <p className="mt-1 text-[10px] text-slate-300">
+            <span className="text-blue-300 font-bold">{state.roundWins[1]}</span> – <span className="text-red-300 font-bold">{state.roundWins[2]}</span>
+          </p>
+        </div>
+        <div className="rounded-2xl bg-red-600 px-3 py-3 text-center text-white shadow-lg">
+          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Kırmızı</p>
+          <p className="mt-0.5 truncate text-xs font-semibold opacity-90">
+            {state.athlete2 ? `${state.athlete2.first_name}` : '—'}
+          </p>
+          <p className="mt-1 text-4xl font-black leading-none">{state.score[2]}</p>
+          <p className="mt-1 text-[10px] opacity-75">R{state.roundWins[2]} • GJ {state.stats[2].gamjeom}/5</p>
+        </div>
+      </div>
+
+      {/* Sporcu seçimi (admin idle durumda) */}
+      {isAdmin && (state.phase === 'idle' || state.phase === 'finished') && (
+        <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-2">
           <AthleteSelect
-            label="Sporcu 1 (Mavi)"
+            label="Mavi Sporcu"
             color="blue"
             athletes={athletes}
             value={state.athlete1}
             onChange={(a) => setAthlete(1, a)}
-            disabled={state.phase !== 'idle' && state.phase !== 'finished'}
           />
           <AthleteSelect
-            label="Sporcu 2 (Kırmızı)"
+            label="Kırmızı Sporcu"
             color="red"
             athletes={athletes}
             value={state.athlete2}
             onChange={(a) => setAthlete(2, a)}
-            disabled={state.phase !== 'idle' && state.phase !== 'finished'}
           />
         </div>
       )}
 
-      {/* Misafir: sporcuları göster */}
-      {!isAdmin && (state.athlete1 || state.athlete2) && (
-        <div className="glass-panel grid gap-2 rounded-2xl p-4 sm:grid-cols-2">
-          <SideHeader color="blue" athlete={state.athlete1} score={state.score[1]} stats={state.stats[1]} />
-          <SideHeader color="red" athlete={state.athlete2} score={state.score[2]} stats={state.stats[2]} />
+      {/* Ana puan butonları - 3 sütun */}
+      <div className="grid flex-1 min-h-0 grid-cols-2 gap-1.5 px-2 py-2">
+        {/* Mavi butonlar */}
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-blue-50 p-2">
+          <p className="text-center text-[10px] font-bold uppercase tracking-wider text-blue-700">Mavi Puanları</p>
+          <ScoreButtons
+            color="blue"
+            isAdmin={isAdmin}
+            disabled={!canControl || state.phase !== 'round'}
+            stats={state.stats[1]}
+            onScore={(delta, key) => setScore(1, delta, key)}
+            onGamJeom={() => addGamJeom(1)}
+          />
         </div>
-      )}
-
-      {/* Skor board */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        {/* Mavi */}
-        <ScoreBoard
-          color="blue"
-          athlete={state.athlete1}
-          score={state.score[1]}
-          stats={state.stats[1]}
-          isAdmin={isAdmin}
-          disabled={!canControl || state.phase !== 'round'}
-          onScore={(delta, key) => setScore(1, delta, key)}
-          onGamJeom={() => addGamJeom(1)}
-          roundWins={state.roundWins[1]}
-        />
-        {/* Orta: round / timer */}
-        <CenterPanel
-          state={state}
-          isAdmin={isAdmin}
-          onStart={startMatch}
-          onPause={pauseToggle}
-          onReset={resetMatch}
-          onEndRound={handleRoundEnd}
-          onSetRoundDuration={setRoundDuration}
-          onSetBreakDuration={setBreakDuration}
-          canStart={isAdmin && !!state.athlete1 && !!state.athlete2 && state.phase === 'idle'}
-          canPause={isAdmin && state.phase !== 'finished'}
-          canEnd={isAdmin && state.phase === 'round'}
-        />
-        {/* Kırmızı */}
-        <ScoreBoard
-          color="red"
-          athlete={state.athlete2}
-          score={state.score[2]}
-          stats={state.stats[2]}
-          isAdmin={isAdmin}
-          disabled={!canControl || state.phase !== 'round'}
-          onScore={(delta, key) => setScore(2, delta, key)}
-          onGamJeom={() => addGamJeom(2)}
-          roundWins={state.roundWins[2]}
-        />
+        {/* Kırmızı butonlar */}
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
+          <p className="text-center text-[10px] font-bold uppercase tracking-wider text-red-700">Kırmızı Puanları</p>
+          <ScoreButtons
+            color="red"
+            isAdmin={isAdmin}
+            disabled={!canControl || state.phase !== 'round'}
+            stats={state.stats[2]}
+            onScore={(delta, key) => setScore(2, delta, key)}
+            onGamJeom={() => addGamJeom(2)}
+          />
+        </div>
       </div>
 
-      {/* Round history */}
-      <div className="glass-panel rounded-2xl p-4">
-        <h3 className="text-sm font-semibold text-slate-800">Raunt Geçmişi</h3>
-        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-          {[1, 2, 3].map((r) => {
-            const w = state.roundWinners[r]
-            return (
-              <div key={r} className="rounded-lg border border-app-border bg-white p-2">
-                <div className="text-brand-muted">Raunt {r}</div>
-                <div className="mt-1 font-semibold text-slate-800">
-                  {w === undefined ? '—' : w === 'draw' ? 'Berabere' : w === 'ref' ? 'Hakem' : w === 1 ? (state.athlete1?.first_name ?? 'Mavi') : (state.athlete2?.first_name ?? 'Kırmızı')}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+      {/* Alt kontrol bar - kompakt */}
+      <div className="flex items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 backdrop-blur">
+        {state.phase === 'idle' ? (
+          <button
+            onClick={startMatch}
+            disabled={!canControl}
+            className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
+          >
+            <Play className="h-4 w-4" /> BAŞLAT
+          </button>
+        ) : state.phase === 'finished' ? (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
+            <Trophy className="h-4 w-4" />
+            {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={pauseToggle}
+              disabled={!isAdmin}
+              className="flex items-center gap-1 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white active:scale-95 disabled:opacity-50"
+            >
+              {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {state.timerRunning ? 'Duraklat' : 'Devam'}
+            </button>
+            <button
+              onClick={handleRoundEnd}
+              disabled={!isAdmin || state.phase !== 'round'}
+              className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
+            >
+              Raunt Bitir
+            </button>
+            {isAdmin && (
+              <button
+                onClick={resetMatch}
+                className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-slate-600 active:scale-95"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Hakem popup (raunt sonu beraberlik) */}
@@ -729,238 +763,57 @@ function AthleteSelect({
   )
 }
 
-function SideHeader({ color, athlete, score, stats }: { color: 'blue' | 'red'; athlete: AthleteMini | null; score: number; stats: Stats }) {
-  const accent = color === 'blue' ? 'text-blue-700' : 'text-red-700'
-  return (
-    <div className={`rounded-xl border border-app-border bg-white p-3`}>
-      <div className={`text-xs font-semibold ${accent}`}>
-        {color === 'blue' ? 'Mavi (Sporcu 1)' : 'Kırmızı (Sporcu 2)'}
-      </div>
-      <div className="mt-1 text-sm font-semibold text-slate-800">
-        {athlete ? `${athlete.first_name} ${athlete.last_name}` : '— seçilmedi —'}
-      </div>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-slate-800">{score}</span>
-        <span className="text-[10px] text-brand-muted">puan</span>
-      </div>
-      <div className="mt-1 text-[10px] text-brand-muted">
-        Gam-Jeom: {stats.gamjeom} / 5
-      </div>
-    </div>
-  )
-}
-
-function ScoreBoard({
+function ScoreButtons({
   color,
-  athlete,
-  score,
-  stats,
   isAdmin,
   disabled,
+  stats,
   onScore,
   onGamJeom,
-  roundWins,
 }: {
   color: 'blue' | 'red'
-  athlete: AthleteMini | null
-  score: number
-  stats: Stats
   isAdmin: boolean
   disabled: boolean
+  stats: Stats
   onScore: (delta: number, statKey?: keyof Stats) => void
   onGamJeom: () => void
-  roundWins: number
 }) {
   const isBlue = color === 'blue'
-  const headerBg = isBlue ? 'bg-blue-600' : 'bg-red-600'
-  const ringColor = isBlue ? 'focus:ring-blue-300' : 'focus:ring-red-300'
+  const btnBase = isBlue
+    ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
+    : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
+  const gjBase = isBlue
+    ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
+    : 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
+
+  const buttons = [
+    { d: 6, k: 'turnHead' as const, label: '+6' },
+    { d: 4, k: 'turnBody' as const, label: '+4' },
+    { d: 3, k: 'straightHead' as const, label: '+3' },
+    { d: 2, k: 'straightBody' as const, label: '+2' },
+    { d: 1, k: 'punch' as const, label: '+1' },
+  ]
 
   return (
-    <div className="glass-panel overflow-hidden rounded-2xl">
-      <div className={`${headerBg} px-4 py-3 text-white`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider opacity-80">{isBlue ? 'Mavi' : 'Kırmızı'} (Sporcu {isBlue ? '1' : '2'})</p>
-            <p className="text-sm font-semibold">{athlete ? `${athlete.first_name} ${athlete.last_name}` : '— seçilmedi —'}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold leading-none">{score}</p>
-            <p className="mt-1 text-[10px] opacity-80">{roundWins} raunt</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2 p-3">
-        {[
-          { d: 6, k: 'turnHead' as const, label: 'Kafaya Dönerli (+6)' },
-          { d: 4, k: 'turnBody' as const, label: 'Gövdeye Dönerli (+4)' },
-          { d: 3, k: 'straightHead' as const, label: 'Kafaya Düz (+3)' },
-          { d: 2, k: 'straightBody' as const, label: 'Gövdeye Düz (+2)' },
-          { d: 1, k: 'punch' as const, label: 'Yumruk (+1)' },
-        ].map(({ d, k, label }) => (
-          <button
-            key={k}
-            disabled={disabled || !isAdmin}
-            onClick={() => onScore(d, k)}
-            className={`flex w-full items-center justify-between rounded-lg border border-app-border bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition active:scale-[0.98] hover:bg-app-bg-soft disabled:cursor-not-allowed disabled:opacity-50 ${ringColor}`}
-          >
-            <span className="flex items-center gap-2">
-              <Hand className="h-3.5 w-3.5 text-brand-muted" />
-              {label}
-            </span>
-            <span className={`font-bold ${isBlue ? 'text-blue-600' : 'text-red-600'}`}>+{d}</span>
-          </button>
-        ))}
-
-        {/* Gam-Jeom */}
+    <>
+      {buttons.map(({ d, k, label }) => (
         <button
-          disabled={disabled || !isAdmin || stats.gamjeom >= 5}
-          onClick={onGamJeom}
-          className={`flex w-full items-center justify-between rounded-lg border-2 ${
-            isBlue ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-red-200 bg-red-50 text-red-700'
-          } px-3 py-2.5 text-sm font-semibold transition active:scale-[0.98] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50`}
+          key={k}
+          disabled={disabled || !isAdmin}
+          onClick={() => onScore(d, k)}
+          className={`flex flex-1 items-center justify-center rounded-xl border-2 ${btnBase} py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
         >
-          <span className="flex items-center gap-2">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Gam-Jeom (Ceza)
-          </span>
-          <span className="font-bold">{stats.gamjeom} / 5</span>
+          {label}
         </button>
-      </div>
-    </div>
-  )
-}
-
-function CenterPanel({
-  state,
-  isAdmin,
-  onStart,
-  onPause,
-  onReset,
-  onEndRound,
-  onSetRoundDuration,
-  onSetBreakDuration,
-  canStart,
-  canPause,
-  canEnd,
-}: {
-  state: MatchState
-  isAdmin: boolean
-  onStart: () => void
-  onPause: () => void
-  onReset: () => void
-  onEndRound: () => void
-  onSetRoundDuration: (v: number) => void
-  onSetBreakDuration: (v: number) => void
-  canStart: boolean
-  canPause: boolean
-  canEnd: boolean
-}) {
-  const mm = String(Math.floor(state.timerSec / 60)).padStart(2, '0')
-  const ss = String(state.timerSec % 60).padStart(2, '0')
-
-  const phaseLabel =
-    state.phase === 'idle' ? 'Hazır' :
-    state.phase === 'round' ? 'Raunt' :
-    state.phase === 'break' ? 'Ara' : 'Bitti'
-
-  return (
-    <div className="glass-panel flex flex-col rounded-2xl p-4">
-      <div className="text-center">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
-          {phaseLabel} • Raunt {Math.min(state.currentRound, 3)} / 3
-        </p>
-        <p className={`mt-2 font-mono text-5xl font-bold ${state.timerSec === 0 && state.phase === 'round' ? 'text-red-600' : 'text-slate-800'}`}>
-          {mm}:{ss}
-        </p>
-        <p className="mt-1 text-xs text-brand-muted">
-          Raunt Kazanma: <strong className="text-blue-600">{state.roundWins[1]}</strong> – <strong className="text-red-600">{state.roundWins[2]}</strong>
-        </p>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-600">
-          <span>Süre (sn)</span>
-          <input
-            type="number"
-            min={10}
-            max={600}
-            value={state.roundDurationSec}
-            disabled={!isAdmin || state.phase !== 'idle'}
-            onChange={(e) => {
-              const v = Math.max(10, Math.min(600, Number(e.target.value) || 0))
-              onSetRoundDuration(v)
-            }}
-            className="input-field h-8 w-20 text-center text-xs"
-          />
-        </div>
-        <div className="flex items-center justify-between text-xs text-slate-600">
-          <span>Ara (sn)</span>
-          <input
-            type="number"
-            min={5}
-            max={300}
-            value={state.breakDurationSec}
-            disabled={!isAdmin || state.phase !== 'idle'}
-            onChange={(e) => {
-              const v = Math.max(5, Math.min(300, Number(e.target.value) || 0))
-              onSetBreakDuration(v)
-            }}
-            className="input-field h-8 w-20 text-center text-xs"
-          />
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        {state.phase === 'idle' ? (
-          <button
-            onClick={onStart}
-            disabled={!canStart}
-            className="col-span-2 btn-primary flex items-center justify-center gap-1.5"
-          >
-            <Play className="h-4 w-4" /> Maçı Başlat
-          </button>
-        ) : state.phase === 'finished' ? (
-          <button
-            disabled
-            className="col-span-2 rounded-lg bg-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600"
-          >
-            Maç Bitti
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={onPause}
-              disabled={!canPause}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-cyan px-3 py-2.5 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-50"
-            >
-              {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {state.timerRunning ? 'Duraklat' : 'Devam'}
-            </button>
-            <button
-              onClick={onEndRound}
-              disabled={!canEnd}
-              className="rounded-lg border border-app-border bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-app-bg-soft disabled:opacity-50"
-            >
-              Raunt Bitir
-            </button>
-          </>
-        )}
-        <button
-          onClick={onReset}
-          disabled={!isAdmin}
-          className="col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-app-border bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-app-bg-soft disabled:opacity-50"
-        >
-          <RotateCcw className="h-3.5 w-3.5" /> Sıfırla
-        </button>
-      </div>
-
-      {!isAdmin && (
-        <div className="mt-3 flex items-center justify-center gap-1 text-[10px] text-brand-muted">
-          <Users className="h-3 w-3" /> Misafir modu — sadece puan/gam-jeom
-        </div>
-      )}
-    </div>
+      ))}
+      <button
+        disabled={disabled || !isAdmin || stats.gamjeom >= 5}
+        onClick={onGamJeom}
+        className={`flex items-center justify-center gap-1 rounded-xl border-2 ${gjBase} py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        <AlertTriangle className="h-3.5 w-3.5" /> GJ {stats.gamjeom}/5
+      </button>
+    </>
   )
 }
 
