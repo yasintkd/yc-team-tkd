@@ -42,6 +42,12 @@ type RefVote = {
   ts: number
 }
 
+type RefereeStatus = {
+  connected: boolean
+  lastSeen: number
+  role: string
+}
+
 type MatchState = {
   matchId: string
   startedAt: number
@@ -68,6 +74,8 @@ type MatchState = {
   // referee consensus (1-3 hakem)
   refCount: number
   pendingVotes: RefVote[]
+  // referee connection status (admin panel)
+  refereeStatus: Record<number, RefereeStatus>
 }
 
 const DEFAULT_ROUND = 120
@@ -101,6 +109,7 @@ const initialState = (matchId: string): MatchState => ({
   refereeWinner: null,
   refCount: 1,
   pendingVotes: [],
+  refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
 })
 
 // ─── Tie-breaker (spec §5.4, birebir) ───────────────────
@@ -190,23 +199,63 @@ export default function LiveScore() {
         handleIncomingVote(payload as RefVote)
       }
     })
-    // Presence: yeni client katıldığında admin mevcut state'i broadcast eder
+    // Presence: yeni client katıldığında mevcut state'i broadcast et (admin veya ilk referee)
     ch.on('presence', { event: 'join' }, ({ newPresences }) => {
-      // Sadece admin yanıt verir, ve kendi join'i değil
-      if (!isAdmin) return
+      // Kendi join'imiz değilse ve state varsa broadcast et
       const joined = newPresences.find((p: any) => p.user_id !== user?.id)
       if (joined) {
-        // Mevcut state'i yeni katılan için broadcast et
-        const ch2 = channelRef.current
-        if (ch2 && stateRef.current) {
-          void ch2.send({ type: 'broadcast', event: BROADCAST_NAME, payload: stateRef.current })
+        // Admin ya da en az bir referee varsa state'i paylaş
+        const canBroadcast = isAdmin || isReferee
+        if (canBroadcast) {
+          const ch2 = channelRef.current
+          if (ch2 && stateRef.current) {
+            void ch2.send({ type: 'broadcast', event: BROADCAST_NAME, payload: stateRef.current })
+          }
         }
       }
+      // Hakem bağlandığında refereeStatus güncelle
+      newPresences.forEach((p: any) => {
+        if (p.ref >= 1 && p.ref <= 3) {
+          setState((prev) => ({
+            ...prev,
+            refereeStatus: {
+              ...prev.refereeStatus,
+              [p.ref]: { connected: true, lastSeen: Date.now(), role: p.role || 'referee' },
+            },
+          }))
+        }
+      })
     })
-    // Kendi presence'ini tanımla
+    // Presence: client ayrıldığında refereeStatus güncelle
+    ch.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      leftPresences.forEach((p: any) => {
+        if (p.ref >= 1 && p.ref <= 3) {
+          setState((prev) => ({
+            ...prev,
+            refereeStatus: {
+              ...prev.refereeStatus,
+              [p.ref]: { ...prev.refereeStatus[p.ref], connected: false, lastSeen: Date.now() },
+            },
+          }))
+        }
+      })
+    })
+    // Presence sync: mevcut presence state'inden hakemleri oku
     ch.on('presence', { event: 'sync' }, () => {
-      ch.presenceState()
-      // console.log('presence sync', state)
+      const ps = ch.presenceState()
+      const newRefStatus: Record<number, RefereeStatus> = {
+        1: { connected: false, lastSeen: 0, role: '' },
+        2: { connected: false, lastSeen: 0, role: '' },
+        3: { connected: false, lastSeen: 0, role: '' },
+      }
+      Object.values(ps).forEach((arr: any[]) => {
+        arr.forEach((p: any) => {
+          if (p.ref >= 1 && p.ref <= 3) {
+            newRefStatus[p.ref] = { connected: true, lastSeen: Date.now(), role: p.role || 'referee' }
+          }
+        })
+      })
+      setState((prev) => ({ ...prev, refereeStatus: newRefStatus }))
     })
     ch.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
@@ -228,10 +277,11 @@ export default function LiveScore() {
     }
   }, [matchId, isGuestByUrl, setParams])
 
-  // ── Broadcast (admin only)
+  // ── Broadcast (admin ve referee)
   const broadcast = (next: MatchState) => {
     setState(next)
-    if (!isAdmin) return
+    // Sadece admin veya referee broadcast yapabilir
+    if (!isAdmin && !isReferee) return
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: BROADCAST_NAME, payload: next })
   }
@@ -241,16 +291,24 @@ export default function LiveScore() {
     if (!isAdmin) return
     if (!state.timerRunning) return
     const id = setInterval(() => {
-      setState((prev) => {
+      setState((prev: MatchState): MatchState => {
         if (!prev.timerRunning) return prev
         const nextSec = prev.timerSec - 1
-        if (nextSec > 0) return { ...prev, timerSec: nextSec }
+        if (nextSec > 0) {
+          const next: MatchState = { ...prev, timerSec: nextSec }
+          broadcast(next)
+          return next
+        }
         // süre bitti
         if (prev.phase === 'round') {
-          return { ...prev, timerSec: 0, timerRunning: false }
+          const next: MatchState = { ...prev, timerSec: 0, timerRunning: false }
+          broadcast(next)
+          return next
         }
         if (prev.phase === 'break') {
-          return { ...prev, timerSec: prev.roundDurationSec, timerRunning: false, phase: 'round' }
+          const next: MatchState = { ...prev, timerSec: prev.roundDurationSec, timerRunning: false, phase: 'round' }
+          broadcast(next)
+          return next
         }
         return prev
       })
@@ -460,53 +518,38 @@ export default function LiveScore() {
   }
 
   const handleIncomingVote = (vote: RefVote) => {
-    // Sadece admin işler
-    if (!isAdmin) return
+    // Tüm client'lar (admin, hakem, misafir) oyları anında uygular
     setState((prev) => {
-      // Aynı hakem aynı puan için tekrar oy vermesin
+      // Aynı hakem aynı puan için tekrar oy vermesin (idempotent)
       const already = prev.pendingVotes.find(
         (v) => v.refId === vote.refId && v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey,
       )
       if (already) return prev
 
-      const nextVotes = [...prev.pendingVotes, vote]
-
-      // Consensus kontrolü
-      const matching = nextVotes.filter(
-        (v) => v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey,
-      )
-
-      // Zaman penceresi: 3 saniye içinde gelmiş olmalı
-      const now = Date.now()
-      const recent = matching.filter((v) => now - v.ts <= 3000)
-
-      if (recent.length >= prev.refCount) {
-        // Consensus sağlandı → puanı uygula, oyları temizle
-        const applied: MatchState = {
-          ...prev,
-          score: { ...prev.score, [vote.side]: prev.score[vote.side] + vote.delta },
-          stats: {
-            ...prev.stats,
-            [vote.side]: {
-              ...prev.stats[vote.side],
-              ...(vote.statKey !== 'gamjeom'
-                ? { [vote.statKey]: prev.stats[vote.side][vote.statKey] + 1 }
-                : { gamjeom: prev.stats[vote.side].gamjeom + 1 }),
-            },
+      // Puanı anında uygula
+      const applied: MatchState = {
+        ...prev,
+        score: { ...prev.score, [vote.side]: prev.score[vote.side] + vote.delta },
+        stats: {
+          ...prev.stats,
+          [vote.side]: {
+            ...prev.stats[vote.side],
+            ...(vote.statKey !== 'gamjeom'
+              ? { [vote.statKey]: prev.stats[vote.side][vote.statKey] + 1 }
+              : { gamjeom: prev.stats[vote.side].gamjeom + 1 }),
           },
-          pendingVotes: prev.pendingVotes.filter(
-            (v) => !(v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey),
-          ),
-        }
-        // 5. gam-jeom → auto round loss
-        if (vote.statKey === 'gamjeom' && applied.stats[vote.side].gamjeom >= 5) {
-          return finalizeRound(applied, vote.side === 1 ? 2 : 1)
-        }
-        broadcast(applied)
-        return applied
+        },
+        pendingVotes: [...prev.pendingVotes, vote],
       }
-
-      return { ...prev, pendingVotes: nextVotes }
+      // 5. gam-jeom → auto round loss
+      if (vote.statKey === 'gamjeom' && applied.stats[vote.side].gamjeom >= 5) {
+        const finished = finalizeRound(applied, vote.side === 1 ? 2 : 1)
+        broadcast(finished)
+        return finished
+      }
+      // Herkes state'i broadcast eder (son gönderene göre güncellenir)
+      broadcast(applied)
+      return applied
     })
   }
 
@@ -592,6 +635,30 @@ export default function LiveScore() {
         <div className="flex gap-1.5">
           {isAdmin && (
             <>
+              {/* Hakem bağlantı durumu paneli */}
+              <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500">HAKEMLER:</span>
+                {[1, 2, 3].map((r) => {
+                  const rs = state.refereeStatus[r]
+                  const isConnected = rs?.connected
+                  const lastSeen = rs?.lastSeen
+                  const timeAgo = lastSeen ? Math.round((Date.now() - lastSeen) / 1000) : null
+                  return (
+                    <div
+                      key={r}
+                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium"
+                      title={`Hakem #${r} - ${isConnected ? `Bağlı ${timeAgo ? `${timeAgo}s önce` : 'şimdi'}` : 'Bağlantı yok'}`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isConnected ? 'bg-emerald-500' : 'bg-red-500'
+                        }`}
+                      />
+                      <span className={isConnected ? 'text-emerald-700' : 'text-red-700'}>{r}</span>
+                    </div>
+                  )
+                })}
+              </div>
               <button
                 onClick={async () => {
                   const url = `${window.location.origin}/canli-skor?matchId=${matchId}`
