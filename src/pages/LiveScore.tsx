@@ -470,6 +470,15 @@ export default function LiveScore() {
     })
   }
 
+  const skipBreak = () => {
+    if (!isAdmin || state.phase !== 'break') return
+    setState((prev) => {
+      const next: MatchState = { ...prev, timerSec: prev.roundDurationSec, phase: 'round', timerRunning: true }
+      broadcast(next)
+      return next
+    })
+  }
+
   const resetMatch = () => {
     if (!isAdmin) return
     if (!confirm('Maçı sıfırla? Tüm puan ve istatistikler silinir.')) return
@@ -934,6 +943,15 @@ export default function LiveScore() {
               {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {state.timerRunning ? 'Duraklat' : 'Devam'}
             </button>
+            {state.phase === 'break' && (
+              <button
+                onClick={skipBreak}
+                disabled={!isAdmin}
+                className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
+              >
+                Ara Bitir
+              </button>
+            )}
             <button
               onClick={handleRoundEnd}
               disabled={!isAdmin || state.phase !== 'round'}
