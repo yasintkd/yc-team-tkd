@@ -73,6 +73,7 @@ type MatchState = {
   refereeWinner: Side | null
   // referee consensus (1-3 hakem)
   refCount: number
+  voteToleranceMs: number // Yeni: Hakem oyu tolerans süresi
   pendingVotes: RefVote[]
   // referee connection status (admin panel)
   refereeStatus: Record<number, RefereeStatus>
@@ -108,6 +109,7 @@ const initialState = (matchId: string): MatchState => ({
   winner: null,
   refereeWinner: null,
   refCount: 1,
+  voteToleranceMs: 500, // Yeni: Varsayılan 500ms tolerans
   pendingVotes: [],
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
 })
@@ -499,54 +501,102 @@ export default function LiveScore() {
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
   }
 
-  const handleIncomingVote = (vote: RefVote) => {
-    // Tüm client'lar (admin, hakem, misafir) oyları anında uygular
+  const handleIncomingVote = (incomingVote: RefVote) => {
     setState((prev) => {
       // Aynı hakem aynı puan için tekrar oy vermesin (idempotent)
-      const already = prev.pendingVotes.find(
-        (v) => v.refId === vote.refId && v.side === vote.side && v.delta === vote.delta && v.statKey === vote.statKey,
+      const alreadyVoted = prev.pendingVotes.some(
+        (v) =>
+          v.refId === incomingVote.refId &&
+          v.side === incomingVote.side &&
+          v.delta === incomingVote.delta &&
+          v.statKey === incomingVote.statKey,
       )
-      if (already) return prev
+      if (alreadyVoted) return prev
 
-      // Puanı anında uygula
-      const applied: MatchState = {
-        ...prev,
-        score: { ...prev.score, [vote.side]: prev.score[vote.side] + vote.delta },
-        stats: {
-          ...prev.stats,
-          [vote.side]: {
-            ...prev.stats[vote.side],
-            ...(vote.statKey !== 'gamjeom'
-              ? { [vote.statKey]: prev.stats[vote.side][vote.statKey] + 1 }
-              : { gamjeom: prev.stats[vote.side].gamjeom + 1 }),
+      const updatedPendingVotes = [...prev.pendingVotes, incomingVote]
+      let nextState: MatchState = { ...prev, pendingVotes: updatedPendingVotes }
+
+      // Puanın hangi tarafa ekleneceğini belirle (Gam-jeom ise rakibe)
+      const getScoreSide = (v: RefVote): Side => (v.statKey === 'gamjeom' ? (v.side === 1 ? 2 : 1) : v.side)
+
+      // Tek hakem modu veya admin puanı
+      if (prev.refCount === 1 || isAdmin) {
+        const vote = incomingVote
+        const scoreSide = getScoreSide(vote)
+        nextState = {
+          ...nextState,
+          score: { ...nextState.score, [scoreSide]: nextState.score[scoreSide] + vote.delta },
+          stats: {
+            ...nextState.stats,
+            [vote.side]: {
+              ...nextState.stats[vote.side],
+              ...(vote.statKey !== 'gamjeom'
+                ? { [vote.statKey]: nextState.stats[vote.side][vote.statKey] + 1 }
+                : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
+            },
           },
-        },
-        pendingVotes: [...prev.pendingVotes, vote],
+          pendingVotes: nextState.pendingVotes.filter((v) => v !== incomingVote),
+        }
+
+        if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
+          const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1)
+          broadcast(finished)
+          return finished
+        }
+      } else {
+        // Çoklu hakem konsensüsü
+        const now = Date.now()
+        const relevantVotes = updatedPendingVotes.filter(
+          (v) =>
+            v.side === incomingVote.side &&
+            v.delta === incomingVote.delta &&
+            v.statKey === incomingVote.statKey &&
+            now - v.ts <= prev.voteToleranceMs,
+        )
+
+        // 2 veya 3 hakem için en az 2 oy gerekli
+        const requiredVotes = prev.refCount > 1 ? 2 : 1
+
+        if (relevantVotes.length >= requiredVotes) {
+          const vote = incomingVote
+          const scoreSide = getScoreSide(vote)
+          nextState = {
+            ...nextState,
+            score: { ...nextState.score, [scoreSide]: nextState.score[scoreSide] + vote.delta },
+            stats: {
+              ...nextState.stats,
+              [vote.side]: {
+                ...nextState.stats[vote.side],
+                ...(vote.statKey !== 'gamjeom'
+                  ? { [vote.statKey]: nextState.stats[vote.side][vote.statKey] + 1 }
+                  : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
+              },
+            },
+            pendingVotes: nextState.pendingVotes.filter(
+              (v) =>
+                !(
+                  v.side === incomingVote.side &&
+                  v.delta === incomingVote.delta &&
+                  v.statKey === incomingVote.statKey &&
+                  now - v.ts <= prev.voteToleranceMs
+                ) &&
+                now - v.ts <= prev.voteToleranceMs,
+            ),
+          }
+
+          if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
+            const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1)
+            broadcast(finished)
+            return finished
+          }
+        } else {
+          nextState.pendingVotes = updatedPendingVotes.filter((v) => now - v.ts <= prev.voteToleranceMs)
+        }
       }
-      // 5. gam-jeom → auto round loss
-      if (vote.statKey === 'gamjeom' && applied.stats[vote.side].gamjeom >= 5) {
-        const finished = finalizeRound(applied, vote.side === 1 ? 2 : 1)
-        broadcast(finished)
-        return finished
-      }
-      // Herkes state'i broadcast eder (son gönderene göre güncellenir)
-      broadcast(applied)
-      return applied
+
+      broadcast(nextState)
+      return nextState
     })
-  }
-
-  // ── Hakem butonu handler (ref mode) ────────────────────
-
-  const handleRefButton = (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => {
-    if (!isReferee) return
-    const vote: RefVote = {
-      refId: urlRef,
-      side,
-      delta,
-      statKey,
-      ts: Date.now(),
-    }
-    broadcastVote(vote)
   }
 
   // ── RefereeScoreButtons component (hakem UI) ───────────
@@ -561,8 +611,8 @@ export default function LiveScore() {
     isReferee: boolean
     side: Side
     disabled: boolean
-    onScore: (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => void
-    onGamJeom: (side: Side) => void
+    onScore: (vote: RefVote) => void
+    onGamJeom: (side: Side, delta: number, statKey: keyof Stats | 'gamjeom') => void
   }) {
     const buttons = [
       { d: 6, k: 'turnHead' as const, label: '+6' },
@@ -578,7 +628,7 @@ export default function LiveScore() {
           <button
             key={k}
             disabled={disabled || !isReferee}
-            onClick={() => onScore(side, d, k)}
+            onClick={() => onScore({ refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
             className={`flex flex-1 items-center justify-center rounded-xl border-2 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700' : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
             } py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
@@ -588,7 +638,7 @@ export default function LiveScore() {
         ))}
         <button
           disabled={disabled || !isReferee}
-          onClick={() => onGamJeom(side)}
+          onClick={() => onGamJeom(side, 1, 'gamjeom')}
           className={`flex items-center justify-center gap-1 rounded-xl border-2 bg-amber-500 text-white border-amber-600 hover:bg-amber-600 py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
         >
           <AlertTriangle className="h-3.5 w-3.5" /> GJ
@@ -754,8 +804,8 @@ export default function LiveScore() {
                 isReferee={isReferee}
                 side={1}
                 disabled={state.phase !== 'round'}
-                onScore={handleRefButton}
-                onGamJeom={(s) => handleRefButton(s, 1, 'gamjeom')}
+                onScore={broadcastVote}
+                onGamJeom={(s, d, k) => broadcastVote({ refId: urlRef, side: s, delta: d, statKey: k, ts: Date.now() })}
               />
             </div>
             <div className="flex flex-col gap-1.5 rounded-2xl bg-red-50 p-2">
@@ -766,8 +816,8 @@ export default function LiveScore() {
                 isReferee={isReferee}
                 side={2}
                 disabled={state.phase !== 'round'}
-                onScore={handleRefButton}
-                onGamJeom={(s) => handleRefButton(s, 1, 'gamjeom')}
+                onScore={broadcastVote}
+                onGamJeom={(s, d, k) => broadcastVote({ refId: urlRef, side: s, delta: d, statKey: k, ts: Date.now() })}
               />
             </div>
           </div>
