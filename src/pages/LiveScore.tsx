@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   X,
   QrCode,
+  Settings,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
@@ -73,6 +74,7 @@ type MatchState = {
   refereeWinner: Side | null
   // referee consensus (1-3 hakem)
   voteToleranceMs: number // Yeni: Hakem oyu tolerans süresi
+  gapMatchScore: number // Puan farkı limiti
   pendingVotes: RefVote[]
   // referee connection status (admin panel)
   refereeStatus: Record<number, RefereeStatus>
@@ -108,6 +110,7 @@ const initialState = (matchId: string): MatchState => ({
   winner: null,
   refereeWinner: null,
   voteToleranceMs: 1500, // Yeni: Varsayılan 1500ms tolerans
+  gapMatchScore: 15,
   pendingVotes: [],
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
 })
@@ -166,6 +169,7 @@ export default function LiveScore() {
   const [roundWinnerPopup, setRoundWinnerPopup] = useState<{ winner: Side; method?: string } | null>(null)
   const [pendingRoundWinner, setPendingRoundWinner] = useState<Side | null>(null)
   const [showInvite, setShowInvite] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [refereeQrs, setRefereeQrs] = useState<Record<number, string>>({})
 
   // ── Sporcuları çek
@@ -735,6 +739,9 @@ export default function LiveScore() {
               >
                 <QrCode className="h-3 w-3" /> QR
               </button>
+              <button onClick={() => setShowSettings(true)} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
+                <Settings className="h-3 w-3" />
+              </button>
               <button onClick={newMatch} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
                 Yeni
               </button>
@@ -1048,6 +1055,37 @@ export default function LiveScore() {
       )}
 
       {/* QR Modal - en üstte (z-50) */}
+      {showSettings && (
+        <Modal onClose={() => setShowSettings(false)} title="Maç Ayarları">
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Raunt Süresi (sn)</label>
+              <input type="number" value={state.roundDurationSec} onChange={(e) => {
+                const v = parseInt(e.target.value) || 0
+                setState(p => ({ ...p, roundDurationSec: v, timerSec: p.phase === 'idle' ? v : p.timerSec }))
+              }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Ara Süresi (sn)</label>
+              <input type="number" value={state.breakDurationSec} onChange={(e) => {
+                const v = parseInt(e.target.value) || 0
+                setState(p => ({ ...p, breakDurationSec: v }))
+              }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Puan Farkı Limiti</label>
+              <input type="number" value={state.gapMatchScore} onChange={(e) => {
+                const v = parseInt(e.target.value) || 0
+                setState(p => ({ ...p, gapMatchScore: v }))
+              }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
+            </div>
+            <button onClick={() => { broadcast(state); setShowSettings(false) }} className="w-full rounded-lg bg-emerald-600 text-white py-2 font-bold text-sm">
+              Kaydet ve Yayınla
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowInvite(false)}>
           <div className="glass-panel rounded-2xl bg-white p-5 max-w-xs w-full text-center" onClick={(e) => e.stopPropagation()}>
