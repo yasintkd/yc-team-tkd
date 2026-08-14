@@ -664,9 +664,9 @@ export default function LiveScore() {
             key={k}
             disabled={disabled || !isReferee}
             onClick={() => onScore({ refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
-            className={`flex flex-1 items-center justify-center rounded-xl border-2 ${
-              side === 1 ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700' : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
-            } py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+            className={`flex flex-1 items-center justify-center rounded-lg border ${
+              side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
+            } py-1.5 text-lg font-black shadow active:scale-95 disabled:opacity-40`}
           >
             {label}
           </button>
@@ -819,16 +819,16 @@ export default function LiveScore() {
       {/* Hakem UI (ref mode) - Optimize Edilmiş Thumb Zone */}
       {isReferee && (
         <div className="flex flex-col flex-1 bg-slate-50 touch-none select-none overflow-hidden">
-          {/* Kompakt Skor Bilgisi */}
-          <div className="flex-none flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200">
-            <div className="text-sm font-bold text-blue-600">Mavi: {state.score[1]}</div>
-            <div className="text-xs font-bold text-slate-500">Raunt {state.currentRound}</div>
-            <div className="text-sm font-bold text-red-600">Kırmızı: {state.score[2]}</div>
+          {/* Çok Kompakt Skor Bilgisi */}
+          <div className="flex-none grid grid-cols-3 items-center px-2 py-1 bg-white border-b border-slate-200">
+            <div className="text-xs font-bold text-blue-600 text-center truncate">{state.score[1]}</div>
+            <div className="text-[10px] font-bold text-slate-400 text-center uppercase">R{state.currentRound}</div>
+            <div className="text-xs font-bold text-red-600 text-center truncate">{state.score[2]}</div>
           </div>
 
-          {/* Puanlama Alanı - dikey ölçeklenebilir */}
-          <div className="flex-1 flex overflow-hidden gap-1 p-2">
-            <div className={`flex-1 flex flex-col gap-1 ${state.phase === 'round' ? 'bg-blue-100' : 'bg-slate-100'}`}>
+          {/* Puanlama Alanı - Sıkıştırılmış */}
+          <div className="flex-1 grid grid-cols-2 gap-1 p-1 overflow-hidden">
+            <div className={`flex flex-col gap-0.5 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
@@ -836,7 +836,7 @@ export default function LiveScore() {
                 onScore={broadcastVote}
               />
             </div>
-            <div className={`flex-1 flex flex-col gap-1 ${state.phase === 'round' ? 'bg-red-100' : 'bg-slate-100'}`}>
+            <div className={`flex flex-col gap-0.5 ${state.phase === 'round' ? 'bg-red-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
