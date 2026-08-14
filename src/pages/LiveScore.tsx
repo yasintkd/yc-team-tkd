@@ -818,14 +818,7 @@ export default function LiveScore() {
 
       {/* Hakem UI (ref mode) - Optimize Edilmiş Thumb Zone */}
       {isReferee && (
-        <div className="flex flex-col flex-1 bg-slate-50 touch-none select-none overflow-hidden">
-          {/* Çok Kompakt Skor Bilgisi */}
-          <div className="flex-none grid grid-cols-3 items-center px-2 py-1 bg-white border-b border-slate-200">
-            <div className="text-xs font-bold text-blue-600 text-center truncate">{state.score[1]}</div>
-            <div className="text-[10px] font-bold text-slate-400 text-center uppercase">R{state.currentRound}</div>
-            <div className="text-xs font-bold text-red-600 text-center truncate">{state.score[2]}</div>
-          </div>
-
+        <div className="flex flex-col flex-1 bg-slate-50 touch-none select-none overflow-hidden pb-[env(safe-area-inset-bottom)]">
           {/* Puanlama Alanı - Sıkıştırılmış */}
           <div className="flex-1 grid grid-cols-2 gap-1 p-1 overflow-hidden">
             <div className={`flex flex-col gap-0.5 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
@@ -900,58 +893,56 @@ export default function LiveScore() {
         </div>
       )}
 
-      {/* Alt kontrol bar - kompakt */}
-      <div className="flex items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 backdrop-blur">
-        {state.phase === 'idle' ? (
-          <button
-            onClick={startMatch}
-            disabled={!canControl}
-            className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
-          >
-            <Play className="h-4 w-4" /> BAŞLAT
-          </button>
-        ) : state.phase === 'finished' ? (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-            <Trophy className="h-4 w-4" />
-            {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI
-          </div>
-        ) : (
-          <>
+      {/* Alt kontrol bar - Sadece Admin için */}
+      {isAdmin && (
+        <div className="flex flex-none items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 backdrop-blur">
+          {state.phase === 'idle' ? (
             <button
-              onClick={pauseToggle}
-              disabled={!isAdmin}
-              className="flex items-center gap-1 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white active:scale-95 disabled:opacity-50"
+              onClick={startMatch}
+              disabled={!canControl}
+              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
             >
-              {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {state.timerRunning ? 'Duraklat' : 'Devam'}
+              <Play className="h-4 w-4" /> BAŞLAT
             </button>
-            {state.phase === 'break' && (
+          ) : state.phase === 'finished' ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
+              <Trophy className="h-4 w-4" />
+              {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI
+            </div>
+          ) : (
+            <>
               <button
-                onClick={skipBreak}
-                disabled={!isAdmin}
+                onClick={pauseToggle}
+                className="flex items-center gap-1 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white active:scale-95 disabled:opacity-50"
+              >
+                {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {state.timerRunning ? 'Duraklat' : 'Devam'}
+              </button>
+              {state.phase === 'break' && (
+                <button
+                  onClick={skipBreak}
+                  className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
+                >
+                  Ara Bitir
+                </button>
+              )}
+              <button
+                onClick={handleRoundEnd}
+                disabled={state.phase !== 'round'}
                 className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
               >
-                Ara Bitir
+                Raunt Bitir
               </button>
-            )}
-            <button
-              onClick={handleRoundEnd}
-              disabled={!isAdmin || state.phase !== 'round'}
-              className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
-            >
-              Raunt Bitir
-            </button>
-            {isAdmin && (
               <button
                 onClick={resetMatch}
                 className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-slate-600 active:scale-95"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
-            )}
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Hakem popup (raunt sonu beraberlik) */}
       {refereeOpen && (
