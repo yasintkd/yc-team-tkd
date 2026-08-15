@@ -38,6 +38,7 @@ type Stats = {
 }
 
 type RefVote = {
+  id: string
   matchSessionId: string
   refId: number
   side: Side
@@ -535,20 +536,39 @@ export default function LiveScore() {
       const activeRefCount = Object.values(prev.refereeStatus).filter(r => r.connected).length
       const required = activeRefCount <= 1 ? 1 : 2
       
+      // Grupla ama vote ID'lerini tut
+      // Oyları Side-Delta-Type ve Zaman Penceresine (300ms) göre grupla
       const voteGroups = freshVotes.reduce((acc, v) => {
         const key = `${v.side}-${v.delta}-${v.statKey}`
-        if (!acc[key]) acc[key] = new Set()
-        acc[key].add(v.refId)
+        if (!acc[key]) acc[key] = []
+        
+        // Bu teknik için mevcut grupları kontrol et (300ms penceresi)
+        const existingGroup = acc[key].find(g => Math.abs(g[0].ts - v.ts) <= 300)
+        if (existingGroup) {
+          existingGroup.push(v)
+        } else {
+          acc[key].push([v])
+        }
         return acc
-      }, {} as Record<string, Set<number>>)
+      }, {} as Record<string, RefVote[][]>)
 
-      const consensusKey = Object.keys(voteGroups).find(k => voteGroups[k].size >= required)
+      // Konsensüs sağlayan grubu bul
+      let consensusGroup: RefVote[] | null = null
+      Object.values(voteGroups).forEach(groups => {
+        groups.forEach(g => {
+          const uniqueRefs = new Set(g.map(v => v.refId))
+          if (uniqueRefs.size >= required) consensusGroup = g
+        })
+      })
       
-      if (!consensusKey) return { ...prev, pendingVotes: freshVotes }
+      if (!consensusGroup) return { ...prev, pendingVotes: freshVotes }
 
-      const [sideStr, deltaStr, statKey] = consensusKey.split('-')
-      const side = parseInt(sideStr) as Side
-      const delta = parseInt(deltaStr)
+      const usedVotes = (consensusGroup as RefVote[]).slice(0, required)
+      const usedIds = new Set(usedVotes.map(v => v.id))
+
+      const side = usedVotes[0].side
+      const delta = usedVotes[0].delta
+      const statKey = usedVotes[0].statKey
       const scoreSide = statKey === 'gamjeom' ? (side === 1 ? 2 : 1) : side
 
       let next: MatchState = {
@@ -558,7 +578,7 @@ export default function LiveScore() {
           ...prev.stats,
           [side]: { ...prev.stats[side], [statKey]: prev.stats[side][statKey as keyof Stats] + 1 }
         },
-        pendingVotes: freshVotes.filter(v => `${v.side}-${v.delta}-${v.statKey}` !== consensusKey)
+        pendingVotes: freshVotes.filter(v => !usedIds.has(v.id))
       }
 
       if (Math.abs(next.score[1] - next.score[2]) >= 15) next = finalizeRound(next, next.score[1] > next.score[2] ? 1 : 2, 'Gap Match')
@@ -596,7 +616,15 @@ export default function LiveScore() {
           <button
             key={k}
             disabled={disabled || !isReferee}
-              onClick={() => onScore({ matchSessionId: state.matchSessionId, refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
+            onClick={() => onScore({ 
+              id: crypto.randomUUID(), 
+              matchSessionId: state.matchSessionId, 
+              refId: urlRef, 
+              side, 
+              delta: d, 
+              statKey: k, 
+              ts: Date.now() 
+            })}
             className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
             } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
