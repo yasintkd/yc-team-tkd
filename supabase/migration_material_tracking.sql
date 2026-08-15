@@ -3,6 +3,15 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- ENUMS
+-- ------------------------------------------------------------
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'product_color') then
+    create type public.product_color as enum ('mavi', 'kırmızı');
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
 -- 1) TEDARİKÇİLER
 -- ------------------------------------------------------------
 create table if not exists public.suppliers (
@@ -28,6 +37,11 @@ create table if not exists public.products (
   name text not null,                   -- "Taekwondo Kıyafeti", "Koruyucu Set"
   category text,                        -- giyim / koruyucu / ayak / aksesuar
   supplier_id uuid references public.suppliers (id) on delete set null,
+  requires_boy boolean not null default false,
+  requires_kilo boolean not null default false,
+  requires_shoe_size boolean not null default false,
+  requires_gender boolean not null default false,
+  requires_color boolean not null default false, -- Yeni renk alanı
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

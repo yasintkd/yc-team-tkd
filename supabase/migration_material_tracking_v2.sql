@@ -2,6 +2,15 @@
 -- Malzeme Takip Sistemi — Yeni Yapı (Tedarikçisiz, Varyantsız)
 -- ============================================================
 
+-- ------------------------------------------------------------
+-- ENUMS
+-- ------------------------------------------------------------
+do $$ begin
+  if not exists (select 1 from pg_type where typname = 'product_color') then
+    create type public.product_color as enum ('mavi', 'kırmızı');
+  end if;
+end $$;
+
 -- Eski tabloları temizle (CASCADE ile bağımlılıkları da sil)
 drop table if exists public.stock_moves;
 drop table if exists public.distributions cascade;
@@ -19,7 +28,8 @@ alter table public.products
   add column if not exists requires_boy boolean not null default false,
   add column if not exists requires_kilo boolean not null default false,
   add column if not exists requires_shoe_size boolean not null default false,
-  add column if not exists requires_gender boolean not null default false;
+  add column if not exists requires_gender boolean not null default false,
+  add column if not exists requires_color boolean not null default false;
 
 -- ------------------------------------------------------------
 -- 2) SPORCU SİPARİŞLERİ
@@ -60,6 +70,7 @@ create table if not exists public.athlete_order_items (
   boy_cm numeric(5,1),
   kilo numeric(5,1),
   shoe_size numeric(4,1),
+  color public.product_color,
   created_at timestamptz not null default now()
 );
 
@@ -103,11 +114,11 @@ end $$;
 -- ------------------------------------------------------------
 -- Örnek ürünler
 -- ------------------------------------------------------------
-insert into public.products (name, price, requires_boy, requires_kilo, requires_shoe_size, requires_gender) values
-  ('Taekwondo Kıyafeti (Dobok)', 1000, true, true, false, true),
-  ('Dişlik (Mouthguard)', 200, false, false, false, false),
-  ('Kol Kaval Koruyucu', 350, true, true, false, false),
-  ('Ayaküstü Koruyucu', 300, false, false, true, false),
-  ('Eldiven', 250, true, true, false, false),
-  ('Kasık Koruyucu', 180, true, true, false, true)
+insert into public.products (name, price, requires_boy, requires_kilo, requires_shoe_size, requires_gender, requires_color) values
+  ('Taekwondo Kıyafeti (Dobok)', 1000, true, true, false, true, false),
+  ('Dişlik (Mouthguard)', 200, false, false, false, false, false),
+  ('Kol Kaval Koruyucu', 350, true, true, false, false, false),
+  ('Ayaküstü Koruyucu', 300, false, false, true, false, false),
+  ('Eldiven', 250, true, true, false, false, false),
+  ('Kasık Koruyucu', 180, true, true, false, true, false)
 on conflict do nothing;

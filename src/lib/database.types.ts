@@ -10,6 +10,7 @@ export type AttendanceStatus = 'geldi' | 'gelmedi'
 export type PaymentStatus = 'odendi' | 'odenmedi'
 export type AthleteOrderPayment = 'odendi' | 'kismi' | 'bekliyor'
 export type Gender = 'erkek' | 'kiz'
+export type ProductColor = 'mavi' | 'kırmızı'
 
 export interface AthleteLicenseRow {
   id: string
@@ -118,6 +119,7 @@ export interface ProductRow {
   requires_kilo: boolean
   requires_shoe_size: boolean
   requires_gender: boolean
+  requires_color: boolean
   created_at: string
   updated_at: string
 }
@@ -143,6 +145,7 @@ export interface AthleteOrderItemRow {
   boy_cm: number | null
   kilo: number | null
   shoe_size: number | null
+  color: ProductColor | null
   created_at: string
 }
 

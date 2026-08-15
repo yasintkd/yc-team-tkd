@@ -18,7 +18,7 @@ import StatCard from '../components/StatCard'
 type Product = {
   id: string; name: string; category: string | null
   price: number
-  requires_boy: boolean; requires_kilo: boolean; requires_shoe_size: boolean; requires_gender: boolean
+  requires_boy: boolean; requires_kilo: boolean; requires_shoe_size: boolean; requires_gender: boolean; requires_color: boolean
 }
 
 type Athlete = { id: string; first_name: string; last_name: string; belt: string; gender: string | null }
@@ -38,6 +38,7 @@ type AthleteOrder = {
 type OrderItem = {
   id: string; order_id: string; product_id: string
   boy_cm: number | null; kilo: number | null; shoe_size: number | null
+  color: 'mavi' | 'kırmızı' | null
   products: { name: string; price: number } | null
 }
 
@@ -130,12 +131,13 @@ function ProductsTab({
   const [rKilo, setRKilo] = useState(false)
   const [rShoe, setRShoe] = useState(false)
   const [rGender, setRGender] = useState(false)
+  const [rColor, setRColor] = useState(false)
 
-  const reset = () => { setEditing(null); setName(''); setPrice(''); setRBoy(false); setRKilo(false); setRShoe(false); setRGender(false) }
+  const reset = () => { setEditing(null); setName(''); setPrice(''); setRBoy(false); setRKilo(false); setRShoe(false); setRGender(false); setRColor(false) }
 
   const startEdit = (p: Product) => {
     setEditing(p); setName(p.name); setPrice(String(p.price))
-    setRBoy(p.requires_boy); setRKilo(p.requires_kilo); setRShoe(p.requires_shoe_size); setRGender(p.requires_gender)
+    setRBoy(p.requires_boy); setRKilo(p.requires_kilo); setRShoe(p.requires_shoe_size); setRGender(p.requires_gender); setRColor(p.requires_color)
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -143,7 +145,7 @@ function ProductsTab({
     if (!name.trim() || !price) return
     const payload = {
       name: name.trim(), price: parseFloat(price),
-      requires_boy: rBoy, requires_kilo: rKilo, requires_shoe_size: rShoe, requires_gender: rGender,
+      requires_boy: rBoy, requires_kilo: rKilo, requires_shoe_size: rShoe, requires_gender: rGender, requires_color: rColor,
     }
     if (editing) {
       const { error: err } = await supabase.from('products').update(payload).eq('id', editing.id)
@@ -185,6 +187,9 @@ function ProductsTab({
           <label className="flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" checked={rGender} onChange={e => setRGender(e.target.checked)} /> Cinsiyet
           </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={rColor} onChange={e => setRColor(e.target.checked)} /> Renk
+          </label>
         </div>
         <div className="flex gap-2">
           <button type="submit" disabled={!name.trim() || !price} className="btn-primary text-xs">{editing ? 'Güncelle' : 'Ekle'}</button>
@@ -200,8 +205,8 @@ function ProductsTab({
               <p className="text-sm font-medium text-slate-800">{p.name}</p>
               <p className="text-[11px] text-brand-muted">
                 {p.price} ₺
-                {[p.requires_boy && 'boy', p.requires_kilo && 'kilo', p.requires_shoe_size && 'ayakkabı', p.requires_gender && 'cinsiyet'].filter(Boolean).length > 0 &&
-                  ` • ${[p.requires_boy && 'boy', p.requires_kilo && 'kilo', p.requires_shoe_size && 'ayakkabı', p.requires_gender && 'cinsiyet'].filter(Boolean).join(', ')}`
+                {[p.requires_boy && 'boy', p.requires_kilo && 'kilo', p.requires_shoe_size && 'ayakkabı', p.requires_gender && 'cinsiyet', p.requires_color && 'renk'].filter(Boolean).length > 0 &&
+                  ` • ${[p.requires_boy && 'boy', p.requires_kilo && 'kilo', p.requires_shoe_size && 'ayakkabı', p.requires_gender && 'cinsiyet', p.requires_color && 'renk'].filter(Boolean).join(', ')}`
                 }
               </p>
             </div>
@@ -233,6 +238,7 @@ function OrdersTab({
   const [boyCm, setBoyCm] = useState('')
   const [kilo, setKilo] = useState('')
   const [shoeSize, setShoeSize] = useState('')
+  const [color, setColor] = useState<'mavi' | 'kırmızı' | ''>('')
   const [saving, setSaving] = useState(false)
 
   const selectedAthlete = athletes.find(a => a.id === athleteId)
@@ -244,7 +250,7 @@ function OrdersTab({
 
   // Union of required measurements from selected products
   const needs = useMemo(() => {
-    let boy = false, kg = false, shoe = false, gender = false
+    let boy = false, kg = false, shoe = false, gender = false, colorReq = false
     for (const pid of selectedProductIds) {
       const p = products.find(x => x.id === pid)
       if (!p) continue
@@ -252,8 +258,9 @@ function OrdersTab({
       if (p.requires_kilo) kg = true
       if (p.requires_shoe_size) shoe = true
       if (p.requires_gender) gender = true
+      if (p.requires_color) colorReq = true
     }
-    return { boy, kg, shoe, gender }
+    return { boy, kg, shoe, gender, colorReq }
   }, [selectedProductIds, products])
 
   // Cart total
@@ -277,7 +284,7 @@ function OrdersTab({
   const resetForm = () => {
     setAthleteId(''); setAthleteSearch(''); setSelectedProductIds([])
     setPaymentStatus('odendi'); setPaidAmount(''); setNote('')
-    setBoyCm(''); setKilo(''); setShoeSize('')
+    setBoyCm(''); setKilo(''); setShoeSize(''); setColor('')
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -303,6 +310,7 @@ function OrdersTab({
       boy_cm: needs.boy && boyCm ? parseFloat(boyCm) : null,
       kilo: needs.kg && kilo ? parseFloat(kilo) : null,
       shoe_size: needs.shoe && shoeSize ? parseFloat(shoeSize) : null,
+      color: needs.colorReq && color ? (color as 'mavi' | 'kırmızı') : null,
     }))
 
     const { error: iErr } = await supabase.from('athlete_order_items').insert(items)
@@ -363,9 +371,9 @@ function OrdersTab({
         </div>
 
         {/* Ölçüler - seçilen ürünlerin ihtiyacına göre */}
-        {selectedProductIds.length > 0 && (needs.boy || needs.kg || needs.shoe || needs.gender) && (
+        {selectedProductIds.length > 0 && (needs.boy || needs.kg || needs.shoe || needs.gender || needs.colorReq) && (
           <div className="space-y-2">
-            <p className="text-[11px] font-medium text-slate-600">Sporcu Ölçüleri</p>
+            <p className="text-[11px] font-medium text-slate-600">Sporcu Ölçüleri / Özellikleri</p>
             <div className="flex flex-wrap gap-2">
               {needs.boy && (
                 <input className="input-field w-[120px] text-xs" type="number" step="0.1" placeholder="Boy (cm)" value={boyCm} onChange={e => setBoyCm(e.target.value)} />
@@ -375,6 +383,13 @@ function OrdersTab({
               )}
               {needs.shoe && (
                 <input className="input-field w-[120px] text-xs" type="number" step="0.5" placeholder="Ayakkabı no" value={shoeSize} onChange={e => setShoeSize(e.target.value)} />
+              )}
+              {needs.colorReq && (
+                <select className="input-field w-[120px] text-xs" value={color} onChange={e => setColor(e.target.value as any)}>
+                  <option value="">Renk seç</option>
+                  <option value="mavi">Mavi</option>
+                  <option value="kırmızı">Kırmızı</option>
+                </select>
               )}
               {needs.gender && selectedAthlete && (
                 <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm ring-1 ring-app-border">
@@ -448,6 +463,7 @@ function DistributeTab({
   const [editBoyCm, setEditBoyCm] = useState('')
   const [editKilo, setEditKilo] = useState('')
   const [editShoeSize, setEditShoeSize] = useState('')
+  const [editColor, setEditColor] = useState<'mavi' | 'kırmızı' | ''>('')
   const [saving, setSaving] = useState(false)
   const [exportingPng, setExportingPng] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -467,19 +483,21 @@ function DistributeTab({
     setEditBoyCm(firstItem?.boy_cm?.toString() ?? '')
     setEditKilo(firstItem?.kilo?.toString() ?? '')
     setEditShoeSize(firstItem?.shoe_size?.toString() ?? '')
+    setEditColor(firstItem?.color ?? '')
   }
 
   // Seçilen ürünlere göre hangi ölçülerin gerekli olduğunu hesapla
   const editNeeds = useMemo(() => {
-    let boy = false, kg = false, shoe = false
+    let boy = false, kg = false, shoe = false, colorReq = false
     for (const pid of editSelectedProductIds) {
       const p = products.find(x => x.id === pid)
       if (!p) continue
       if (p.requires_boy) boy = true
       if (p.requires_kilo) kg = true
       if (p.requires_shoe_size) shoe = true
+      if (p.requires_color) colorReq = true
     }
-    return { boy, kg, shoe }
+    return { boy, kg, shoe, colorReq }
   }, [editSelectedProductIds, products])
 
   const editToggleProduct = (pid: string) => {
@@ -519,6 +537,7 @@ function DistributeTab({
       boy_cm: editNeeds.boy && editBoyCm ? parseFloat(editBoyCm) : null,
       kilo: editNeeds.kg && editKilo ? parseFloat(editKilo) : null,
       shoe_size: editNeeds.shoe && editShoeSize ? parseFloat(editShoeSize) : null,
+      color: editNeeds.colorReq && editColor ? (editColor as 'mavi' | 'kırmızı') : null,
     }))
     const { error: iErr } = await supabase.from('athlete_order_items').insert(items)
     if (iErr) { setError(iErr.message); setSaving(false); return }
@@ -612,12 +631,13 @@ function DistributeTab({
           genderInfo = gender === 'erkek' ? 'Erkek' : gender === 'kiz' ? 'Kız' : '—'
         }
 
-        const key = `${pn}||${sizeInfo}||${genderInfo ?? ''}`
+        const key = `${pn}||${sizeInfo}||${genderInfo ?? ''}||${item.color ?? ''}`
         const existing = grouped.get(key)
         if (existing) {
           existing.quantity++
         } else {
-          grouped.set(key, { productName: pn, sizeInfo, quantity: 1, genderInfo })
+          const finalProductName = item.color ? `${pn} (${item.color})` : pn
+          grouped.set(key, { productName: finalProductName, sizeInfo, quantity: 1, genderInfo })
         }
       }
 
@@ -813,7 +833,7 @@ function DistributeTab({
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {o.items.map(item => {
                       const pn = productName(item.products)
-                      const details = [item.boy_cm && `${item.boy_cm}cm`, item.kilo && `${item.kilo}kg`, item.shoe_size && `ayakkabı ${item.shoe_size}`].filter(Boolean).join(', ')
+                      const details = [item.boy_cm && `${item.boy_cm}cm`, item.kilo && `${item.kilo}kg`, item.shoe_size && `ayakkabı ${item.shoe_size}`, item.color && `${item.color}`].filter(Boolean).join(', ')
                       return (
                         <span key={item.id} className="rounded-full bg-app-bg-soft px-2 py-0.5 text-[11px] text-slate-600">
                           {pn}{details ? ` (${details})` : ''}
@@ -858,9 +878,9 @@ function DistributeTab({
                     </div>
 
                     {/* Ölçüler */}
-                    {(editNeeds.boy || editNeeds.kg || editNeeds.shoe) && (
+                    {(editNeeds.boy || editNeeds.kg || editNeeds.shoe || editNeeds.colorReq) && (
                       <div>
-                        <p className="text-[11px] font-medium text-slate-600 mb-1">Ölçüler</p>
+                        <p className="text-[11px] font-medium text-slate-600 mb-1">Ölçüler / Özellikler</p>
                         <div className="flex flex-wrap gap-2">
                           {editNeeds.boy && (
                             <input type="number" step="0.1" className="input-field w-[120px] text-xs"
@@ -873,6 +893,13 @@ function DistributeTab({
                           {editNeeds.shoe && (
                             <input type="number" step="0.5" className="input-field w-[120px] text-xs"
                               placeholder="Ayakkabı no" value={editShoeSize} onChange={e => setEditShoeSize(e.target.value)} />
+                          )}
+                          {editNeeds.colorReq && (
+                            <select className="input-field w-[120px] text-xs" value={editColor} onChange={e => setEditColor(e.target.value as any)}>
+                              <option value="">Renk seç</option>
+                              <option value="mavi">Mavi</option>
+                              <option value="kırmızı">Kırmızı</option>
+                            </select>
                           )}
                         </div>
                       </div>
