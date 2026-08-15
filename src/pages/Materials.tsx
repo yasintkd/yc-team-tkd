@@ -90,6 +90,7 @@ export default function Materials() {
       setAthletes(aRes.data as Athlete[])
       setOrders(oRes.data as AthleteOrder[])
     } catch (err) {
+      console.error('Veri yükleme hatası:', err)
       setError(err instanceof Error ? err.message : 'Yüklenemedi')
     }
     setLoading(false)
@@ -171,24 +172,24 @@ function ProductsTab({
       <h2 className="text-sm font-semibold">{editing ? 'Ürünü Düzenle' : 'Yeni Ürün'}</h2>
       <form className="mt-3 space-y-3" onSubmit={submit}>
         <div className="flex flex-wrap gap-2">
-          <input className="input-field min-w-[200px] flex-1 text-xs" placeholder="Ürün adı" value={name} onChange={e => setName(e.target.value)} autoFocus={!!editing} />
-          <input type="number" min="0" step="0.01" className="input-field w-[120px] text-xs" placeholder="Fiyat (₺)" value={price} onChange={e => setPrice(e.target.value)} />
+          <input id="product-name" name="product-name" className="input-field min-w-[200px] flex-1 text-xs" placeholder="Ürün adı" value={name} onChange={e => setName(e.target.value)} autoFocus={!!editing} />
+          <input id="product-price" name="product-price" type="number" min="0" step="0.01" className="input-field w-[120px] text-xs" placeholder="Fiyat (₺)" value={price} onChange={e => setPrice(e.target.value)} />
         </div>
         <div className="flex flex-wrap gap-4 text-xs text-slate-600">
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={rBoy} onChange={e => setRBoy(e.target.checked)} /> Boy (cm)
+            <input type="checkbox" id="r-boy" name="r-boy" checked={rBoy} onChange={e => setRBoy(e.target.checked)} /> Boy (cm)
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={rKilo} onChange={e => setRKilo(e.target.checked)} /> Kilo (kg)
+            <input type="checkbox" id="r-kilo" name="r-kilo" checked={rKilo} onChange={e => setRKilo(e.target.checked)} /> Kilo (kg)
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={rShoe} onChange={e => setRShoe(e.target.checked)} /> Ayakkabı No
+            <input type="checkbox" id="r-shoe" name="r-shoe" checked={rShoe} onChange={e => setRShoe(e.target.checked)} /> Ayakkabı No
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={rGender} onChange={e => setRGender(e.target.checked)} /> Cinsiyet
+            <input type="checkbox" id="r-gender" name="r-gender" checked={rGender} onChange={e => setRGender(e.target.checked)} /> Cinsiyet
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={rColor} onChange={e => setRColor(e.target.checked)} /> Renk
+            <input type="checkbox" id="r-color" name="r-color" checked={rColor} onChange={e => setRColor(e.target.checked)} /> Renk
           </label>
         </div>
         <div className="flex gap-2">
