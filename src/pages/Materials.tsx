@@ -78,14 +78,15 @@ export default function Materials() {
       const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString()
       await supabase.from('athlete_orders').delete().lte('delivered_at', cutoff)
 
-      const [pRes, aRes, oRes] = await Promise.all([
-        supabase.from('products').select('*').order('name'),
-        supabase.from('athletes').select('id, first_name, last_name, belt, gender').eq('is_active', true).order('last_name'),
-        supabase.from('athlete_orders').select('*, athletes(first_name, last_name, gender), items:athlete_order_items(*, products(name, price))').order('created_at', { ascending: false }),
-      ])
+        const [pRes, aRes, oRes] = await Promise.all([
+          supabase.from('products').select('*').order('name'),
+          supabase.from('athletes').select('id, first_name, last_name, belt, gender').eq('is_active', true).order('last_name'),
+          supabase.from('athlete_orders').select('*, athletes!athlete_orders_athlete_id_fkey(first_name, last_name, gender), items:athlete_order_items(*, products(name, price))').order('created_at', { ascending: false }),
+        ])
       if (pRes.error) throw pRes.error
       if (aRes.error) throw aRes.error
       if (oRes.error) throw oRes.error
+      console.log('Gelen Ürünler:', pRes.data)
       setProducts(pRes.data as Product[])
       setAthletes(aRes.data as Athlete[])
       setOrders(oRes.data as AthleteOrder[])
