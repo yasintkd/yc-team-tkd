@@ -525,10 +525,9 @@ export default function LiveScore() {
   // ── Referee consensus helpers ──────────────────────────
 
   const broadcastVote = (vote: RefVote) => {
+    // Kendi oyumuzu broadcast üzerinden alacağız, burada doğrudan işlem yapmıyoruz
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
-    // Admin kendi oylarını direkt işler
-    if (isAdmin) handleIncomingVote(vote)
   }
 
   const handleIncomingVote = (incomingVote: RefVote) => {
