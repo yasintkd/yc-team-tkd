@@ -757,23 +757,9 @@ export default function LiveScore() {
       {/* Skorboard Paneli */}
       <div className="flex flex-1 flex-col gap-1 p-1">
         <div className="flex flex-1 gap-1">
-          {/* Mavi Skorboard */}
-          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
-            <div className="absolute left-1 inset-y-2 flex flex-col justify-between py-1">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`h-4 w-4 md:h-6 md:w-6 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
-              ))}
-            </div>
-            <p className="text-[10px] md:text-sm font-bold uppercase tracking-wider text-blue-200">Mavi</p>
-            <p className="truncate text-[10px] md:text-lg font-semibold text-white">
-              {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
-            </p>
-            <p className="my-auto text-6xl md:text-[10rem] font-black leading-none text-white drop-shadow-xl">{state.score[1]}</p>
-            <p className="text-xs md:text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
-          </div>
           {/* Kırmızı Skorboard */}
           <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-red-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-red-800">
-            <div className="absolute right-1 inset-y-2 flex flex-col justify-between py-1">
+            <div className="absolute left-1 inset-y-2 flex flex-col justify-between py-1">
               {[...Array(5)].map((_, i) => (
                 <div key={i} className={`h-4 w-4 md:h-6 md:w-6 rounded-full border ${i < state.stats[2].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-red-900/40 border-red-900/50'}`} />
               ))}
@@ -784,6 +770,20 @@ export default function LiveScore() {
             </p>
             <p className="my-auto text-6xl md:text-[10rem] font-black leading-none text-white drop-shadow-xl">{state.score[2]}</p>
             <p className="text-xs md:text-lg font-bold text-red-100">Raunt: {state.roundWins[2]}</p>
+          </div>
+          {/* Mavi Skorboard */}
+          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
+            <div className="absolute right-1 inset-y-2 flex flex-col justify-between py-1">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`h-4 w-4 md:h-6 md:w-6 rounded-full border ${i < state.stats[1].gamjeom ? 'bg-amber-400 border-amber-600' : 'bg-blue-900/40 border-blue-900/50'}`} />
+              ))}
+            </div>
+            <p className="text-[10px] md:text-sm font-bold uppercase tracking-wider text-blue-200">Mavi</p>
+            <p className="truncate text-[10px] md:text-lg font-semibold text-white">
+              {state.athlete1 ? `${state.athlete1.first_name}` : '—'}
+            </p>
+            <p className="my-auto text-6xl md:text-[10rem] font-black leading-none text-white drop-shadow-xl">{state.score[1]}</p>
+            <p className="text-xs md:text-lg font-bold text-blue-100">Raunt: {state.roundWins[1]}</p>
           </div>
         </div>
         
@@ -804,18 +804,18 @@ export default function LiveScore() {
       {isAdmin && (state.phase === 'idle' || state.phase === 'finished') && (
         <div className="mx-2 mt-2 grid gap-2 sm:grid-cols-2">
           <AthleteSelect
-            label="Mavi Sporcu"
-            color="blue"
-            athletes={athletes}
-            value={state.athlete1}
-            onChange={(a) => setAthlete(1, a)}
-          />
-          <AthleteSelect
             label="Kırmızı Sporcu"
             color="red"
             athletes={athletes}
             value={state.athlete2}
             onChange={(a) => setAthlete(2, a)}
+          />
+          <AthleteSelect
+            label="Mavi Sporcu"
+            color="blue"
+            athletes={athletes}
+            value={state.athlete1}
+            onChange={(a) => setAthlete(1, a)}
           />
         </div>
       )}
@@ -825,18 +825,18 @@ export default function LiveScore() {
         <div className="flex flex-col flex-[2] bg-slate-50 touch-none select-none overflow-hidden pb-[env(safe-area-inset-bottom)]">
           {/* Puanlama Alanı - Büyütülmüş */}
           <div className="flex-1 grid grid-cols-2 gap-2 p-2 pb-10 overflow-hidden">
-            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
-              <RefereeScoreButtons
-                isReferee={isReferee}
-                side={1}
-                disabled={state.phase !== 'round' || !state.timerRunning}
-                onScore={broadcastVote}
-              />
-            </div>
             <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-red-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
+                disabled={state.phase !== 'round' || !state.timerRunning}
+                onScore={broadcastVote}
+              />
+            </div>
+            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
+              <RefereeScoreButtons
+                isReferee={isReferee}
+                side={1}
                 disabled={state.phase !== 'round' || !state.timerRunning}
                 onScore={broadcastVote}
               />
@@ -863,21 +863,6 @@ export default function LiveScore() {
       {(isAdmin || !isReferee) && (
         <div className="flex flex-[3] flex-col px-2 pb-2 overflow-y-auto">
           <div className="grid grid-cols-2 gap-3 h-full">
-            {/* Mavi Bölge */}
-            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
-              <ScoreButtons
-                color="blue"
-                isAdmin={isAdmin}
-                disabled={!canControl || state.phase !== 'round'}
-                stats={state.stats[1]}
-                score={state.score[1]}
-                onScore={(delta, key) => {
-                  setScore(1, delta, key)
-                }}
-                onGamJeom={() => addGamJeom(1)}
-                onUndo={() => setScore(1, -1)}
-              />
-            </div>
             {/* Kırmızı Bölge */}
             <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
               <ScoreButtons
@@ -891,6 +876,21 @@ export default function LiveScore() {
                 }}
                 onGamJeom={() => addGamJeom(2)}
                 onUndo={() => setScore(2, -1)}
+              />
+            </div>
+            {/* Mavi Bölge */}
+            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
+              <ScoreButtons
+                color="blue"
+                isAdmin={isAdmin}
+                disabled={!canControl || state.phase !== 'round'}
+                stats={state.stats[1]}
+                score={state.score[1]}
+                onScore={(delta, key) => {
+                  setScore(1, delta, key)
+                }}
+                onGamJeom={() => addGamJeom(1)}
+                onUndo={() => setScore(1, -1)}
               />
             </div>
           </div>
@@ -956,16 +956,16 @@ export default function LiveScore() {
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button
-              onClick={() => confirmRefereeWinner(1)}
-              className="rounded-xl border-2 border-blue-500 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
-            >
-              Mavi Kazandı
-            </button>
-            <button
               onClick={() => confirmRefereeWinner(2)}
               className="rounded-xl border-2 border-red-500 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-100"
             >
               Kırmızı Kazandı
+            </button>
+            <button
+              onClick={() => confirmRefereeWinner(1)}
+              className="rounded-xl border-2 border-blue-500 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              Mavi Kazandı
             </button>
           </div>
         </Modal>
@@ -974,13 +974,13 @@ export default function LiveScore() {
       {/* Raunt Sonu Kazanan Popup Bildirimi */}
       {roundWinnerPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRoundWinnerPopup(null)}>
-          <div className={`w-full max-w-sm rounded-2xl p-6 text-center text-white shadow-2xl ${roundWinnerPopup.winner === 1 ? 'bg-blue-600 border-4 border-blue-400' : 'bg-red-600 border-4 border-red-400'}`} onClick={(e) => e.stopPropagation()}>
+          <div className={`w-full max-w-sm rounded-2xl p-6 text-center text-white shadow-2xl ${roundWinnerPopup.winner === 2 ? 'bg-red-600 border-4 border-red-400' : 'bg-blue-600 border-4 border-blue-400'}`} onClick={(e) => e.stopPropagation()}>
             <Trophy className="mx-auto h-12 w-12 animate-bounce mb-2" />
             <h2 className="text-xl font-black uppercase tracking-wider">RAUNT BİTTİ</h2>
             <div className="mt-3 rounded-xl bg-white/10 p-3 backdrop-blur">
-              <p className="text-xs font-bold uppercase opacity-80">{roundWinnerPopup.winner === 1 ? 'Mavi Köşe' : 'Kırmızı Köşe'}</p>
+              <p className="text-xs font-bold uppercase opacity-80">{roundWinnerPopup.winner === 2 ? 'Kırmızı Köşe' : 'Mavi Köşe'}</p>
               <p className="text-2xl font-extrabold mt-0.5">
-                {roundWinnerPopup.winner === 1 ? (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi Sporcu') : (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı Sporcu')}
+                {roundWinnerPopup.winner === 2 ? (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı Sporcu') : (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi Sporcu')}
               </p>
             </div>
             {roundWinnerPopup.method && (
@@ -1019,13 +1019,13 @@ export default function LiveScore() {
       {/* Maç bitti banner */}
       {state.phase === 'finished' && state.winner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className={`w-full max-w-sm rounded-3xl p-8 text-center text-white shadow-2xl border-8 ${state.winner === 1 ? 'bg-blue-600 border-blue-400' : 'bg-red-600 border-red-400'}`}>
+          <div className={`w-full max-w-sm rounded-3xl p-8 text-center text-white shadow-2xl border-8 ${state.winner === 2 ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'}`}>
             <Trophy className="mx-auto h-20 w-20 animate-pulse mb-4" />
             <h2 className="text-3xl font-black uppercase tracking-tighter">MAÇ BİTTİ</h2>
             <div className="mt-6 rounded-2xl bg-white/20 p-6 backdrop-blur">
               <p className="text-sm font-bold uppercase opacity-80">ŞAMPİYON</p>
               <p className="text-4xl font-black mt-2">
-                {state.winner === 1 ? (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi') : (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı')}
+                {state.winner === 2 ? (state.athlete2 ? `${state.athlete2.first_name} ${state.athlete2.last_name}` : 'Kırmızı') : (state.athlete1 ? `${state.athlete1.first_name} ${state.athlete1.last_name}` : 'Mavi')}
               </p>
             </div>
             {state.refereeWinner && <p className="mt-4 text-sm font-bold opacity-75">Hakem Kararı İle</p>}
