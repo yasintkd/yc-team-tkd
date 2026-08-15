@@ -82,6 +82,8 @@ type MatchState = {
   voteToleranceMs: number // Yeni: Hakem oyu tolerans süresi
   gapMatchScore: number // Puan farkı limiti
   pendingVotes: RefVote[]
+  isTestMode: boolean
+  testSignals: Record<number, string | null> // refId: lastAction
   // referee connection status (admin panel)
   refereeStatus: Record<number, RefereeStatus>
 }
@@ -119,6 +121,8 @@ const initialState = (matchId: string, matchSessionId: string = crypto.randomUUI
   voteToleranceMs: 1500, // Yeni: Varsayılan 1500ms tolerans
   gapMatchScore: 15,
   pendingVotes: [],
+  isTestMode: false,
+  testSignals: { 1: null, 2: null, 3: null },
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
 })
 
@@ -207,7 +211,12 @@ export default function LiveScore() {
     // Hakem oyları için ayrı event
     ch.on('broadcast', { event: 'vote' }, ({ payload }) => {
       if (payload && typeof payload === 'object') {
-        handleIncomingVote(payload as RefVote)
+        const vote = payload as RefVote
+        if (stateRef.current.isTestMode) {
+          setState(prev => ({ ...prev, testSignals: { ...prev.testSignals, [vote.refId]: vote.statKey || 'test' } }))
+        } else {
+          handleIncomingVote(vote)
+        }
       }
     })
     // Presence: yeni client katıldığında mevcut state'i broadcast et (sadece admin)
@@ -705,6 +714,12 @@ export default function LiveScore() {
               >
                 <QrCode className="h-3 w-3" /> QR
               </button>
+              <button
+                onClick={() => setState(prev => ({ ...prev, isTestMode: !prev.isTestMode }))}
+                className={`rounded-md border px-2 py-1 text-[11px] font-medium ${state.isTestMode ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-700 border-app-border'}`}
+              >
+                Test {state.isTestMode ? 'Açık' : 'Kapalı'}
+              </button>
               <button onClick={() => setShowSettings(true)} className="rounded-md border border-app-border bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
                 <Settings className="h-3 w-3" />
               </button>
@@ -807,8 +822,22 @@ export default function LiveScore() {
         </div>
       )}
 
+      {/* Hakem Test Paneli (Admin) */}
+      {isAdmin && state.isTestMode && (
+        <div className="mx-2 mt-2 grid grid-cols-3 gap-2 p-2 rounded-lg bg-amber-100 border border-amber-300">
+          {[1, 2, 3].map(r => (
+            <div key={r} className="text-center">
+              <div className="text-[10px] font-bold text-amber-800">Hakem #{r}</div>
+              <div className="mt-1 h-8 flex items-center justify-center bg-white rounded border border-amber-200 text-[10px] font-bold text-amber-600 uppercase">
+                {state.testSignals[r] || '...'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Admin Puanlama ve Bekleyen Oylar */}
-      {isAdmin && Object.values(state.refereeStatus).filter(r => r.connected).length > 1 && state.pendingVotes.filter(v => Date.now() - v.ts <= state.voteToleranceMs).length > 0 && (
+      {isAdmin && !state.isTestMode && Object.values(state.refereeStatus).filter(r => r.connected).length > 1 && state.pendingVotes.filter(v => Date.now() - v.ts <= state.voteToleranceMs).length > 0 && (
         <div className="mx-2 mt-2 z-10 flex flex-wrap gap-1 rounded-lg bg-amber-50 p-2 border border-amber-200">
           <span className="text-[10px] font-bold text-amber-700 w-full mb-1 uppercase">Bekleyen Oylar:</span>
           {state.pendingVotes
