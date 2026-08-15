@@ -579,6 +579,7 @@ export default function LiveScore() {
       if (!consensusGroup) return { ...prev, pendingVotes: freshVotes }
 
       const usedVotes = (consensusGroup as RefVote[]).slice(0, required)
+      play(usedVotes[0].side === 1 ? 'score-blue' : 'score-red')
       const usedIds = new Set(usedVotes.map(v => v.id))
 
       const side = usedVotes[0].side
