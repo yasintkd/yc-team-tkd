@@ -804,19 +804,19 @@ export default function LiveScore() {
         <div className="flex flex-col flex-[2] bg-slate-50 touch-none select-none overflow-hidden pb-[env(safe-area-inset-bottom)]">
           {/* Puanlama Alanı - Büyütülmüş */}
           <div className="flex-1 grid grid-cols-2 gap-2 p-2 pb-10 overflow-hidden">
-            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-red-50' : 'bg-slate-50'}`}>
+            <div className={`flex flex-col gap-2 ${state.phase === 'round' || state.isTestMode ? 'bg-red-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={2}
-                disabled={state.phase !== 'round' || !state.timerRunning}
+                disabled={!(state.phase === 'round' || state.isTestMode)}
                 onScore={broadcastVote}
               />
             </div>
-            <div className={`flex flex-col gap-2 ${state.phase === 'round' ? 'bg-blue-50' : 'bg-slate-50'}`}>
+            <div className={`flex flex-col gap-2 ${state.phase === 'round' || state.isTestMode ? 'bg-blue-50' : 'bg-slate-50'}`}>
               <RefereeScoreButtons
                 isReferee={isReferee}
                 side={1}
-                disabled={state.phase !== 'round' || !state.timerRunning}
+                disabled={!(state.phase === 'round' || state.isTestMode)}
                 onScore={broadcastVote}
               />
             </div>
