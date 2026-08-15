@@ -38,6 +38,7 @@ type Stats = {
 }
 
 type RefVote = {
+  matchSessionId: string
   refId: number
   side: Side
   delta: number
@@ -53,6 +54,7 @@ type RefereeStatus = {
 
 type MatchState = {
   matchId: string
+  matchSessionId: string
   startedAt: number
   // athletes
   athlete1: AthleteMini | null
@@ -94,8 +96,9 @@ const emptyStats = (): Stats => ({
   gamjeom: 0,
 })
 
-const initialState = (matchId: string): MatchState => ({
+const initialState = (matchId: string, matchSessionId: string = crypto.randomUUID()): MatchState => ({
   matchId,
+  matchSessionId,
   startedAt: Date.now(),
   athlete1: null,
   athlete2: null,
@@ -492,7 +495,7 @@ export default function LiveScore() {
 
   const newMatch = (_e?: React.MouseEvent<HTMLButtonElement>, keepAthletes = false) => {
     if (!isAdmin) return
-    const fresh = initialState(matchId)
+    const fresh = initialState(matchId, crypto.randomUUID())
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
     if (keepAthletes) {
@@ -526,6 +529,9 @@ export default function LiveScore() {
     if (!isAdmin) return
 
     setState((prev) => {
+      // Oturum eşleşme kontrolü
+      if (incomingVote.matchSessionId !== prev.matchSessionId) return prev
+
       const now = Date.now()
       
       // 1. Önce süresi dolmuş oyları temizle
@@ -666,7 +672,7 @@ export default function LiveScore() {
           <button
             key={k}
             disabled={disabled || !isReferee}
-            onClick={() => onScore({ refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
+              onClick={() => onScore({ matchSessionId: state.matchSessionId, refId: urlRef, side, delta: d, statKey: k, ts: Date.now() })}
             className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
             } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
