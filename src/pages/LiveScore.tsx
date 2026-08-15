@@ -88,8 +88,10 @@ type MatchState = {
   refereeStatus: Record<number, RefereeStatus>
 }
 
-const DEFAULT_ROUND = 120
-const DEFAULT_BREAK = 30
+// Global vars for persistence
+let globalRoundDuration = 120
+let globalBreakDuration = 30
+let globalGapScore = 15
 
 const emptyStats = (): Stats => ({
   punch: 0,
@@ -111,9 +113,9 @@ const initialState = (matchId: string, matchSessionId: string = crypto.randomUUI
   roundWins: { 1: 0, 2: 0 },
   currentRound: 1,
   roundWinners: {},
-  roundDurationSec: DEFAULT_ROUND,
-  breakDurationSec: DEFAULT_BREAK,
-  timerSec: DEFAULT_ROUND,
+  roundDurationSec: globalRoundDuration,
+  breakDurationSec: globalBreakDuration,
+  timerSec: globalRoundDuration,
   timerRunning: false,
   phase: 'idle',
   winner: null,
@@ -166,12 +168,17 @@ export default function LiveScore() {
     return crypto.randomUUID()
   })
 
+  // Use global settings on init
+  const [state, setState] = useState<MatchState>(() => {
+    const s = initialState(matchId)
+    s.gapMatchScore = globalGapScore
+    return s
+  })
+
   // Sync isAdmin with auth status
   useEffect(() => {
     if (isAuthAdmin) setIsAdmin(true)
   }, [isAuthAdmin])
-
-  const [state, setState] = useState<MatchState>(() => initialState(matchId))
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
@@ -454,11 +461,18 @@ export default function LiveScore() {
 
   const setRoundDuration = (v: number) => {
     if (!isAdmin) return
-    setState((prev) => ({ ...prev, roundDurationSec: v, timerSec: v }))
+    globalRoundDuration = v
+    setState((prev) => ({ ...prev, roundDurationSec: v, timerSec: prev.phase === 'idle' || prev.phase === 'finished' ? v : prev.timerSec }))
   }
   const setBreakDuration = (v: number) => {
     if (!isAdmin) return
+    globalBreakDuration = v
     setState((prev) => ({ ...prev, breakDurationSec: v }))
+  }
+  const setGapScore = (v: number) => {
+    if (!isAdmin) return
+    globalGapScore = v
+    setState((prev) => ({ ...prev, gapMatchScore: v }))
   }
   // biome-ignore lint/correctness/useExhaustiveDependencies: suppress unused warning
   void setRoundDuration
@@ -1057,21 +1071,21 @@ export default function LiveScore() {
               <label className="block text-xs font-medium text-slate-500 mb-1">Raunt Süresi (sn)</label>
               <input type="number" value={state.roundDurationSec} onChange={(e) => {
                 const v = parseInt(e.target.value) || 0
-                setState(p => ({ ...p, roundDurationSec: v, timerSec: p.phase === 'idle' ? v : p.timerSec }))
+                setRoundDuration(v)
               }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Ara Süresi (sn)</label>
               <input type="number" value={state.breakDurationSec} onChange={(e) => {
                 const v = parseInt(e.target.value) || 0
-                setState(p => ({ ...p, breakDurationSec: v }))
+                setBreakDuration(v)
               }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Puan Farkı Limiti</label>
               <input type="number" value={state.gapMatchScore} onChange={(e) => {
                 const v = parseInt(e.target.value) || 0
-                setState(p => ({ ...p, gapMatchScore: v }))
+                setGapScore(v)
               }} className="w-full rounded-lg border border-app-border p-2 text-sm" />
             </div>
             <button onClick={() => { broadcast(state); setShowSettings(false) }} className="w-full rounded-lg bg-emerald-600 text-white py-2 font-bold text-sm">
