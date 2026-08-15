@@ -83,7 +83,7 @@ type MatchState = {
   gapMatchScore: number // Puan farkı limiti
   pendingVotes: RefVote[]
   isTestMode: boolean
-  testSignals: Record<number, string | null> // refId: lastAction
+  testSignals: Record<number, { action: string, side: Side } | null> // refId: {action, side}
   // referee connection status (admin panel)
   refereeStatus: Record<number, RefereeStatus>
 }
@@ -213,7 +213,7 @@ export default function LiveScore() {
       if (payload && typeof payload === 'object') {
         const vote = payload as RefVote
         if (stateRef.current.isTestMode) {
-          setState(prev => ({ ...prev, testSignals: { ...prev.testSignals, [vote.refId]: vote.statKey || 'test' } }))
+          setState(prev => ({ ...prev, testSignals: { ...prev.testSignals, [vote.refId]: { action: vote.statKey || 'test', side: vote.side } } }))
         } else {
           handleIncomingVote(vote)
         }
@@ -717,7 +717,7 @@ export default function LiveScore() {
                 <QrCode className="h-3 w-3" /> QR
               </button>
               <button
-                onClick={() => setState(prev => ({ ...prev, isTestMode: !prev.isTestMode }))}
+                onClick={() => setState(prev => ({ ...prev, isTestMode: !prev.isTestMode, timerRunning: prev.isTestMode ? prev.timerRunning : false }))}
                 className={`rounded-md border px-2 py-1 text-[11px] font-medium ${state.isTestMode ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-700 border-app-border'}`}
               >
                 Test {state.isTestMode ? 'Açık' : 'Kapalı'}
@@ -827,14 +827,18 @@ export default function LiveScore() {
       {/* Hakem Test Paneli (Admin) */}
       {isAdmin && state.isTestMode && (
         <div className="mx-2 mt-2 grid grid-cols-3 gap-2 p-2 rounded-lg bg-amber-100 border border-amber-300">
-          {[1, 2, 3].map(r => (
-            <div key={r} className="text-center">
-              <div className="text-[10px] font-bold text-amber-800">Hakem #{r}</div>
-              <div className="mt-1 h-8 flex items-center justify-center bg-white rounded border border-amber-200 text-[10px] font-bold text-amber-600 uppercase">
-                {state.testSignals[r] || '...'}
+          {[1, 2, 3].map(r => {
+            const sig = state.testSignals[r]
+            const colorClass = sig?.side === 1 ? 'text-blue-600' : sig?.side === 2 ? 'text-red-600' : 'text-amber-600'
+            return (
+              <div key={r} className="text-center">
+                <div className="text-[10px] font-bold text-amber-800">Hakem #{r}</div>
+                <div className={`mt-1 h-8 flex items-center justify-center bg-white rounded border border-amber-200 text-[10px] font-bold uppercase ${colorClass}`}>
+                  {sig ? `${sig.action}` : '...'}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
