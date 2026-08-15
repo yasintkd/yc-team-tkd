@@ -519,129 +519,53 @@ export default function LiveScore() {
   // ── Referee consensus helpers ──────────────────────────
 
   const broadcastVote = (vote: RefVote) => {
-    // Kendi oyumuzu da yerelde işleyelim ki konsensüs hesaplanabilsin
-    handleIncomingVote(vote)
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
+    // Admin kendi oylarını direkt işler
+    if (isAdmin) handleIncomingVote(vote)
   }
 
   const handleIncomingVote = (incomingVote: RefVote) => {
-    if (!isAdmin) return
-
     setState((prev) => {
-      // Oturum eşleşme kontrolü
       if (incomingVote.matchSessionId !== prev.matchSessionId) return prev
 
       const now = Date.now()
+      const freshVotes = [...prev.pendingVotes, incomingVote].filter(v => now - v.ts <= prev.voteToleranceMs)
       
-      // 1. Önce süresi dolmuş oyları temizle
-      const freshVotes = prev.pendingVotes.filter(v => now - v.ts <= prev.voteToleranceMs)
-
-      // 2. Mükerrer oy kontrolü (aynı hakem, aynı taraf, aynı tuş)
-      const alreadyVoted = freshVotes.some(
-        (v) =>
-          v.refId === incomingVote.refId &&
-          v.side === incomingVote.side &&
-          v.delta === incomingVote.delta &&
-          v.statKey === incomingVote.statKey,
-      )
-      if (alreadyVoted) return { ...prev, pendingVotes: freshVotes }
-
-      // 3. Yeni oyu ekle
-      const updatedPendingVotes = [...freshVotes, incomingVote]
-      let nextState: MatchState = { ...prev, pendingVotes: updatedPendingVotes }
-
-      const getScoreSide = (v: RefVote): Side => (v.statKey === 'gamjeom' ? (v.side === 1 ? 2 : 1) : v.side)
-
-      // 4. Konsensüs kontrolü
       const activeRefCount = Object.values(prev.refereeStatus).filter(r => r.connected).length
-      if (activeRefCount <= 1) {
-        // Tek hakem modu: Anında işle
-        const vote = incomingVote
-        const scoreSide = getScoreSide(vote)
-        nextState = {
-          ...nextState,
-          score: { ...nextState.score, [scoreSide]: nextState.score[scoreSide] + vote.delta },
-          stats: {
-            ...nextState.stats,
-            [vote.side]: {
-              ...nextState.stats[vote.side],
-              ...(vote.statKey !== 'gamjeom'
-                ? { [vote.statKey]: nextState.stats[vote.side][vote.statKey] + 1 }
-                : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
-            },
-          },
-          pendingVotes: [],
-        }
+      const required = activeRefCount <= 1 ? 1 : 2
+      
+      const voteGroups = freshVotes.reduce((acc, v) => {
+        const key = `${v.side}-${v.delta}-${v.statKey}`
+        if (!acc[key]) acc[key] = new Set()
+        acc[key].add(v.refId)
+        return acc
+      }, {} as Record<string, Set<number>>)
 
-        // 15 Puan fark kuralı (Yüksek Puan)
-        const diff = Math.abs(nextState.score[1] - nextState.score[2])
-        if (diff >= 15) {
-          const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-          nextState = finalizeRound(nextState, winner, '15 Puan Fark (Gap Match)')
-          broadcast(nextState)
-          return nextState
-        }
+      const consensusKey = Object.keys(voteGroups).find(k => voteGroups[k].size >= required)
+      
+      if (!consensusKey) return { ...prev, pendingVotes: freshVotes }
 
-        if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
-          const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1, '5 Gam-jeom Cezası')
-          broadcast(finished)
-          return finished
-        }
-      } else {
-        // Çoklu hakem modu (2 veya 3)
-        const relevantVotes = updatedPendingVotes.filter(
-          (v) =>
-            v.side === incomingVote.side &&
-            v.delta === incomingVote.delta &&
-            v.statKey === incomingVote.statKey
-        )
+      const [sideStr, deltaStr, statKey] = consensusKey.split('-')
+      const side = parseInt(sideStr) as Side
+      const delta = parseInt(deltaStr)
+      const scoreSide = statKey === 'gamjeom' ? (side === 1 ? 2 : 1) : side
 
-        const uniqueRefIds = new Set(relevantVotes.map(v => v.refId))
-        const requiredVotes = 2 // 2 veya 3 hakem için her zaman en az 2 oy
-
-        if (uniqueRefIds.size >= requiredVotes) {
-          const vote = incomingVote
-          const scoreSide = getScoreSide(vote)
-          nextState = {
-            ...nextState,
-            score: { ...nextState.score, [scoreSide]: nextState.score[scoreSide] + vote.delta },
-            stats: {
-              ...nextState.stats,
-              [vote.side]: {
-                ...nextState.stats[vote.side],
-                ...(vote.statKey !== 'gamjeom'
-                  ? { [vote.statKey]: nextState.stats[vote.side][vote.statKey] + 1 }
-                  : { gamjeom: nextState.stats[vote.side].gamjeom + 1 }),
-              },
-            },
-            pendingVotes: updatedPendingVotes.filter(
-              (v) => !(v.side === incomingVote.side && v.delta === incomingVote.delta && v.statKey === incomingVote.statKey)
-            ),
-          }
-
-          // 15 Puan fark kuralı
-          const diff = Math.abs(nextState.score[1] - nextState.score[2])
-          if (diff >= 15) {
-            const winner = nextState.score[1] > nextState.score[2] ? 1 : 2
-            nextState = finalizeRound(nextState, winner, '15 Puan Fark (Gap Match)')
-            broadcast(nextState)
-            return nextState
-          }
-
-          if (vote.statKey === 'gamjeom' && nextState.stats[vote.side].gamjeom >= 5) {
-            const finished = finalizeRound(nextState, vote.side === 1 ? 2 : 1, '5 Gam-jeom Cezası')
-            broadcast(finished)
-            return finished
-          }
-        } else {
-          // Konsensüs henüz yok
-          nextState.pendingVotes = updatedPendingVotes
-        }
+      let next: MatchState = {
+        ...prev,
+        score: { ...prev.score, [scoreSide]: prev.score[scoreSide] + delta },
+        stats: {
+          ...prev.stats,
+          [side]: { ...prev.stats[side], [statKey]: prev.stats[side][statKey as keyof Stats] + 1 }
+        },
+        pendingVotes: freshVotes.filter(v => `${v.side}-${v.delta}-${v.statKey}` !== consensusKey)
       }
 
-      broadcast(nextState)
-      return nextState
+      if (Math.abs(next.score[1] - next.score[2]) >= 15) next = finalizeRound(next, next.score[1] > next.score[2] ? 1 : 2, 'Gap Match')
+      else if (statKey === 'gamjeom' && next.stats[side].gamjeom >= 5) next = finalizeRound(next, side === 1 ? 2 : 1, '5 Gam-jeom')
+
+      broadcast(next)
+      return next
     })
   }
 
