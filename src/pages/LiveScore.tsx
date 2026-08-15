@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import { useAudio } from '../hooks/useAudio'
 import QRCode from 'qrcode'
 
 // ─── Types ──────────────────────────────────────────────
@@ -139,6 +140,7 @@ const BROADCAST_NAME = 'state'
 
 export default function LiveScore() {
   const { status, user } = useAuth()
+  const { play } = useAudio()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const urlMatchId = params.get('matchId') || ''
@@ -335,9 +337,10 @@ export default function LiveScore() {
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
-    // Admin her zaman yetkili, referee sadece round phase'inde
     if (!isAdmin && state.phase !== 'round') return
     setState((prev) => {
+      const isIncrease = delta > 0
+      if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red')
       let next: MatchState = {
         ...prev,
         score: { ...prev.score, [side]: prev.score[side] + delta },
@@ -346,7 +349,6 @@ export default function LiveScore() {
           [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey] + 1 } : {}) },
         },
       }
-      // 15 Puan fark kuralı (Tek hakem / doğrudan admin skor artışı)
       const diff = Math.abs(next.score[1] - next.score[2])
       if (diff >= 15) {
         const winner = next.score[1] > next.score[2] ? 1 : 2
@@ -359,10 +361,10 @@ export default function LiveScore() {
 
   const addGamJeom = (penalized: Side) => {
     if (!isAdmin) return
+    play('penalized')
     setState((prev) => {
       const opp: Side = penalized === 1 ? 2 : 1
       const penalizedStats = { ...prev.stats[penalized], gamjeom: prev.stats[penalized].gamjeom + 1 }
-      // 5. cezada otomatik raunt kaybı
       const autoRoundLoss = penalizedStats.gamjeom >= 5
       let next: MatchState = {
         ...prev,
@@ -388,6 +390,7 @@ export default function LiveScore() {
     }
     // Best of 3 → 2 kazanan bitti
     if (updated.roundWins[1] >= 2 || updated.roundWins[2] >= 2) {
+      play('match-end')
       updated.phase = 'finished'
       updated.winner = updated.roundWins[1] >= 2 ? 1 : 2
       updated.timerSec = 0
@@ -456,6 +459,7 @@ export default function LiveScore() {
   const startMatch = () => {
     if (!isAdmin) return
     if (!state.athlete1 || !state.athlete2) return
+    play('match-start')
     const next: MatchState = {
       ...state,
       phase: 'round',
@@ -470,6 +474,7 @@ export default function LiveScore() {
   const pauseToggle = () => {
     if (!isAdmin) return
     setState((prev) => {
+      play(prev.timerRunning ? 'timer-pause' : 'timer-resume')
       const next = { ...prev, timerRunning: !prev.timerRunning }
       broadcast(next)
       return next
@@ -542,8 +547,8 @@ export default function LiveScore() {
         const key = `${v.side}-${v.delta}-${v.statKey}`
         if (!acc[key]) acc[key] = []
         
-        // Bu teknik için mevcut grupları kontrol et (300ms penceresi)
-        const existingGroup = acc[key].find(g => Math.abs(g[0].ts - v.ts) <= 300)
+        // Bu teknik için mevcut grupları kontrol et (750ms penceresi)
+        const existingGroup = acc[key].find(g => Math.abs(g[0].ts - v.ts) <= 750)
         if (existingGroup) {
           existingGroup.push(v)
         } else {
