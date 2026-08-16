@@ -9,7 +9,7 @@ export default defineConfig({
     legacy({
       targets: ['> 0.5%', 'last 2 versions', 'Firefox ESR', 'not dead', 'ios >= 9'],
       renderLegacyChunks: true,
-      polyfills: true,
+      polyfills: ['es.promise', 'es.symbol', 'es.array.iterator', 'es.object.assign', 'es.array.from'],
       modernPolyfills: true,
       externalSystemJS: false
     }),
