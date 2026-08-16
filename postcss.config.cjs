@@ -1,13 +1,16 @@
 module.exports = {
   plugins: {
     '@tailwindcss/postcss': {},
+    'postcss-custom-properties': {
+      preserve: true,
+      warnings: false,
+    },
     'postcss-preset-env': {
       stage: 3,
       features: {
-        'custom-properties': true,
         'nesting-rules': true
       },
-      browsers: 'ios >= 10'
+      browsers: ['> 0.5%', 'last 2 versions', 'iOS >= 9']
     },
     'autoprefixer': {}
   }

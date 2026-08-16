@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     reactSwc(),
     legacy({
-      targets: ['defaults', 'not IE 11', 'ios >= 10'], // iPhone 6 için iOS 10 veya daha eski versiyonları hedefle
+      targets: ['> 0.5%', 'last 2 versions', 'Firefox ESR', 'not dead', 'ios >= 9'],
       polyfills: true,
       modernPolyfills: true,
     }),
