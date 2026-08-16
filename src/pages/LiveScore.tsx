@@ -397,6 +397,7 @@ export default function LiveScore() {
   }
 
   const finalizeRound = (s: MatchState, winner: Side | null, method?: string): MatchState => {
+    triggerVibrate()
     const updated: MatchState = { ...s, timerRunning: false }
     if (winner) {
       updated.roundWins = { ...updated.roundWins, [winner]: updated.roundWins[winner] + 1 }
@@ -495,8 +496,13 @@ export default function LiveScore() {
   }
 
 
+  const triggerVibrate = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([100, 50, 100])
+  }
+
   const pauseToggle = () => {
     if (!isAdmin) return
+    triggerVibrate()
     setState((prev) => {
       play(prev.timerRunning ? 'timer-pause' : 'timer-resume', true)
       const next = { ...prev, timerRunning: !prev.timerRunning }
@@ -507,6 +513,7 @@ export default function LiveScore() {
 
   const skipBreak = () => {
     if (!isAdmin || state.phase !== 'break') return
+    triggerVibrate()
     setState((prev) => {
       const next: MatchState = { ...prev, timerSec: prev.roundDurationSec, phase: 'round', timerRunning: true }
       broadcast(next)
@@ -550,7 +557,9 @@ export default function LiveScore() {
 
   const broadcastVote = (vote: RefVote) => {
     // Hakem cihazında sadece titreşim
-    vibrate(200)
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(200)
+    }
     
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
@@ -646,16 +655,19 @@ export default function LiveScore() {
         {buttons.map(({ d, k, label }) => (
           <button
             key={k}
-            disabled={disabled || state.phase !== 'round'}
-            onClick={() => onScore({ 
-              id: uuidv4(), 
-              matchSessionId: state.matchSessionId, 
-              refId: urlRef, 
-              side, 
-              delta: d, 
-              statKey: k, 
-              ts: Date.now() 
-            })}
+            disabled={disabled || state.phase !== 'round' || !state.timerRunning}
+            onClick={() => {
+              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(200)
+              onScore({ 
+                id: uuidv4(), 
+                matchSessionId: state.matchSessionId, 
+                refId: urlRef, 
+                side, 
+                delta: d, 
+                statKey: k, 
+                ts: Date.now() 
+              })
+            }}
             className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
             } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
