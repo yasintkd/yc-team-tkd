@@ -58,12 +58,9 @@
   body {
     @apply bg-app-bg text-slate-800 antialiased;
     -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: manipulation;
-    -ms-touch-action: manipulation;
     font-family: var(--font-family-sans);
+    height: 100%;
+    margin: 0;
   }
 
   input,
