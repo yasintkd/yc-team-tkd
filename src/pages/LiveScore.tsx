@@ -630,7 +630,7 @@ export default function LiveScore() {
   // ── RefereeScoreButtons component (hakem UI) ───────────
 
   function RefereeScoreButtons({
-    isReferee,
+    isReferee: _isReferee,
     side,
     disabled,
     onScore,
@@ -648,13 +648,16 @@ export default function LiveScore() {
       { d: 1, k: 'punch' as const, label: '+1' },
     ]
 
+    const isDisabled = disabled || state.phase !== 'round' || !state.timerRunning || state.timerSec <= 0
+
     return (
       <div className="grid grid-cols-1 gap-2 p-1">
         {buttons.map(({ d, k, label }) => (
           <button
             key={k}
-            disabled={disabled || state.phase !== 'round' || !state.timerRunning}
+            disabled={isDisabled}
             onClick={() => {
+              if (isDisabled) return
               triggerVibrate(200)
               onScore({ 
                 id: uuidv4(), 
@@ -668,7 +671,7 @@ export default function LiveScore() {
             }}
             className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
-            } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
+            } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             {label}
           </button>
