@@ -356,9 +356,9 @@ export default function LiveScore() {
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
     if (!isAdmin && state.phase !== 'round') return
     setState((prev) => {
-      const isIncrease = delta > 0
-      if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red')
-      let next: MatchState = {
+    const isIncrease = delta > 0
+    if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red', true)
+    let next: MatchState = {
         ...prev,
         score: { ...prev.score, [side]: prev.score[side] + delta },
         stats: {
@@ -378,7 +378,7 @@ export default function LiveScore() {
 
   const addGamJeom = (penalized: Side) => {
     if (!isAdmin) return
-    play('penalized')
+    play('penalized', true)
     setState((prev) => {
       const opp: Side = penalized === 1 ? 2 : 1
       const penalizedStats = { ...prev.stats[penalized], gamjeom: prev.stats[penalized].gamjeom + 1 }
@@ -407,7 +407,7 @@ export default function LiveScore() {
     }
     // Best of 3 → 2 kazanan bitti
     if (updated.roundWins[1] >= 2 || updated.roundWins[2] >= 2) {
-      play('match-end')
+      play('match-end', true)
       updated.phase = 'finished'
       updated.winner = updated.roundWins[1] >= 2 ? 1 : 2
       updated.timerSec = 0
@@ -483,7 +483,7 @@ export default function LiveScore() {
   const startMatch = () => {
     if (!isAdmin) return
     if (!state.athlete1 || !state.athlete2) return
-    play('match-start')
+    play('match-start', true)
     const next: MatchState = {
       ...state,
       phase: 'round',
@@ -498,7 +498,7 @@ export default function LiveScore() {
   const pauseToggle = () => {
     if (!isAdmin) return
     setState((prev) => {
-      play(prev.timerRunning ? 'timer-pause' : 'timer-resume')
+      play(prev.timerRunning ? 'timer-pause' : 'timer-resume', true)
       const next = { ...prev, timerRunning: !prev.timerRunning }
       broadcast(next)
       return next
@@ -549,8 +549,8 @@ export default function LiveScore() {
   // ── Referee consensus helpers ──────────────────────────
 
   const broadcastVote = (vote: RefVote) => {
-    // Kendi puan sesini çal
-    play(vote.side === 1 ? 'score-blue' : 'score-red')
+    // Hakem cihazında sadece titreşim
+    vibrate(200)
     
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
@@ -594,7 +594,7 @@ export default function LiveScore() {
       if (!consensusGroup) return { ...prev, pendingVotes: freshVotes }
 
       const usedVotes = (consensusGroup as RefVote[]).slice(0, required)
-      play(usedVotes[0].side === 1 ? 'score-blue' : 'score-red')
+      play(usedVotes[0].side === 1 ? 'score-blue' : 'score-red', true)
       const usedIds = new Set(usedVotes.map(v => v.id))
 
       const side = usedVotes[0].side
@@ -646,7 +646,7 @@ export default function LiveScore() {
         {buttons.map(({ d, k, label }) => (
           <button
             key={k}
-            disabled={disabled || !isReferee}
+            disabled={disabled || state.phase !== 'round'}
             onClick={() => onScore({ 
               id: uuidv4(), 
               matchSessionId: state.matchSessionId, 
