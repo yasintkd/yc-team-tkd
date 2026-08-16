@@ -1,13 +1,11 @@
 import { defineConfig } from 'vite'
 import reactSwc from '@vitejs/plugin-react-swc'
-import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import legacy from '@vitejs/plugin-legacy'
 
 export default defineConfig({
   plugins: [
     reactSwc(),
-    tailwindcss(),
     legacy({
       targets: ['defaults', 'not IE 11', 'ios >= 10'], // iPhone 6 için iOS 10 veya daha eski versiyonları hedefle
       polyfills: true,
