@@ -496,8 +496,8 @@ export default function LiveScore() {
   }
 
 
-  const triggerVibrate = () => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([100, 50, 100])
+  const triggerVibrate = (pattern: number | number[] = [100, 50, 100]) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern)
   }
 
   const pauseToggle = () => {
@@ -557,9 +557,7 @@ export default function LiveScore() {
 
   const broadcastVote = (vote: RefVote) => {
     // Hakem cihazında sadece titreşim
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(200)
-    }
+    triggerVibrate(200)
     
     const ch = channelRef.current
     if (ch) void ch.send({ type: 'broadcast', event: 'vote', payload: vote })
@@ -657,7 +655,7 @@ export default function LiveScore() {
             key={k}
             disabled={disabled || state.phase !== 'round' || !state.timerRunning}
             onClick={() => {
-              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(200)
+              triggerVibrate(200)
               onScore({ 
                 id: uuidv4(), 
                 matchSessionId: state.matchSessionId, 
