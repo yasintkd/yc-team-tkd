@@ -593,19 +593,19 @@ export default function LiveScore() {
           <span>{isAdmin ? 'Admin' : isReferee ? `Hakem #${urlRef}` : ''}</span>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-1">
-        <div className="flex flex-1 gap-1">
-          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-red-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-red-800">
-            <p className="text-[10px] font-bold uppercase text-red-200">Kırmızı</p>
-            <p className="my-auto text-6xl font-black">{state.score[2]}</p>
+      <div className="flex flex-[2] flex-col gap-1 p-1">
+        <div className="flex flex-[2] gap-1">
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl bg-red-600 text-white shadow-lg">
+            <p className="text-xs font-bold uppercase">Kırmızı</p>
+            <p className="text-7xl font-black">{state.score[2]}</p>
           </div>
-          <div className="relative flex flex-[2] md:flex-[1] flex-col rounded-xl bg-blue-600 px-2 py-2 text-center text-white shadow-lg border-b-4 border-blue-800">
-            <p className="text-[10px] font-bold uppercase text-blue-200">Mavi</p>
-            <p className="my-auto text-6xl font-black">{state.score[1]}</p>
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg">
+            <p className="text-xs font-bold uppercase">Mavi</p>
+            <p className="text-7xl font-black">{state.score[1]}</p>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-lg bg-slate-900 py-0.5 text-white shadow">
-          <p className="font-mono text-3xl font-black">{mm}:{ss}</p>
+        <div className="flex flex-[1] items-center justify-center rounded-lg bg-slate-900 text-white shadow">
+          <p className="font-mono text-5xl font-black">{mm}:{ss}</p>
         </div>
       </div>
       {isReferee && (
