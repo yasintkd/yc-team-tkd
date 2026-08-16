@@ -677,7 +677,7 @@ export default function LiveScore() {
     state.phase === 'break' ? 'Ara' : 'Bitti'
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
+    <div className="flex h-screen h-[100dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
       {/* Top bar - kompakt */}
       <div className="flex flex-none items-center justify-between gap-2 border-b border-app-border bg-white/60 px-3 py-2 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="flex items-center gap-2 text-xs text-brand-muted">

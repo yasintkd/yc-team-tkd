@@ -53,7 +53,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-2rem)] flex-col items-center justify-center py-6">
+    <div className="flex min-h-screen min-h-[calc(100dvh-2rem)] flex-col items-center justify-center py-6">
       <div className="mb-6 flex w-full max-w-[300px] flex-col items-center text-center">
         <Logo variant="login" />
         <p className="mt-3 text-sm text-brand-muted">{BRAND.tagline}</p>
