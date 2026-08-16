@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import { useAudio } from '../hooks/useAudio'
 import QRCode from 'qrcode'
+import { v4 as uuidv4 } from 'uuid'
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ const emptyStats = (): Stats => ({
   gamjeom: 0,
 })
 
-const initialState = (matchId: string, matchSessionId: string = crypto.randomUUID()): MatchState => ({
+const initialState = (matchId: string, matchSessionId: string = uuidv4()): MatchState => ({
   matchId,
   matchSessionId,
   startedAt: Date.now(),
@@ -165,7 +166,7 @@ export default function LiveScore() {
   // matchId: önce URL, yoksa yeni UUID
   const [matchId] = useState<string>(() => {
     if (urlMatchId) return urlMatchId
-    return crypto.randomUUID()
+    return uuidv4()
   })
 
   // Use global settings on init
@@ -524,7 +525,7 @@ export default function LiveScore() {
 
   const newMatch = (_e?: React.MouseEvent<HTMLButtonElement>, keepAthletes = false) => {
     if (!isAdmin) return
-    const fresh = initialState(matchId, crypto.randomUUID())
+    const fresh = initialState(matchId, uuidv4())
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
     if (keepAthletes) {
@@ -647,7 +648,7 @@ export default function LiveScore() {
             key={k}
             disabled={disabled || !isReferee}
             onClick={() => onScore({ 
-              id: crypto.randomUUID(), 
+              id: uuidv4(), 
               matchSessionId: state.matchSessionId, 
               refId: urlRef, 
               side, 
