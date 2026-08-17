@@ -80,13 +80,16 @@ type MatchState = {
   winner: Side | null
   refereeWinner: Side | null
   // referee consensus (1-3 hakem)
-  voteToleranceMs: number // Yeni: Hakem oyu tolerans süresi
+  voteToleranceMs: 1500 // Yeni: Hakem oyu tolerans süresi
   gapMatchScore: number // Puan farkı limiti
   pendingVotes: RefVote[]
   isTestMode: boolean
   testSignals: Record<number, { action: string, side: Side } | null> // refId: {action, side}
   // referee connection status (admin panel)
   refereeStatus: Record<number, RefereeStatus>
+  // Tie-breaker vote
+  tieVoteActive: boolean
+  refereeTieVotes: Record<Side, number>
 }
 
 // Global vars for persistence
@@ -127,6 +130,8 @@ const initialState = (matchId: string, matchSessionId: string = uuidv4()): Match
   isTestMode: false,
   testSignals: { 1: null, 2: null, 3: null },
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
+  tieVoteActive: false,
+  refereeTieVotes: { 1: 0, 2: 0 },
 })
 
 // ─── Tie-breaker (spec §5.4, birebir) ───────────────────
@@ -224,6 +229,29 @@ export default function LiveScore() {
           setState(prev => ({ ...prev, testSignals: { ...prev.testSignals, [vote.refId]: { action: vote.statKey || 'test', side: vote.side } } }))
         } else {
           handleIncomingVote(vote)
+        }
+      }
+    })
+    // Beraberlik oylaması isteği
+    ch.on('broadcast', { event: 'tie_vote_request' }, ({ payload }) => {
+      if (payload && typeof payload === 'object') {
+        const { currentRound, matchSessionId } = payload as { currentRound: number, matchSessionId: string }
+        // Sadece ilgili raunt ve oturum için oylama popup'ı göster
+        if (stateRef.current.currentRound === currentRound && stateRef.current.matchSessionId === matchSessionId) {
+          setState(prev => ({ ...prev, tieVoteActive: true, refereeTieVotes: { 1: 0, 2: 0 } })) // Hakem cihazında oylama aktif et
+        }
+      }
+    })
+    // Gelen beraberlik oyları
+    ch.on('broadcast', { event: 'tie_vote' }, ({ payload }) => {
+      if (payload && typeof payload === 'object') {
+        const { side, matchSessionId, round } = payload as { side: Side, matchSessionId: string, round: number }
+        if (stateRef.current.matchSessionId === matchSessionId && stateRef.current.currentRound === round) {
+          // Admin tarafında oy topla
+          setState(prev => ({
+            ...prev,
+            refereeTieVotes: { ...prev.refereeTieVotes, [side]: prev.refereeTieVotes[side] + 1 }
+          }))
         }
       }
     })
@@ -346,11 +374,13 @@ export default function LiveScore() {
     if (state.timerRunning) return
     if (state.timerSec !== 0) return
     // otomatik raunt sonu
-    handleRoundEnd()
+    handleRoundEnd(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase, state.timerRunning, state.timerSec])
 
   // ── Helpers
+  const activeRefCount = Object.values(state.refereeStatus).filter(r => r.connected).length
+  const isAdminAlsoVoting = activeRefCount === 2 // 2 hakem varsa admin de oylamaya dahil
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
@@ -424,7 +454,7 @@ export default function LiveScore() {
     return updated
   }
 
-  const handleRoundEnd = () => {
+  const handleRoundEnd = (isAutomatic: boolean = false) => {
     if (!isAdmin) return
     const w = getWinner(
       state.score[1],
@@ -432,14 +462,43 @@ export default function LiveScore() {
       state.stats[1],
       state.stats[2],
     )
-    if (w === null) {
-      // hakem kararı gerekli
-      setPendingRoundWinner(null)
-      setRefereeOpen(true)
+    const activeRefCount = Object.values(state.refereeStatus).filter(r => r.connected).length
+    const isAdminAlsoVoting = activeRefCount === 2 // 2 hakem varsa admin de oylamaya dahil
+
+    if (w === null) { // Beraberlik durumu (tie-breaker da eşit)
+      if (activeRefCount === 0) { // Hakem yoksa, admin manuel belirlesin
+        setPendingRoundWinner(null)
+        setRefereeOpen(true)
+        return
+      }
+
+      // Hakemler bağlıysa oylama başlat
+      setState(prev => ({
+        ...prev,
+        tieVoteActive: true,
+        refereeTieVotes: { 1: 0, 2: 0 } // Oyları sıfırla
+      }))
+      // Hakem cihazlarına oylama isteği gönder
+      const ch = channelRef.current
+      if (ch) void ch.send({
+        type: 'broadcast',
+        event: 'tie_vote_request',
+        payload: { currentRound: state.currentRound, matchSessionId: state.matchSessionId }
+      })
       return
     }
-    setPendingRoundWinner(w)
-    setRoundEndConfirmOpen(true)
+
+    // Galip belirlendi
+    if (isAutomatic) { // Otomatik süre bitimi ise onaya gerek yok
+      setState((prev) => {
+        const next = finalizeRound(prev, w, 'Süre Sonu / Kriterler')
+        broadcast(next)
+        return next
+      })
+    } else { // Admin manuel bitiriyorsa onay sorulsun
+      setPendingRoundWinner(w)
+      setRoundEndConfirmOpen(true)
+    }
   }
 
   const confirmRoundEnd = (winner: Side) => {
@@ -957,7 +1016,7 @@ export default function LiveScore() {
                 </button>
               )}
               <button
-                onClick={handleRoundEnd}
+                onClick={() => handleRoundEnd(false)}
                 disabled={state.phase !== 'round'}
                 className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
               >
@@ -995,6 +1054,42 @@ export default function LiveScore() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {/* Beraberlik Oylama Modalı (Hakemler ve Admin için) */}
+      {(state.tieVoteActive && (isReferee || isAdmin)) && (
+        <TieVoteModal
+          key={state.currentRound} // Raunt değiştiğinde yeniden render et
+          activeRefCount={activeRefCount}
+          isAdmin={isAdmin}
+          isReferee={isReferee}
+          urlRef={urlRef}
+          refereeTieVotes={state.refereeTieVotes}
+          onVote={(side) => {
+            if (isAdmin) { // Admin oy kullanırsa doğrudan state'i güncelle
+              setState(prev => ({
+                ...prev,
+                refereeTieVotes: { ...prev.refereeTieVotes, [side]: prev.refereeTieVotes[side] + 1 }
+              }))
+            } else { // Hakem oy kullanırsa broadcast ile gönder
+              const ch = channelRef.current
+              if (ch) void ch.send({
+                type: 'broadcast',
+                event: 'tie_vote',
+                payload: { side, matchSessionId: state.matchSessionId, round: state.currentRound }
+              })
+            }
+          }}
+          onFinalize={(winner) => { // Oylama sonucu admin tarafından belirlendiğinde
+            setState(prev => {
+              const next = finalizeRound(prev, winner, 'Hakem/Admin Kararı (Beraberlik)')
+              next.refereeWinner = winner
+              return { ...next, tieVoteActive: false, refereeTieVotes: { 1: 0, 2: 0 } }
+            })
+          }}
+          matchSessionId={state.matchSessionId}
+          currentRound={state.currentRound}
+        />
       )}
 
       {/* Raunt Sonu Kazanan Popup Bildirimi */}
@@ -1338,6 +1433,109 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           </button>
         </div>
         <div className="mt-3">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function TieVoteModal({
+  activeRefCount,
+  isAdmin,
+  isReferee,
+  urlRef,
+  refereeTieVotes,
+  onVote,
+  onFinalize,
+  matchSessionId,
+  currentRound,
+}: {
+  activeRefCount: number
+  isAdmin: boolean
+  isReferee: boolean
+  urlRef: number
+  refereeTieVotes: Record<Side, number>
+  onVote: (side: Side) => void
+  onFinalize: (winner: Side) => void
+  matchSessionId: string
+  currentRound: number
+}) {
+  const [hasVoted, setHasVoted] = useState(false)
+  const isAdminAlsoVoting = activeRefCount === 2
+  const totalVotesPossible = isAdminAlsoVoting ? 3 : activeRefCount
+  const blueVotes = refereeTieVotes[1] || 0
+  const redVotes = refereeTieVotes[2] || 0
+  const totalVotesCast = blueVotes + redVotes
+
+  // Çoğunluk kontrolü
+  useEffect(() => {
+    if (!isAdmin) return
+    const required = Math.ceil((totalVotesPossible + 0.1) / 2) // 1/1->1, 2/3->2, 3/3->2
+    if (blueVotes >= required) onFinalize(1)
+    else if (redVotes >= required) onFinalize(2)
+  }, [blueVotes, redVotes, isAdmin, totalVotesPossible, onFinalize])
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border-4 border-slate-200" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-center text-xl font-black uppercase tracking-tight text-slate-800">BERABERLİK KARARI</h2>
+        <p className="mt-2 text-center text-xs font-medium text-slate-500 uppercase">
+          Raunt {currentRound} • Hakem Kararı Bekleniyor
+        </p>
+
+        {/* Oylama Durumu (Sadece Admin veya Oy Veren Hakem için) */}
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <div className="flex flex-col items-center gap-2">
+            <div className={`h-16 w-16 rounded-2xl flex items-center justify-center text-3xl font-black shadow-inner ${blueVotes > 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-300'}`}>
+              {blueVotes}
+            </div>
+            <span className="text-[10px] font-bold text-blue-700">MAVİ OY</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <div className={`h-16 w-16 rounded-2xl flex items-center justify-center text-3xl font-black shadow-inner ${redVotes > 0 ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-300'}`}>
+              {redVotes}
+            </div>
+            <span className="text-[10px] font-bold text-red-700">KIRMIZI OY</span>
+          </div>
+        </div>
+
+        <div className="mt-4 text-center">
+          <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Toplam Oy: {totalVotesCast} / {totalVotesPossible}
+          </span>
+        </div>
+
+        {/* Oy Verme Butonları (Hakem veya Admin-eğer 2 hakem varsa-) */}
+        {((isReferee && !hasVoted) || (isAdmin && isAdminAlsoVoting && !hasVoted)) ? (
+          <div className="mt-8 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                onVote(2)
+                setHasVoted(true)
+              }}
+              style={{ minHeight: '48px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
+              className="rounded-2xl bg-red-600 py-4 text-sm font-black text-white shadow-lg active:scale-95 transition-transform"
+            >
+              KIRMIZI
+            </button>
+            <button
+              onClick={() => {
+                onVote(1)
+                setHasVoted(true)
+              }}
+              style={{ minHeight: '48px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
+              className="rounded-2xl bg-blue-600 py-4 text-sm font-black text-white shadow-lg active:scale-95 transition-transform"
+            >
+              MAVİ
+            </button>
+          </div>
+        ) : (
+          <div className="mt-8 p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-100 text-center">
+            <p className="text-sm font-bold text-emerald-700">
+              {hasVoted ? 'Oyunuz Kaydedildi' : 'Oylama Bekleniyor...'}
+            </p>
+            <p className="text-[10px] text-emerald-600 mt-1 uppercase">Lütfen Bekleyin</p>
+          </div>
+        )}
       </div>
     </div>
   )
