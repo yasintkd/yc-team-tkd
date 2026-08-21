@@ -1072,6 +1072,7 @@ export default function LiveScore() {
                   scores={state.roundScores[roundNum]}
                   winner={state.roundWinners[roundNum]}
                   isAdmin={isAdmin}
+                  onEdit={editRound}
                 />
               ))}
             </div>
@@ -1222,7 +1223,6 @@ export default function LiveScore() {
           activeRefCount={activeRefCount}
           isAdmin={isAdmin}
           isReferee={isReferee}
-          urlRef={urlRef}
           refereeTieVotes={state.refereeTieVotes}
           onVote={(side) => {
             if (isAdmin) { // Admin oy kullanırsa doğrudan state'i güncelle
@@ -1246,7 +1246,6 @@ export default function LiveScore() {
               return { ...next, tieVoteActive: false, refereeTieVotes: { 1: 0, 2: 0 } }
             })
           }}
-          matchSessionId={state.matchSessionId}
           currentRound={state.currentRound}
         />
       )}
@@ -1620,26 +1619,21 @@ function TieVoteModal({
   activeRefCount,
   isAdmin,
   isReferee,
-  urlRef,
   refereeTieVotes,
   onVote,
   onFinalize,
-  matchSessionId,
   currentRound,
 }: {
   activeRefCount: number
   isAdmin: boolean
   isReferee: boolean
-  urlRef: number
   refereeTieVotes: Record<Side, number>
   onVote: (side: Side) => void
   onFinalize: (winner: Side) => void
-  matchSessionId: string
   currentRound: number
 }) {
   const [hasVoted, setHasVoted] = useState(false)
-  const isAdminAlsoVoting = activeRefCount === 2
-  const totalVotesPossible = isAdminAlsoVoting ? 3 : activeRefCount
+  const totalVotesPossible = activeRefCount === 2 ? 3 : activeRefCount
   const blueVotes = refereeTieVotes[1] || 0
   const redVotes = refereeTieVotes[2] || 0
   const totalVotesCast = blueVotes + redVotes
