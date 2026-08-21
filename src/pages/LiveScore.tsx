@@ -439,7 +439,6 @@ export default function LiveScore() {
   }
 
   const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
-  const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
     if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
     setState((prev) => {
       if (delta > 0) play(side === 1 ? 'score-blue' : 'score-red', true)
@@ -1217,12 +1216,13 @@ export default function LiveScore() {
       )}
 
       {/* Beraberlik Oylama Modalı (Hakemler ve Admin için) */}
-      {(state.tieVoteActive && (isReferee || isAdmin)) && (
+          {(state.tieVoteActive && (isReferee || isAdmin)) && (
         <TieVoteModal
           key={state.currentRound} // Raunt değiştiğinde yeniden render et
           activeRefCount={activeRefCount}
           isAdmin={isAdmin}
           isReferee={isReferee}
+          isAdminAlsoVoting={isAdminAlsoVoting}
           refereeTieVotes={state.refereeTieVotes}
           onVote={(side) => {
             if (isAdmin) { // Admin oy kullanırsa doğrudan state'i güncelle
@@ -1423,23 +1423,25 @@ export default function LiveScore() {
 
 // ─── Yeni Raunt Skor Gösterimi Bileşeni ────────────────────
 
-function RoundScoreDisplay({ roundNum, scores, winner }: {
+function RoundScoreDisplay({ roundNum, scores, winner, isAdmin, onEdit }: {
   roundNum: number
   scores?: Record<Side, number>
   winner?: Side | 'draw' | 'ref'
+  isAdmin?: boolean
+  onEdit?: (roundNum: number) => void
 }) {
   const hasScores = !!scores
   
   return (
     <div className="flex flex-col items-center group relative">
       <span className="mb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">{roundNum}. RAUNT</span>
-      {isAdmin && winner && (
+          {isAdmin && winner && onEdit && (
         <button
-          onClick={() => (window as any).editRound(roundNum)}
+          onClick={() => onEdit(roundNum)}
           className="absolute -top-1 -right-1 z-10 rounded-full bg-slate-800 p-1 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
           title="Raunt Düzenle"
         >
-          <Settings2 className="h-3 w-3" />
+          <Settings className="h-3 w-3" />
         </button>
       )}
       <div className="flex h-16 w-full items-stretch gap-1">
@@ -1619,6 +1621,7 @@ function TieVoteModal({
   activeRefCount,
   isAdmin,
   isReferee,
+  isAdminAlsoVoting,
   refereeTieVotes,
   onVote,
   onFinalize,
@@ -1627,6 +1630,7 @@ function TieVoteModal({
   activeRefCount: number
   isAdmin: boolean
   isReferee: boolean
+  isAdminAlsoVoting: boolean
   refereeTieVotes: Record<Side, number>
   onVote: (side: Side) => void
   onFinalize: (winner: Side) => void
