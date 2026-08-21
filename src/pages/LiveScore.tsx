@@ -75,7 +75,7 @@ type MatchState = {
   breakDurationSec: number
   timerSec: number
   timerRunning: boolean
-  phase: 'idle' | 'round' | 'break' | 'finished'
+  phase: 'idle' | 'round' | 'break' | 'finished' | 'interrupted' // 'interrupted' eklendi
   // match meta
   winner: Side | null
   refereeWinner: Side | null
@@ -90,6 +90,9 @@ type MatchState = {
   // Tie-breaker vote
   tieVoteActive: boolean
   refereeTieVotes: Record<Side, number>
+  roundScores: Record<number, Record<Side, number>> // Yeni: Her raunt için skor geçmişi
+  matchEndReason: string | null // Yeni: Maç bitiş nedeni
+  lastAction: { type: 'score' | 'gamjeom', side: Side, delta?: number, statKey?: keyof Stats, round: number } | null // Yeni: Son admin aksiyonu
 }
 
 // Global vars for persistence
@@ -121,7 +124,7 @@ const initialState = (matchId: string, matchSessionId: string = uuidv4()): Match
   breakDurationSec: globalBreakDuration,
   timerSec: globalRoundDuration,
   timerRunning: false,
-  phase: 'idle',
+  phase: 'idle', // 'interrupted' olarak başlatılmayacak
   winner: null,
   refereeWinner: null,
   voteToleranceMs: 1500, // Yeni: Varsayılan 1500ms tolerans
@@ -132,6 +135,9 @@ const initialState = (matchId: string, matchSessionId: string = uuidv4()): Match
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
   tieVoteActive: false,
   refereeTieVotes: { 1: 0, 2: 0 },
+  roundScores: {}, // Başlangıçta boş
+  matchEndReason: null, // Başlangıçta boş
+  lastAction: null, // Başlangıçta boş
 })
 
 // ─── Tie-breaker (spec §5.4, birebir) ───────────────────
@@ -197,6 +203,10 @@ export default function LiveScore() {
   const [showInvite, setShowInvite] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [refereeQrs, setRefereeQrs] = useState<Record<number, string>>({})
+  const [showEndMatchModal, setShowEndMatchModal] = useState(false) // Yeni: Maç bitirme modalı
+  const [endMatchReason, setEndMatchReason] = useState('Antrenör Çekildi') // Yeni: Maç bitiş nedeni
+  const [endMatchWinner, setEndMatchWinner] = useState<Side | null>(null) // Yeni: Maç galibi
+
 
   // ── Sporcuları çek
   useEffect(() => {
@@ -351,17 +361,21 @@ export default function LiveScore() {
           return next
         }
         // süre bitti
-        if (prev.phase === 'round') {
-          const next: MatchState = { ...prev, timerSec: 0, timerRunning: false }
-          broadcast(next)
-          return next
-        }
-        if (prev.phase === 'break') {
-          const next: MatchState = { ...prev, timerSec: prev.roundDurationSec, timerRunning: false, phase: 'round' }
-          broadcast(next)
-          return next
-        }
-        return prev
+    if (prev.phase === 'round') {
+      const next: MatchState = { ...prev, timerSec: 0, timerRunning: false }
+      broadcast(next)
+      // Eğer süre 0 ise ve admin hala müdahale ediyorsa, fazı "interrupted" olarak ayarla
+      if (isAdmin && stateRef.current.timerSec <= 0) {
+        next.phase = 'interrupted'
+      }
+      return next
+    }
+    if (prev.phase === 'break') {
+      const next: MatchState = { ...prev, timerSec: prev.roundDurationSec, timerRunning: false, phase: 'round' }
+      broadcast(next)
+      return next
+    }
+    return prev
       })
     }, 1000)
     return () => clearInterval(id)
@@ -376,28 +390,36 @@ export default function LiveScore() {
     // otomatik raunt sonu
     handleRoundEnd(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.timerRunning, state.timerSec])
+  }, [state.phase, state.timerRunning, state.timerSec, isAdmin])
 
   // ── Helpers
   const activeRefCount = Object.values(state.refereeStatus).filter(r => r.connected).length
   const isAdminAlsoVoting = activeRefCount === 2 // 2 hakem varsa admin de oylamaya dahil
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
-  const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
-    if (!isAdmin && state.phase !== 'round') return
+  const setScore = (side: Side, delta: number, statKey?: keyof Stats, recordAction = true) => {
+    // Admin, raunt sırasında veya kesintide kontrol edebilir
+    if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
     setState((prev) => {
-    const isIncrease = delta > 0
-    if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red', true)
-    let next: MatchState = {
+      const isIncrease = delta > 0
+      if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red', true)
+      let next: MatchState = {
         ...prev,
         score: { ...prev.score, [side]: prev.score[side] + delta },
         stats: {
           ...prev.stats,
-          [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey] + 1 } : {}) },
+          [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey] + (delta > 0 ? 1 : -1) } : {}) }, // Stat key'i güncellerken delta yönünü kullan
         },
       }
+      // Son aksiyonu kaydet
+      if (recordAction) {
+        next.lastAction = { type: 'score', side, delta, statKey, round: prev.currentRound }
+      } else {
+        next.lastAction = null // Geri alma işlemi ise lastAction'ı sıfırla
+      }
+
       const diff = Math.abs(next.score[1] - next.score[2])
-      if (diff >= 15) {
+      if (diff >= next.gapMatchScore) { // next.gapMatchScore kullan
         const winner = next.score[1] > next.score[2] ? 1 : 2
         next = finalizeRound(next, winner, '15 Puan Fark (Gap Match)')
       }
@@ -406,8 +428,9 @@ export default function LiveScore() {
     })
   }
 
-  const addGamJeom = (penalized: Side) => {
-    if (!isAdmin) return
+  const addGamJeom = (penalized: Side, recordAction = true) => {
+    // Admin, raunt sırasında veya kesintide kontrol edebilir
+    if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
     play('penalized', true)
     setState((prev) => {
       const opp: Side = penalized === 1 ? 2 : 1
@@ -418,9 +441,47 @@ export default function LiveScore() {
         score: { ...prev.score, [opp]: prev.score[opp] + 1 },
         stats: { ...prev.stats, [penalized]: penalizedStats },
       }
+      // Son aksiyonu kaydet
+      if (recordAction) {
+        next.lastAction = { type: 'gamjeom', side: penalized, delta: 1, round: prev.currentRound }
+      } else {
+        next.lastAction = null // Geri alma işlemi ise lastAction'ı sıfırla
+      }
+
       if (autoRoundLoss) {
         next = finalizeRound(next, opp, '5 Gam-jeom Cezası')
       }
+      broadcast(next)
+      return next
+    })
+  }
+
+  const undoLastAction = () => {
+    if (!isAdmin || !state.lastAction) return // Sadece admin ve kayıtlı bir aksiyon varsa
+    setState(prev => {
+      let next: MatchState = { ...prev }
+      const last = prev.lastAction!
+
+      if (last.round !== prev.currentRound) {
+        console.warn('Geri alma sadece mevcut raunt için geçerlidir.')
+        return prev
+      }
+
+      if (last.type === 'score') {
+        const reversedDelta = -last.delta!
+        const scoreSide = last.statKey === 'gamjeom' ? (last.side === 1 ? 2 : 1) : last.side
+        next.score = { ...prev.score, [scoreSide]: prev.score[scoreSide] + reversedDelta }
+        next.stats = {
+          ...prev.stats,
+          [last.side]: { ...prev.stats[last.side], [last.statKey!]: prev.stats[last.side][last.statKey as keyof Stats] - 1 }
+        }
+      } else if (last.type === 'gamjeom') {
+        const opp: Side = last.side === 1 ? 2 : 1
+        next.score = { ...prev.score, [opp]: prev.score[opp] - 1 }
+        next.stats = { ...prev.stats, [last.side]: { ...prev.stats[last.side], gamjeom: prev.stats[last.side].gamjeom - 1 } }
+      }
+
+      next.lastAction = null // Aksiyon geri alındı, sıfırla
       broadcast(next)
       return next
     })
@@ -444,6 +505,12 @@ export default function LiveScore() {
       updated.timerSec = 0
       return updated
     }
+    // Mevcut raunt skorlarını kaydet
+    updated.roundScores = {
+      ...updated.roundScores,
+      [updated.currentRound]: { 1: s.score[1], 2: s.score[2] }
+    }
+
     // sonraki raunt → puanları sıfırla, araya geç ve ara süresini otomatik başlat
     updated.score = { 1: 0, 2: 0 }
     updated.stats = { 1: emptyStats(), 2: emptyStats() }
@@ -518,6 +585,23 @@ export default function LiveScore() {
       broadcast(next)
       return next
     })
+  }
+
+  const confirmEndMatch = () => {
+    if (!isAdmin || !endMatchWinner || !endMatchReason) return
+    setState(prev => {
+      let next: MatchState = { ...prev }
+      next.phase = 'finished'
+      next.winner = endMatchWinner
+      next.matchEndReason = endMatchReason
+      next.timerRunning = false
+      next.timerSec = 0
+      broadcast(next)
+      return next
+    })
+    setShowEndMatchModal(false)
+    setEndMatchWinner(null)
+    setEndMatchReason('Antrenör Çekildi')
   }
 
   const setRoundDuration = (v: number) => {
@@ -710,7 +794,7 @@ export default function LiveScore() {
     const isDisabled = disabled || state.phase !== 'round' || !state.timerRunning || state.timerSec <= 0
 
     return (
-      <div className="grid grid-cols-1 gap-2 p-1">
+      <div className="grid grid-cols-1 grid-rows-5 gap-2 h-full p-1">
         {buttons.map(({ d, k, label }) => (
           <button
             key={k}
@@ -728,9 +812,9 @@ export default function LiveScore() {
                 ts: Date.now() 
               })
             }}
-            className={`flex-1 flex items-center justify-center rounded-2xl border-4 ${
+            className={`flex h-full min-h-0 items-center justify-center rounded-2xl border-4 ${
               side === 1 ? 'bg-blue-600 text-white border-blue-700' : 'bg-red-600 text-white border-red-700'
-            } py-4 text-3xl font-black shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed`}
+            } text-4xl font-black shadow-lg active:scale-95 disabled:opacity-40`}
           >
             {label}
           </button>
@@ -746,7 +830,8 @@ export default function LiveScore() {
   const phaseLabel =
     state.phase === 'idle' ? 'Hazır' :
     state.phase === 'round' ? 'Raunt' :
-    state.phase === 'break' ? 'Ara' : 'Bitti'
+    state.phase === 'break' ? 'Ara' :
+    state.phase === 'interrupted' ? 'Müdahale' : 'Bitti'
 
   return (
     <div className="flex h-screen h-[100dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
@@ -946,10 +1031,10 @@ export default function LiveScore() {
 
       {/* Admin/Referee UI - Ana puan butonları */}
       {(isAdmin || !isReferee) && (
-        <div className="flex flex-[3] flex-col px-2 pb-2 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-3 h-full">
+        <div className="flex flex-[5] flex-col px-2 pb-1 overflow-hidden min-h-0">
+          <div className="grid grid-cols-2 gap-2 h-full overflow-hidden min-h-0">
             {/* Kırmızı Bölge */}
-            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
+            <div className="grid grid-cols-2 grid-rows-3 gap-2 overflow-hidden min-h-0">
               <ScoreButtons
                 color="red"
                 isAdmin={isAdmin}
@@ -960,11 +1045,10 @@ export default function LiveScore() {
                   setScore(2, delta, key)
                 }}
                 onGamJeom={() => addGamJeom(2)}
-                onUndo={() => setScore(2, -1)}
               />
             </div>
             {/* Mavi Bölge */}
-            <div className="grid grid-cols-2 gap-2 content-start auto-rows-max">
+            <div className="grid grid-cols-2 grid-rows-3 gap-2 overflow-hidden min-h-0">
               <ScoreButtons
                 color="blue"
                 isAdmin={isAdmin}
@@ -975,16 +1059,28 @@ export default function LiveScore() {
                   setScore(1, delta, key)
                 }}
                 onGamJeom={() => addGamJeom(1)}
-                onUndo={() => setScore(1, -1)}
               />
             </div>
           </div>
+          {/* Geçmiş Raunt Skorları - Yeni Tasarım */}
+          {isAdmin && (
+            <div className="mt-auto pt-2 grid grid-cols-3 gap-2">
+              {[1, 2, 3].map(roundNum => (
+                <RoundScoreDisplay
+                  key={roundNum}
+                  roundNum={roundNum}
+                  scores={state.roundScores[roundNum]}
+                  winner={state.roundWinners[roundNum]}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Alt kontrol bar - Sadece Admin için */}
       {isAdmin && (
-        <div className="flex flex-none items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 backdrop-blur">
+        <div className="flex flex-none items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
           {state.phase === 'idle' ? (
             <button
               onClick={startMatch}
@@ -996,7 +1092,7 @@ export default function LiveScore() {
           ) : state.phase === 'finished' ? (
             <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
               <Trophy className="h-4 w-4" />
-              {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI
+              {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI {state.matchEndReason ? `(${state.matchEndReason})` : ''}
             </div>
           ) : (
             <>
@@ -1015,9 +1111,19 @@ export default function LiveScore() {
                   Ara Bitir
                 </button>
               )}
+              {/* Geri Al Butonu */}
+              {state.lastAction && (
+                <button
+                  onClick={undoLastAction}
+                  className="rounded-xl border-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700 active:scale-95 disabled:opacity-50"
+                  title="Son puan veya gam-jeom işlemini geri al"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Geri Al
+                </button>
+              )}
               <button
                 onClick={() => handleRoundEnd(false)}
-                disabled={state.phase !== 'round'}
+                disabled={state.phase !== 'round' || state.timerRunning} // Süre bittiğinde veya durakladığında müdahaleye izin ver
                 className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
               >
                 Raunt Bitir
@@ -1026,11 +1132,58 @@ export default function LiveScore() {
                 onClick={resetMatch}
                 className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-slate-600 active:scale-95"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
+                <RotateCcw className="h-3.5 w-3.5" /> Maçı Sıfırla
+              </button>
+              {/* Maçı Bitir Butonu */}
+              <button
+                onClick={() => setShowEndMatchModal(true)} // Yeni modalı aç
+                className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
+              >
+                <Trophy className="h-4 w-4" /> Maçı Bitir
               </button>
             </>
           )}
         </div>
+      )}
+
+      {/* Maçı Bitir Modalı */}
+      {showEndMatchModal && (
+        <Modal onClose={() => setShowEndMatchModal(false)} title="Maçı Bitir">
+          <p className="text-sm text-slate-600 mb-4">Maçı bitirme nedenini seçin ve galibi belirleyin.</p>
+          <div className="space-y-3">
+            <label className="block text-xs font-medium text-slate-500">Bitiş Nedeni</label>
+            <select
+              value={endMatchReason}
+              onChange={(e) => setEndMatchReason(e.target.value)}
+              className="w-full rounded-lg border border-app-border p-2 text-sm"
+            >
+              <option value="Antrenör Çekildi">Antrenör Çekildi</option>
+              <option value="KO">KO (Nakavt)</option>
+              <option value="Hakem Kararı">Hakem Kararı</option>
+              <option value="Diğer">Diğer</option>
+            </select>
+            <label className="block text-xs font-medium text-slate-500 mt-4">Maçın Galibi</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setEndMatchWinner(2)}
+                className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold ${endMatchWinner === 2 ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-300 bg-white text-slate-700'}`}
+              >
+                Kırmızı {state.athlete2?.first_name}
+              </button>
+              <button
+                onClick={() => setEndMatchWinner(1)}
+                className={`rounded-lg border-2 px-4 py-3 text-sm font-semibold ${endMatchWinner === 1 ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'}`}
+              >
+                Mavi {state.athlete1?.first_name}
+              </button>
+            </div>
+            {endMatchWinner && (
+              <button onClick={confirmEndMatch} className="btn-primary w-full mt-4">
+                Maçı Bitir ve Kaydet
+              </button>
+            )}
+          </div>
+        </Modal>
       )}
 
       {/* Hakem popup (raunt sonu beraberlik) */}
@@ -1263,6 +1416,33 @@ export default function LiveScore() {
   )
 }
 
+// ─── Yeni Raunt Skor Gösterimi Bileşeni ────────────────────
+
+function RoundScoreDisplay({ roundNum, scores, winner }: {
+  roundNum: number
+  scores?: Record<Side, number>
+  winner?: Side | 'draw' | 'ref'
+}) {
+  const hasScores = !!scores
+  
+  return (
+    <div className="flex flex-col items-center">
+      <span className="mb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">{roundNum}. RAUNT</span>
+      <div className="flex h-16 w-full items-stretch gap-1">
+        {/* Kırmızı Taraf */}
+        <div className={`flex flex-1 items-center justify-center rounded-l-xl border-y-2 border-l-2 transition-all shadow-sm ${winner === 2 ? 'bg-red-600 border-red-700 text-white' : 'bg-white border-red-200 text-red-600'}`}>
+          <span className="text-2xl font-black">{hasScores ? scores[2] : '0'}</span>
+        </div>
+        
+        {/* Mavi Taraf */}
+        <div className={`flex flex-1 items-center justify-center rounded-r-xl border-y-2 border-r-2 transition-all shadow-sm ${winner === 1 ? 'bg-blue-600 border-blue-700 text-white' : 'bg-white border-blue-200 text-blue-600'}`}>
+          <span className="text-2xl font-black">{hasScores ? scores[1] : '0'}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sub-components ─────────────────────────────────────
 
 function AthleteSelect({
@@ -1356,10 +1536,9 @@ function ScoreButtons({
   isAdmin,
   disabled,
   stats,
-  score,
+  score: _score,
   onScore,
   onGamJeom,
-  onUndo,
 }: {
   color: 'blue' | 'red'
   isAdmin: boolean
@@ -1368,18 +1547,12 @@ function ScoreButtons({
   score: number
   onScore: (delta: number, statKey?: keyof Stats) => void
   onGamJeom: () => void
-  onUndo: () => void
 }) {
   const isBlue = color === 'blue'
   const btnBase = isBlue
-    ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700'
-    : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
-  const gjBase = isBlue
-    ? 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
-    : 'bg-amber-500 text-white border-amber-600 hover:bg-amber-600'
-  const undoBase = isBlue
-    ? 'bg-slate-500 text-white border-slate-600 hover:bg-slate-600'
-    : 'bg-slate-500 text-white border-slate-600 hover:bg-slate-600'
+    ? 'bg-blue-600 text-white border-blue-700'
+    : 'bg-red-600 text-white border-red-700'
+  const gjBase = 'bg-amber-500 text-white border-amber-600'
 
   const buttons = [
     { d: 6, k: 'turnHead' as const, label: '+6' },
@@ -1396,25 +1569,15 @@ function ScoreButtons({
           key={k}
           disabled={disabled || !isAdmin}
           onClick={() => onScore(d, k)}
-          className={`flex flex-1 items-center justify-center rounded-xl border-2 ${btnBase} py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+          className={`flex h-full min-h-0 items-center justify-center rounded-xl border-2 ${btnBase} text-xl md:text-2xl font-black shadow active:scale-95 disabled:opacity-40`}
         >
           {label}
         </button>
       ))}
-      {/* Admin-only undo (-1) — only when score > 0 */}
-      {isAdmin && score > 0 && (
-        <button
-          disabled={disabled}
-          onClick={onUndo}
-          className={`flex flex-1 items-center justify-center rounded-xl border-2 ${undoBase} py-3 text-2xl font-black shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
-        >
-          -1
-        </button>
-      )}
       <button
         disabled={disabled || !isAdmin || stats.gamjeom >= 5}
         onClick={onGamJeom}
-        className={`flex items-center justify-center gap-1 rounded-xl border-2 ${gjBase} py-2 text-xs font-bold shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-40`}
+        className={`flex h-full min-h-0 items-center justify-center gap-1 rounded-xl border-2 ${gjBase} text-[10px] font-bold shadow active:scale-95 disabled:opacity-40`}
       >
         <AlertTriangle className="h-3.5 w-3.5" /> GAM-JEOM
       </button>
