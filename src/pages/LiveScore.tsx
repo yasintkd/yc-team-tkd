@@ -1071,6 +1071,7 @@ export default function LiveScore() {
                   roundNum={roundNum}
                   scores={state.roundScores[roundNum]}
                   winner={state.roundWinners[roundNum]}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -1080,66 +1081,71 @@ export default function LiveScore() {
 
       {/* Alt kontrol bar - Sadece Admin için */}
       {isAdmin && (
-        <div className="flex flex-none items-center justify-center gap-2 border-t border-app-border bg-white/70 px-3 py-2 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="flex flex-none flex-wrap items-center justify-center gap-1.5 border-t border-app-border bg-white/80 px-2 py-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
           {state.phase === 'idle' ? (
             <button
               onClick={startMatch}
               disabled={!canControl}
-              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
             >
               <Play className="h-4 w-4" /> BAŞLAT
             </button>
           ) : state.phase === 'finished' ? (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-              <Trophy className="h-4 w-4" />
-              {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI {state.matchEndReason ? `(${state.matchEndReason})` : ''}
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
+                <Trophy className="h-4 w-4" />
+                {state.winner === 1 ? 'MAVİ' : 'KIRMIZI'} KAZANDI {state.matchEndReason ? `(${state.matchEndReason})` : ''}
+              </div>
+              <button onClick={resetMatch} className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Sıfırla</button>
             </div>
           ) : (
             <>
               <button
                 onClick={pauseToggle}
-                className="flex items-center gap-1 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white active:scale-95 disabled:opacity-50"
+                className="flex flex-1 min-w-[80px] items-center justify-center gap-1 rounded-lg bg-slate-700 py-2.5 text-[11px] font-bold text-white active:scale-95"
               >
-                {state.timerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {state.timerRunning ? 'Duraklat' : 'Devam'}
+                {state.timerRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                {state.timerRunning ? 'DURDUR' : 'DEVAM'}
               </button>
+
               {state.phase === 'break' && (
                 <button
                   onClick={skipBreak}
-                  className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
+                  className="flex flex-1 min-w-[80px] items-center justify-center rounded-lg border-2 border-slate-700 bg-white py-2.5 text-[11px] font-bold text-slate-700 active:scale-95"
                 >
-                  Ara Bitir
+                  ARA BİTİR
                 </button>
               )}
-              {/* Geri Al Butonu */}
-              {state.lastAction && (
-                <button
-                  onClick={undoLastAction}
-                  className="rounded-xl border-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700 active:scale-95 disabled:opacity-50"
-                  title="Son puan veya gam-jeom işlemini geri al"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Geri Al
-                </button>
-              )}
+
+              <button
+                onClick={undoLastAction}
+                disabled={state.history.length === 0}
+                className="flex flex-1 min-w-[80px] items-center justify-center gap-1 rounded-lg border-2 border-amber-500 bg-amber-50 py-2.5 text-[11px] font-bold text-amber-700 active:scale-95 disabled:opacity-30"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> GERİ ({state.history.length})
+              </button>
+
               <button
                 onClick={() => handleRoundEnd(false)}
-                disabled={state.phase !== 'round' || state.timerRunning} // Süre bittiğinde veya durakladığında müdahaleye izin ver
-                className="rounded-xl border-2 border-slate-700 bg-white px-4 py-2 text-sm font-bold text-slate-700 active:scale-95 disabled:opacity-50"
+                disabled={state.phase !== 'round' || state.timerRunning}
+                className="flex flex-1 min-w-[80px] items-center justify-center rounded-lg border-2 border-slate-700 bg-white py-2.5 text-[11px] font-bold text-slate-700 active:scale-95 disabled:opacity-30"
               >
-                Raunt Bitir
+                RAUNT BİTİR
               </button>
+
+              <button
+                onClick={() => setShowEndMatchModal(true)}
+                className="flex flex-1 min-w-[80px] items-center justify-center gap-1 rounded-lg bg-red-500 py-2.5 text-[11px] font-bold text-white shadow-md active:scale-95"
+              >
+                <Trophy className="h-3.5 w-3.5" /> MAÇ BİTİR
+              </button>
+
               <button
                 onClick={resetMatch}
-                className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-slate-600 active:scale-95"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 active:scale-95"
+                title="Sıfırla"
               >
-                <RotateCcw className="h-3.5 w-3.5" /> Maçı Sıfırla
-              </button>
-              {/* Maçı Bitir Butonu */}
-              <button
-                onClick={() => setShowEndMatchModal(true)} // Yeni modalı aç
-                className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white shadow-lg active:scale-95 disabled:opacity-50"
-              >
-                <Trophy className="h-4 w-4" /> Maçı Bitir
+                <RotateCcw className="h-4 w-4" />
               </button>
             </>
           )}
@@ -1426,8 +1432,17 @@ function RoundScoreDisplay({ roundNum, scores, winner }: {
   const hasScores = !!scores
   
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center group relative">
       <span className="mb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">{roundNum}. RAUNT</span>
+      {isAdmin && winner && (
+        <button
+          onClick={() => (window as any).editRound(roundNum)}
+          className="absolute -top-1 -right-1 z-10 rounded-full bg-slate-800 p-1 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Raunt Düzenle"
+        >
+          <Settings2 className="h-3 w-3" />
+        </button>
+      )}
       <div className="flex h-16 w-full items-stretch gap-1">
         {/* Kırmızı Taraf */}
         <div className={`flex flex-1 items-center justify-center rounded-l-xl border-y-2 border-l-2 transition-all shadow-sm ${winner === 2 ? 'bg-red-600 border-red-700 text-white' : 'bg-white border-red-200 text-red-600'}`}>
