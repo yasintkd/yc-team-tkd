@@ -90,9 +90,10 @@ type MatchState = {
   // Tie-breaker vote
   tieVoteActive: boolean
   refereeTieVotes: Record<Side, number>
-  roundScores: Record<number, Record<Side, number>> // Yeni: Her raunt için skor geçmişi
-  matchEndReason: string | null // Yeni: Maç bitiş nedeni
-  lastAction: { type: 'score' | 'gamjeom', side: Side, delta?: number, statKey?: keyof Stats, round: number } | null // Yeni: Son admin aksiyonu
+  roundScores: Record<number, Record<Side, number>>
+  roundHistory: Record<number, any>
+  history: any[]
+  matchEndReason: string | null
 }
 
 // Global vars for persistence
@@ -135,9 +136,10 @@ const initialState = (matchId: string, matchSessionId: string = uuidv4()): Match
   refereeStatus: { 1: { connected: false, lastSeen: 0, role: '' }, 2: { connected: false, lastSeen: 0, role: '' }, 3: { connected: false, lastSeen: 0, role: '' } },
   tieVoteActive: false,
   refereeTieVotes: { 1: 0, 2: 0 },
-  roundScores: {}, // Başlangıçta boş
-  matchEndReason: null, // Başlangıçta boş
-  lastAction: null, // Başlangıçta boş
+  roundScores: {},
+  roundHistory: {},
+  history: [],
+  matchEndReason: null,
 })
 
 // ─── Tie-breaker (spec §5.4, birebir) ───────────────────
@@ -397,25 +399,58 @@ export default function LiveScore() {
   const isAdminAlsoVoting = activeRefCount === 2 // 2 hakem varsa admin de oylamaya dahil
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
-  const setScore = (side: Side, delta: number, statKey?: keyof Stats, recordAction = true) => {
-    // Admin, raunt sırasında veya kesintide kontrol edebilir
+  const saveHistory = (prevState: MatchState) => {
+    const { history, ...rest } = prevState
+    return [rest, ...history].slice(0, 5)
+  }
+
+  const undoLastAction = () => {
+    if (!isAdmin) return
+    setState(prev => {
+      if (prev.history.length === 0) return prev
+      const [last, ...rest] = prev.history
+      return { ...last, history: rest }
+    })
+  }
+
+  const editRound = (roundNum: number) => {
+    const snapshot = state.roundHistory[roundNum]
+    if (!snapshot) return
+
+    setState(prev => {
+      const winner = prev.roundWinners[roundNum]
+      const nextRoundWins = { ...prev.roundWins }
+      if (winner === 1 || winner === 2) {
+        nextRoundWins[winner] = Math.max(0, nextRoundWins[winner] - 1)
+      }
+
+      return {
+        ...snapshot,
+        roundWins: nextRoundWins,
+        currentRound: roundNum,
+        phase: 'interrupted',
+        timerRunning: false,
+        timerSec: 0,
+        roundWinners: { ...prev.roundWinners, [roundNum]: undefined },
+        roundScores: { ...prev.roundScores, [roundNum]: undefined },
+        history: saveHistory(prev)
+      }
+    })
+  }
+
+  const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
+  const setScore = (side: Side, delta: number, statKey?: keyof Stats) => {
     if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
     setState((prev) => {
-      const isIncrease = delta > 0
-      if (isIncrease) play(side === 1 ? 'score-blue' : 'score-red', true)
+      if (delta > 0) play(side === 1 ? 'score-blue' : 'score-red', true)
       let next: MatchState = {
         ...prev,
+        history: saveHistory(prev),
         score: { ...prev.score, [side]: prev.score[side] + delta },
         stats: {
           ...prev.stats,
-          [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey] + (delta > 0 ? 1 : -1) } : {}) }, // Stat key'i güncellerken delta yönünü kullan
+          [side]: { ...prev.stats[side], ...(statKey ? { [statKey]: prev.stats[side][statKey as keyof Stats] + (delta > 0 ? 1 : -1) } : {}) },
         },
-      }
-      // Son aksiyonu kaydet
-      if (recordAction) {
-        next.lastAction = { type: 'score', side, delta, statKey, round: prev.currentRound }
-      } else {
-        next.lastAction = null // Geri alma işlemi ise lastAction'ı sıfırla
       }
 
       const diff = Math.abs(next.score[1] - next.score[2])
@@ -428,8 +463,7 @@ export default function LiveScore() {
     })
   }
 
-  const addGamJeom = (penalized: Side, recordAction = true) => {
-    // Admin, raunt sırasında veya kesintide kontrol edebilir
+  const addGamJeom = (penalized: Side) => {
     if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
     play('penalized', true)
     setState((prev) => {
@@ -438,50 +472,14 @@ export default function LiveScore() {
       const autoRoundLoss = penalizedStats.gamjeom >= 5
       let next: MatchState = {
         ...prev,
+        history: saveHistory(prev),
         score: { ...prev.score, [opp]: prev.score[opp] + 1 },
         stats: { ...prev.stats, [penalized]: penalizedStats },
-      }
-      // Son aksiyonu kaydet
-      if (recordAction) {
-        next.lastAction = { type: 'gamjeom', side: penalized, delta: 1, round: prev.currentRound }
-      } else {
-        next.lastAction = null // Geri alma işlemi ise lastAction'ı sıfırla
       }
 
       if (autoRoundLoss) {
         next = finalizeRound(next, opp, '5 Gam-jeom Cezası')
       }
-      broadcast(next)
-      return next
-    })
-  }
-
-  const undoLastAction = () => {
-    if (!isAdmin || !state.lastAction) return // Sadece admin ve kayıtlı bir aksiyon varsa
-    setState(prev => {
-      let next: MatchState = { ...prev }
-      const last = prev.lastAction!
-
-      if (last.round !== prev.currentRound) {
-        console.warn('Geri alma sadece mevcut raunt için geçerlidir.')
-        return prev
-      }
-
-      if (last.type === 'score') {
-        const reversedDelta = -last.delta!
-        const scoreSide = last.statKey === 'gamjeom' ? (last.side === 1 ? 2 : 1) : last.side
-        next.score = { ...prev.score, [scoreSide]: prev.score[scoreSide] + reversedDelta }
-        next.stats = {
-          ...prev.stats,
-          [last.side]: { ...prev.stats[last.side], [last.statKey!]: prev.stats[last.side][last.statKey as keyof Stats] - 1 }
-        }
-      } else if (last.type === 'gamjeom') {
-        const opp: Side = last.side === 1 ? 2 : 1
-        next.score = { ...prev.score, [opp]: prev.score[opp] - 1 }
-        next.stats = { ...prev.stats, [last.side]: { ...prev.stats[last.side], gamjeom: prev.stats[last.side].gamjeom - 1 } }
-      }
-
-      next.lastAction = null // Aksiyon geri alındı, sıfırla
       broadcast(next)
       return next
     })
@@ -505,7 +503,9 @@ export default function LiveScore() {
       updated.timerSec = 0
       return updated
     }
-    // Mevcut raunt skorlarını kaydet
+    // Mevcut raunt verilerini ve skorlarını kaydet
+    const roundSnapshot = { ...s, history: [] }
+    updated.roundHistory = { ...updated.roundHistory, [updated.currentRound]: roundSnapshot }
     updated.roundScores = {
       ...updated.roundScores,
       [updated.currentRound]: { 1: s.score[1], 2: s.score[2] }
