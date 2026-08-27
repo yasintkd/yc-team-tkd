@@ -811,7 +811,8 @@ export default function LiveScore() {
           ...prev.stats,
           [side]: { ...prev.stats[side], [statKey]: prev.stats[side][statKey as keyof Stats] + 1 }
         },
-        pendingVotes: freshVotes.filter(v => !usedIds.has(v.id))
+        pendingVotes: freshVotes.filter(v => !usedIds.has(v.id)),
+        history: saveHistory(prev)
       }
 
       if (Math.abs(next.score[1] - next.score[2]) >= 15) next = finalizeRound(next, next.score[1] > next.score[2] ? 1 : 2, 'Gap Match')
