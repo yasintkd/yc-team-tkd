@@ -725,7 +725,8 @@ export default function LiveScore() {
 
   const newMatch = (_e?: React.MouseEvent<HTMLButtonElement>, keepAthletes = false) => {
     if (!isAdmin) return
-    const fresh = initialState(matchId, uuidv4())
+    // Yeni oturum yerine mevcut matchSessionId korundu, tarihçe devam eder.
+    const fresh = initialState(matchId, state.matchSessionId)
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
     fresh.refereeStatus = state.refereeStatus // Hakem bağlantı durumlarını koru
