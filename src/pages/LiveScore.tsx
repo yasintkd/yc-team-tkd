@@ -400,16 +400,45 @@ export default function LiveScore() {
   const canControl = isAdmin && state.athlete1 && state.athlete2
 
   const saveHistory = (prevState: MatchState) => {
-    const { history, ...rest } = prevState
-    return [rest, ...history].slice(0, 5)
+    const { history, timerSec, ...rest } = prevState
+    // Son kaydedilen state ile aynıysa ekleme yapma
+    if (history.length > 0) {
+      const last = history[0]
+      if (
+        JSON.stringify(last.score) === JSON.stringify(rest.score) &&
+        JSON.stringify(last.stats) === JSON.stringify(rest.stats)
+      ) {
+        return history
+      }
+    }
+    return [{ ...rest, timerSec: prevState.timerSec }, ...history].slice(0, 5)
   }
 
   const undoLastAction = () => {
     if (!isAdmin) return
-    setState(prev => {
+    setState((prev) => {
       if (prev.history.length === 0) return prev
       const [last, ...rest] = prev.history
-      return { ...last, history: rest }
+      
+      const isRoundActive = prev.phase === 'round'
+      
+      // Raunt devam ediyorsa: Süreyi ve timerRunning durumunu koru
+      if (isRoundActive) {
+        return { 
+          ...last, 
+          history: rest, 
+          timerSec: prev.timerSec,
+          timerRunning: prev.timerRunning
+        }
+      }
+
+      // Raunt bittiyse: Süreyi 1 saniyeye sabitle ve akışı durdur
+      return { 
+        ...last, 
+        history: rest, 
+        timerSec: 1,
+        timerRunning: false
+      }
     })
   }
 
@@ -479,6 +508,26 @@ export default function LiveScore() {
       if (autoRoundLoss) {
         next = finalizeRound(next, opp, '5 Gam-jeom Cezası')
       }
+      broadcast(next)
+      return next
+    })
+  }
+
+  const removeGamJeom = (penalized: Side) => {
+    if (!isAdmin || (state.phase !== 'round' && state.phase !== 'interrupted')) return
+    if (state.stats[penalized].gamjeom <= 0) return
+    
+    setState((prev) => {
+      const opp: Side = penalized === 1 ? 2 : 1
+      const penalizedStats = { ...prev.stats[penalized], gamjeom: prev.stats[penalized].gamjeom - 1 }
+      
+      const next: MatchState = {
+        ...prev,
+        history: saveHistory(prev),
+        score: { ...prev.score, [opp]: Math.max(0, prev.score[opp] - 1) },
+        stats: { ...prev.stats, [penalized]: penalizedStats },
+      }
+      
       broadcast(next)
       return next
     })
@@ -666,9 +715,11 @@ export default function LiveScore() {
   const resetMatch = () => {
     if (!isAdmin) return
     if (!confirm('Maçı sıfırla? Tüm puan ve istatistikler silinir.')) return
-    const fresh = initialState(matchId)
+    const fresh = initialState(matchId, state.matchSessionId)
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
+    fresh.refereeStatus = state.refereeStatus // Hakem bağlantı durumlarını koru
+    setState(fresh)
     broadcast(fresh)
   }
 
@@ -677,6 +728,7 @@ export default function LiveScore() {
     const fresh = initialState(matchId, uuidv4())
     fresh.roundDurationSec = state.roundDurationSec
     fresh.breakDurationSec = state.breakDurationSec
+    fresh.refereeStatus = state.refereeStatus // Hakem bağlantı durumlarını koru
     if (keepAthletes) {
       fresh.athlete1 = state.athlete1
       fresh.athlete2 = state.athlete2
@@ -1044,6 +1096,7 @@ export default function LiveScore() {
                   setScore(2, delta, key)
                 }}
                 onGamJeom={() => addGamJeom(2)}
+                onRemoveGamJeom={() => removeGamJeom(2)}
               />
             </div>
             {/* Mavi Bölge */}
@@ -1058,6 +1111,7 @@ export default function LiveScore() {
                   setScore(1, delta, key)
                 }}
                 onGamJeom={() => addGamJeom(1)}
+                onRemoveGamJeom={() => removeGamJeom(1)}
               />
             </div>
           </div>
@@ -1555,6 +1609,7 @@ function ScoreButtons({
   score: _score,
   onScore,
   onGamJeom,
+  onRemoveGamJeom,
 }: {
   color: 'blue' | 'red'
   isAdmin: boolean
@@ -1563,12 +1618,14 @@ function ScoreButtons({
   score: number
   onScore: (delta: number, statKey?: keyof Stats) => void
   onGamJeom: () => void
+  onRemoveGamJeom: () => void
 }) {
   const isBlue = color === 'blue'
   const btnBase = isBlue
     ? 'bg-blue-600 text-white border-blue-700'
     : 'bg-red-600 text-white border-red-700'
   const gjBase = 'bg-amber-500 text-white border-amber-600'
+  const removeGjBase = 'bg-orange-500 text-white border-orange-600'
 
   const buttons = [
     { d: 6, k: 'turnHead' as const, label: '+6' },
@@ -1591,11 +1648,25 @@ function ScoreButtons({
         </button>
       ))}
       <button
+        disabled={disabled || !isAdmin}
+        onClick={() => onScore(-1)}
+        className={`flex h-full min-h-0 items-center justify-center rounded-xl border-2 bg-slate-500 text-white border-slate-600 font-black shadow active:scale-95 disabled:opacity-40`}
+      >
+        -1
+      </button>
+      <button
         disabled={disabled || !isAdmin || stats.gamjeom >= 5}
         onClick={onGamJeom}
         className={`flex h-full min-h-0 items-center justify-center gap-1 rounded-xl border-2 ${gjBase} text-[10px] font-bold shadow active:scale-95 disabled:opacity-40`}
       >
         <AlertTriangle className="h-3.5 w-3.5" /> GAM-JEOM
+      </button>
+      <button
+        disabled={disabled || !isAdmin || stats.gamjeom <= 0}
+        onClick={onRemoveGamJeom}
+        className={`flex h-full min-h-0 items-center justify-center gap-1 rounded-xl border-2 ${removeGjBase} text-[10px] font-bold shadow active:scale-95 disabled:opacity-40`}
+      >
+        <X className="h-3.5 w-3.5" /> G. SİL
       </button>
     </>
   )
