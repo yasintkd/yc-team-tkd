@@ -24,7 +24,7 @@ type Participant = {
   target_belt: string
   fee_paid: boolean
   result: string
-  athletes: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
+  athletes: { first_name: string; last_name: string; is_active: boolean } | { first_name: string; last_name: string; is_active: boolean }[] | null
   licensed: boolean
 }
 
@@ -67,7 +67,7 @@ export default function BeltExams() {
     const { data, error: qErr } = await supabase
       .from('belt_exam_participants')
       .select(
-        'id, exam_id, athlete_id, belt_before, target_belt, fee_paid, result, athletes ( first_name, last_name )',
+        'id, exam_id, athlete_id, belt_before, target_belt, fee_paid, result, athletes ( first_name, last_name, is_active )',
       )
       .eq('exam_id', examId)
       .order('created_at')

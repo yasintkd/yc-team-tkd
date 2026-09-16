@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom'
 import BeltBadge from '../BeltBadge'
 import LoadingSkeleton from '../LoadingSkeleton'
 import { BELTS, findBeltIndex, getPossibleTargetBelts } from '../../lib/belts'
-import { DollarSign, Users, TrendingUp, Package, CheckSquare, Square, Trash2, Plus } from 'lucide-react'
+import { DollarSign, Users, TrendingUp, Package, CheckSquare, Square, Trash2, Plus, AlertTriangle } from 'lucide-react'
 
 type Exam = { id: string; title: string; exam_date: string; fee_amount: number; status: string; notes: string | null }
 type Participant = {
   id: string; athlete_id: string; belt_before: string; target_belt: string; fee_paid: boolean; result: string
-  athletes: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null
+  athletes: { first_name: string; last_name: string; is_active: boolean } | { first_name: string; last_name: string; is_active: boolean }[] | null
   licensed: boolean
 }
 
@@ -200,8 +200,13 @@ export default function ExamDetail({ exam, participants, loading, saving, onExpo
                   const targets = getPossibleTargetBelts(p.belt_before)
                   return (
                     <tr key={p.id} className="border-t border-app-border">
-                      <td className="px-3 py-2 font-medium text-slate-800">
+                      <td className="px-3 py-2 font-medium text-slate-800 flex items-center gap-2">
                         <Link to={`/sporcular/${p.athlete_id}`} className="hover:text-brand-red transition">{athleteName(p)}</Link>
+                        {(!Array.isArray(p.athletes) ? p.athletes?.is_active : p.athletes[0]?.is_active) === false && (
+                          <span className="inline-flex items-center gap-1 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                            <AlertTriangle className="h-3 w-3 fill-white text-red-600" /> PASİF
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2"><BeltBadge belt={p.belt_before} size="sm" /></td>
                       <td className="px-3 py-2">
