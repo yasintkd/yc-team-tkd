@@ -148,7 +148,15 @@ export default function BeltExams() {
   }
 
   const removeParticipant = async (participantId: string) => {
-    if (!window.confirm('Bu sporcuyu sınav listesinden çıkarmak istediğinize emin misiniz?')) return
+    const p = participants.find((x) => x.id === participantId)
+    if (!p) return
+
+    if (p.fee_paid) {
+      if (!window.confirm('UYARI: Bu sporcu sınav ücretini ödemiş görünüyor!\n\nÖdeme yapmış sporcuyu listeden çıkartmak istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return
+    } else {
+      if (!window.confirm('Bu sporcuyu sınav listesinden çıkarmak istediğinize emin misiniz?')) return
+    }
+    
     setError(null)
     const { error: delErr } = await supabase
       .from('belt_exam_participants')
