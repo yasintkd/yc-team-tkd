@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, UserPlus, Users, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Search, UserPlus, Users, ShieldAlert, ShieldCheck, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { BELTS } from '../lib/belts'
 import BeltBadge from '../components/BeltBadge'
 import LoadingSkeleton from '../components/LoadingSkeleton'
 import AthleteFormModal from '../components/AthleteFormModal'
+import { downloadReportPdf } from '../lib/exportReportPdf'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,11 @@ function genderBadgeClass(g: string | null) {
   if (g === 'erkek') return 'bg-sky-100 text-sky-700'
   if (g === 'kiz') return 'bg-pink-100 text-pink-700'
   return 'bg-slate-100 text-slate-500'
+}
+
+function maskTcNo(tcNo: string | null): string {
+  if (!tcNo || tcNo.length < 6) return tcNo || '—';
+  return tcNo.substring(0, 3) + '***' + tcNo.substring(tcNo.length - 3);
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -209,6 +215,25 @@ export default function Athletes() {
 
   // ── Modal handlers ─────────────────────────────────────────────────────────
 
+  // PDF oluşturma fonksiyonu (Marka şablonuna uygun)
+  const handleDownloadPdf = async () => {
+    const columns = ['#', 'Ad Soyad', 'Doğum Yılı', 'TC Kimlik No']
+    const tableRows = filtered.map((athlete, idx) => [
+      idx + 1,
+      `${athlete.first_name} ${athlete.last_name}`,
+      birthYear(athlete.birth_date),
+      maskTcNo(athlete.tc_no),
+    ])
+
+    await downloadReportPdf({
+      title: 'Sporcu Listesi',
+      subtitle: `${filtered.length} sporcu listeleniyor`,
+      columns,
+      rows: tableRows,
+      filename: 'sporcu_listesi',
+    })
+  }
+
   const openNewForm = () => {
     setModalEditingId(null)
     setModalOpen(true)
@@ -243,10 +268,20 @@ export default function Athletes() {
             <h2 className="text-sm font-semibold">Sporcular</h2>
             <p className="mt-0.5 text-xs text-brand-muted">{activeCount} aktif · {passiveCount} pasif</p>
           </div>
-          <button type="button" onClick={openNewForm} className="btn-primary inline-flex items-center gap-1.5">
-            <UserPlus className="h-3.5 w-3.5" />
-            Yeni Sporcu
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="rounded-lg bg-brand-cyan px-4 py-2.5 text-sm font-semibold text-white transition active:scale-[0.98] hover:bg-brand-cyan/90 inline-flex items-center gap-1.5"
+            >
+              <FileText className="h-4 w-4" />
+              PDF İndir
+            </button>
+            <button type="button" onClick={openNewForm} className="btn-primary inline-flex items-center gap-1.5">
+              <UserPlus className="h-3.5 w-3.5" />
+              Yeni Sporcu
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
