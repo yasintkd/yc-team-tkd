@@ -739,10 +739,26 @@ export default function LiveScore() {
   }
 
 
-  const setAthlete = (side: Side, a: AthleteMini | null) => {
+  const setAthlete = (side: Side, a: AthleteMini | null, rawInput?: string) => {
     if (!isAdmin) return
+    let finalAthlete = a
+
+    if (!a && rawInput) {
+      const parts = rawInput.trim().split(' ')
+      const first_name = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0]
+      const last_name = parts.length > 1 ? parts[parts.length - 1] : ''
+
+      finalAthlete = {
+        id: uuidv4(),
+        first_name,
+        last_name,
+        belt: 'Kayıtlı Değil',
+        branch: 'Manuel'
+      }
+    }
+
     setState((prev) => {
-      const next = { ...prev, [side === 1 ? 'athlete1' : 'athlete2']: a }
+      const next = { ...prev, [side === 1 ? 'athlete1' : 'athlete2']: finalAthlete }
       broadcast(next)
       return next
     })
@@ -1013,14 +1029,14 @@ export default function LiveScore() {
             color="red"
             athletes={athletes}
             value={state.athlete2}
-            onChange={(a) => setAthlete(2, a)}
+            onChange={(a, r) => setAthlete(2, a, r)}
           />
           <AthleteSelect
             label="Mavi Sporcu"
             color="blue"
             athletes={athletes}
             value={state.athlete1}
-            onChange={(a) => setAthlete(1, a)}
+            onChange={(a, r) => setAthlete(1, a, r)}
           />
         </div>
       )}
@@ -1529,11 +1545,13 @@ function AthleteSelect({
   color: 'blue' | 'red'
   athletes: AthleteMini[]
   value: AthleteMini | null
-  onChange: (a: AthleteMini | null) => void
+  onChange: (a: AthleteMini | null, rawInput?: string) => void // Değişiklik burada
   disabled?: boolean
 }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null) // Yeni: Ref eklendi
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     if (!s) return athletes.slice(0, 50)
@@ -1544,10 +1562,27 @@ function AthleteSelect({
       .slice(0, 50)
   }, [q, athletes])
 
+  // Yeni: Dışarı tıklama olayını yakala
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false)
+        // Eğer input boş değilse ve listeden seçim yapılmadıysa, raw input'u gönder
+        if (q.trim() && !value) { // 'value' kontrolü eklendi
+          onChange(null, q.trim())
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [q, onChange, value]) // 'value' bağımlılığı eklendi
+
   const accent = color === 'blue' ? 'border-blue-400 focus:border-blue-500' : 'border-red-400 focus:border-red-500'
 
   return (
-    <div>
+    <div ref={ref}> {/* Ref buraya eklendi */}
       <label className="mb-1 block text-xs font-medium text-slate-700">{label}</label>
       {value ? (
         <div className={`flex items-center justify-between rounded-lg border ${accent} bg-white px-3 py-2`}>
@@ -1556,7 +1591,7 @@ function AthleteSelect({
             <div className="text-[10px] text-brand-muted">{value.belt} • {value.branch}</div>
           </div>
           {!disabled && (
-            <button onClick={() => onChange(null)} className="text-slate-400 hover:text-slate-700">
+            <button onClick={() => onChange(null, '')} className="text-slate-400 hover:text-slate-700"> {/* Değişiklik burada */}
               <X className="h-4 w-4" />
             </button>
           )}
@@ -1570,6 +1605,15 @@ function AthleteSelect({
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
+            onBlur={() => { // Yeni: onBlur eklendi
+              // Küçük bir gecikme ekleyerek listeden seçim yapılıp yapılmadığını kontrol et
+              setTimeout(() => {
+                if (!value && q.trim()) { // Eğer hala bir değer seçilmediyse ve input doluysa
+                  onChange(null, q.trim())
+                }
+                setOpen(false)
+              }, 100)
+            }}
             placeholder="Sporcu ara..."
             disabled={disabled}
             className={`input-field ${accent}`}
@@ -1584,7 +1628,7 @@ function AthleteSelect({
                     key={a.id}
                     type="button"
                     onClick={() => {
-                      onChange(a)
+                      onChange(a, '')
                       setOpen(false)
                       setQ('')
                     }}
