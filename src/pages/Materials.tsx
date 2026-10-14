@@ -250,7 +250,7 @@ function OrdersTab({
     return athletes.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(q))
   }, [athletes, athleteSearch])
 
-  // Union of required measurements from selected products
+  // Union of  measurements from selected products
   const needs = useMemo(() => {
     let boy = false, kg = false, shoe = false, gender = false, colorReq = false
     for (const pid of selectedProductIds) {
@@ -333,12 +333,7 @@ function OrdersTab({
           <input className="w-full bg-transparent py-2.5 text-xs text-slate-800 outline-none placeholder:text-slate-400" placeholder="Sporcu ara..." value={athleteSearch} onChange={e => setAthleteSearch(e.target.value)} />
         </div>
         <div className="relative">
-          <select className="input-field w-full appearance-none text-sm pr-8" value={athleteId} onChange={e => setAthleteId(e.target.value)} required>
-            <option value="">Sporcu seç</option>
-            {filteredAthletes.map(a => (
-              <option key={a.id} value={a.id}>{a.first_name} {a.last_name} — {a.belt}</option>
-            ))}
-          </select>
+          
           <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
 
@@ -387,11 +382,7 @@ function OrdersTab({
                 <input className="input-field w-[120px] text-xs" type="number" step="0.5" placeholder="Ayakkabı no" value={shoeSize} onChange={e => setShoeSize(e.target.value)} />
               )}
               {needs.colorReq && (
-                <select className="input-field w-[120px] text-xs" value={color} onChange={e => setColor(e.target.value as any)}>
-                  <option value="">Renk seç</option>
-                  <option value="mavi">Mavi</option>
-                  <option value="kırmızı">Kırmızı</option>
-                </select>
+                
               )}
               {needs.gender && selectedAthlete && (
                 <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm ring-1 ring-app-border">
