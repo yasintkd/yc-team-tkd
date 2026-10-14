@@ -302,29 +302,15 @@ function OrdersTab({
       if (matched) {
         targetAthleteId = matched.id
       } else {
-        const nameParts = athleteSearch.trim().split(" ")
-        const firstName = nameParts[0] || "İsimsiz"
-        const lastName = nameParts.slice(1).join(" ") || "Sporcu"
-
-        const { data: newAth, error: athErr } = await supabase.from("athletes").insert({
-          first_name: firstName,
-          last_name: lastName,
-          belt: "Beyaz",
-          branch: "Taekwondo",
-          is_active: false
-        }).select("id").single()
-
-        if (!athErr && newAth) {
-          targetAthleteId = newAth.id
-        } else {
-          finalNote = finalNote ? `${finalNote} (Sporcu: ${athleteSearch.trim()})` : `Dışarıdan girilen isim: ${athleteSearch.trim()}`
-        }
+        const searchName = athleteSearch.trim()
+        finalNote = finalNote ? `${finalNote} (Sporcu: ${searchName})` : `Sporcu: ${searchName}`
       }
     }
 
     // Create order
     const { data: order, error: oErr } = await supabase.from('athlete_orders').insert({
       athlete_id: targetAthleteId || null,
+      non_registered_athlete_name: !targetAthleteId ? athleteSearch.trim() : null,
       total_amount: cartTotal,
       payment_status: paymentStatus,
       paid_amount: paymentStatus === 'odendi' ? cartTotal : (paidAmount ? parseFloat(paidAmount) : null),
@@ -355,6 +341,51 @@ function OrdersTab({
       <h2 className="text-sm font-semibold">Sporcu Siparişi</h2>
 
       <form className="mt-3 space-y-3" onSubmit={submit}>
+        {/* Sporcu seç */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 rounded-lg border border-app-border bg-white px-3 focus-within:border-brand-cyan focus-within:ring-2 focus-within:ring-brand-cyan/25">
+            <Search className="h-3.5 w-3.5 shrink-0 text-brand-muted" />
+            <input 
+              className="w-full bg-transparent py-2.5 text-xs text-slate-800 outline-none placeholder:text-slate-400" 
+              placeholder="Sporcu ara veya dışarıdan isim yaz..." 
+              value={athleteSearch} 
+              onChange={e => {
+                setAthleteSearch(e.target.value)
+                if (athleteId) setAthleteId('')
+              }} 
+            />
+            {athleteId && (
+              <button type="button" onClick={() => { setAthleteId(''); setAthleteSearch('') }} className="text-[11px] text-rose-500 hover:underline">
+                Temizle
+              </button>
+            )}
+          </div>
+          {athleteSearch.trim() && !athleteId && (
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-app-border bg-white shadow-sm divide-y divide-slate-100">
+              {filteredAthletes.length > 0 ? (
+                filteredAthletes.map(a => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => {
+                      setAthleteId(a.id)
+                      setAthleteSearch(`${a.first_name} ${a.last_name}`)
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 flex items-center justify-between"
+                  >
+                    <span className="font-medium text-slate-800">{a.first_name} {a.last_name}</span>
+                    <span className="text-[11px] text-slate-400">{a.belt} {a.gender ? `• ${a.gender}` : ''}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-brand-muted italic">
+                  Kayıtlı sporcu bulunamadı. "{athleteSearch}" dışarıdan girilen isim olarak kaydedilecek.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Sporcu seç */}
         <div className="flex items-center gap-2 rounded-lg border border-app-border bg-white px-3 focus-within:border-brand-cyan focus-within:ring-2 focus-within:ring-brand-cyan/25">
           <Search className="h-3.5 w-3.5 shrink-0 text-brand-muted" />
