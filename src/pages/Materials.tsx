@@ -312,7 +312,7 @@ function OrdersTab({
           belt: "Beyaz",
           branch: "Taekwondo",
           is_active: false
-       payment_status: payment()
+        }).select("id").single()
 
         if (!athErr && newAth) {
           targetAthleteId = newAth.id
@@ -323,12 +323,13 @@ function OrdersTab({
     }
 
     // Create order
-    const { data: order, error: oErr } =ait supabase.from('athlete_orders').insert({
+    const { data: order, error: oErr } = await supabase.from('athlete_orders').insert({
       athlete_id: targetAthleteId || null,
       total_amount: cartTotal,
       payment_status: paymentStatus,
-      paid_amount: paymentStatus === 'odendi' ? cartTotal : (paidAmount ? parseFloat(paidAm        const firstName = nameParts[0] || "İsimsiz"
-   id').single()
+      paid_amount: paymentStatus === 'odendi' ? cartTotal : (paidAmount ? parseFloat(paidAmount) : null),
+      note: finalNote,
+    }).select('id').single()
 
     if (oErr) { setError(oErr.message); setSaving(false); return }
 
