@@ -304,7 +304,7 @@ function OrdersTab({
       } else {
         const nameParts = athleteSearch.trim().split(" ")
         const firstName = nameParts[0] || "İsimsiz"
-        const lastName = nameParts.sliceconst fs" ") || "Sporcu"
+        const lastName = nameParts.slice(1).join(" ") || "Sporcu"
 
         const { data: newAth, error: athErr } = await supabase.from("athletes").insert({
           first_name: firstName,
