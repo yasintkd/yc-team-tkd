@@ -281,7 +281,7 @@ function OrdersTab({
     )
   }
 
-  const canSubmit = athleteId && selectedProductIds.length > 0
+    const canSubmit = athleteSearch.trim() && selectedProductIds.length > 0
 
   const resetForm = () => {
     setAthleteId(''); setAthleteSearch(''); setSelectedProductIds([])
