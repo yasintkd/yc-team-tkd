@@ -382,7 +382,11 @@ function OrdersTab({
                 <input className="input-field w-[120px] text-xs" type="number" step="0.5" placeholder="Ayakkabı no" value={shoeSize} onChange={e => setShoeSize(e.target.value)} />
               )}
               {needs.colorReq && (
-                
+                <select className="input-field w-[120px] text-xs" value={color} onChange={e => setColor(e.target.value as any)}>
+                  <option value="">Renk seç</option>
+                  <option value="mavi">Mavi</option>
+                  <option value="kırmızı">Kırmızı</option>
+                </select>
               )}
               {needs.gender && selectedAthlete && (
                 <span className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm ring-1 ring-app-border">
