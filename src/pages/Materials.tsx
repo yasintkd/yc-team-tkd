@@ -294,14 +294,41 @@ function OrdersTab({
     if (!canSubmit) return
     setSaving(true); setError(null)
 
+    let targetAthleteId = athleteId || null
+    let finalNote = note.trim() || null
+
+    if (!targetAthleteId && athleteSearch.trim()) {
+      const matched = athletes.find(a => `${a.first_name} ${a.last_name}`.toLowerCase() === athleteSearch.trim().toLowerCase())
+      if (matched) {
+        targetAthleteId = matched.id
+      } else {
+        const nameParts = athleteSearch.trim().split(" ")
+        const firstName = nameParts[0] || "İsimsiz"
+        const lastName = nameParts.sliceconst fs" ") || "Sporcu"
+
+        const { data: newAth, error: athErr } = await supabase.from("athletes").insert({
+          first_name: firstName,
+          last_name: lastName,
+          belt: "Beyaz",
+          branch: "Taekwondo",
+          is_active: false
+       payment_status: payment()
+
+        if (!athErr && newAth) {
+          targetAthleteId = newAth.id
+        } else {
+          finalNote = finalNote ? `${finalNote} (Sporcu: ${athleteSearch.trim()})` : `Dışarıdan girilen isim: ${athleteSearch.trim()}`
+        }
+      }
+    }
+
     // Create order
-    const { data: order, error: oErr } = await supabase.from('athlete_orders').insert({
-      athlete_id: athleteId,
+    const { data: order, error: oErr } =ait supabase.from('athlete_orders').insert({
+      athlete_id: targetAthleteId || null,
       total_amount: cartTotal,
       payment_status: paymentStatus,
-      paid_amount: paymentStatus === 'odendi' ? cartTotal : (paidAmount ? parseFloat(paidAmount) : null),
-      note: note.trim() || null,
-    }).select('id').single()
+      paid_amount: paymentStatus === 'odendi' ? cartTotal : (paidAmount ? parseFloat(paidAm        const firstName = nameParts[0] || "İsimsiz"
+   id').single()
 
     if (oErr) { setError(oErr.message); setSaving(false); return }
 
